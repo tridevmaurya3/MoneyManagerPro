@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="primary">#2E7D32</color>
+    <color name="primaryDark">#1B5E20</color>
+    <color name="primaryLight">#66BB6A</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+
+    <color name="background">#F5F7FA</color>
+    <color name="income">#43A047</color>
+    <color name="expense">#E53935</color>
+    <color name="card">#FFFFFF</color>
+
+    <color name="app_background">#F4F7FC</color>
+    <color name="app_surface">#FFFFFF</color>
+    <color name="app_surface_soft">#EEF2F7</color>
+    <color name="app_text_primary">#172033</color>
+    <color name="app_text_secondary">#667085</color>
+    <color name="app_outline">#CBD5E1</color>
+
+</resources>

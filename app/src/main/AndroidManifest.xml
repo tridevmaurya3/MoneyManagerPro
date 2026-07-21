@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="Money Manager Pro"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.MoneyManagerPro">
+
+        <activity
+            android:name=".activities.HelpActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.CsvImportActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.ReceiptGalleryActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.FinanceAdvisorActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.ChartsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.SubscriptionActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.CalendarActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.MoreFeaturesActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.BackupActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.LoanActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.ExportActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.BudgetActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.RecurringActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.AnalyticsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.SettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.PinActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.GoalActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.TransferActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.AccountActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.EditTransactionActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.TransactionsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.ReportActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.CategoryActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.AddExpenseActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.AddIncomeActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.DashboardActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.InvestmentActivity"
+            android:exported="false" />
+
+        <receiver
+            android:name=".widget.FinanceWidgetProvider"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/finance_widget_info" />
+
+        </receiver>
+
+        <activity
+            android:name=".activities.SplashActivity"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+    </application>
+
+</manifest>
