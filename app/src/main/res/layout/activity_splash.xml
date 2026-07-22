@@ -1,34 +1,315 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<LinearLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:background="#2E7D32">
+    android:background="@color/app_background"
+    android:paddingStart="24dp"
+    android:paddingTop="28dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="24dp">
 
-    <TextView
+    <!-- TOP SECURITY BADGE -->
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/splashSecurityBadge"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="💰"
-        android:textSize="70sp"/>
+        android:layout_height="38dp"
+        app:cardBackgroundColor="@color/success_surface"
+        app:cardCornerRadius="19dp"
+        app:cardElevation="0dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:strokeColor="@color/success_outline"
+        app:strokeWidth="1dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Money Manager Pro"
-        android:textColor="#FFFFFF"
-        android:textSize="30sp"
-        android:textStyle="bold"
-        android:layout_marginTop="20dp"/>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="13dp"
+            android:paddingEnd="13dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Manage Your Money Smartly"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"
-        android:layout_marginTop="10dp"/>
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:gravity="center"
+                android:text="✓"
+                android:textColor="@color/success"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
-</LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="SECURE LOCAL FINANCE"
+                android:textColor="@color/success"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- MAIN SPLASH CONTENT -->
+
+    <LinearLayout
+        android:id="@+id/splashMainContent"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toTopOf="@id/splashFooterCard"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/splashSecurityBadge"
+        app:layout_constraintVertical_bias="0.46">
+
+        <!-- APP ICON CONTAINER -->
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/splashIconOuterCard"
+            android:layout_width="112dp"
+            android:layout_height="112dp"
+            app:cardBackgroundColor="@color/success_surface"
+            app:cardCornerRadius="34dp"
+            app:cardElevation="3dp"
+            app:strokeColor="@color/success_outline"
+            app:strokeWidth="1dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/splashIconCard"
+                android:layout_width="82dp"
+                android:layout_height="82dp"
+                android:layout_gravity="center"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="27dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/success_outline"
+                app:strokeWidth="1dp">
+
+                <TextView
+                    android:id="@+id/txtSplashIcon"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="₹"
+                    android:textColor="@color/success"
+                    android:textSize="39sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- APP NAME -->
+
+        <TextView
+            android:id="@+id/txtSplashTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="23dp"
+            android:gravity="center"
+            android:text="Money Manager Pro"
+            android:textColor="@color/app_text_primary"
+            android:textSize="29sp"
+            android:textStyle="bold" />
+
+        <!-- APP DESCRIPTION -->
+
+        <TextView
+            android:id="@+id/txtSplashSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:gravity="center"
+            android:lineSpacingExtra="2dp"
+            android:text="Plan, track and understand your money"
+            android:textColor="@color/app_text_secondary"
+            android:textSize="13sp" />
+
+        <!-- FEATURE TAGS -->
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginTop="17dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginEnd="4dp"
+                app:cardBackgroundColor="@color/info_surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/info_outline"
+                app:strokeWidth="1dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingStart="11dp"
+                    android:paddingEnd="11dp"
+                    android:text="Private"
+                    android:textColor="@color/secondary"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                app:cardBackgroundColor="@color/purple_surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/purple_outline"
+                app:strokeWidth="1dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingStart="11dp"
+                    android:paddingEnd="11dp"
+                    android:text="Offline"
+                    android:textColor="@color/purple"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                app:cardBackgroundColor="@color/success_surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/success_outline"
+                app:strokeWidth="1dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingStart="11dp"
+                    android:paddingEnd="11dp"
+                    android:text="Secure"
+                    android:textColor="@color/success"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+        <!-- LOADING INDICATOR -->
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/splashProgress"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginTop="25dp"
+            android:indeterminate="true"
+            app:indicatorColor="@color/success"
+            app:indicatorSize="36dp"
+            app:trackColor="@color/success_surface"
+            app:trackThickness="3dp" />
+
+        <TextView
+            android:id="@+id/txtSplashLoading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="9dp"
+            android:gravity="center"
+            android:text="Preparing your financial workspace..."
+            android:textColor="@color/app_text_secondary"
+            android:textSize="10sp" />
+
+    </LinearLayout>
+
+    <!-- FOOTER PRIVACY CARD -->
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/splashFooterCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        app:cardBackgroundColor="@color/app_surface"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:strokeColor="@color/app_outline_soft"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="13dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                app:cardBackgroundColor="@color/success_surface"
+                app:cardCornerRadius="11dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/success_outline"
+                app:strokeWidth="1dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="✓"
+                    android:textColor="@color/success"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Your information stays private"
+                    android:textColor="@color/app_text_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:lineSpacingExtra="1dp"
+                    android:text="Financial records remain stored locally unless you manually export or back them up."
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="9sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

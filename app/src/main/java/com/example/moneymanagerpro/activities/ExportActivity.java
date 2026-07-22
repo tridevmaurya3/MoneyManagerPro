@@ -1,385 +1,1589 @@
 package com.example.moneymanagerpro.activities;
 
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Settings;
-import android.widget.Button;
+import android.provider.OpenableColumns;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Transaction;
+import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
+import com.google.android.material.button.MaterialButton;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 public class ExportActivity extends AppCompatActivity {
 
-    private static final int REQUEST_EXPORT_CSV = 101;
-    private static final int REQUEST_EXPORT_PDF = 102;
+    private static final int PDF_PAGE_WIDTH = 595;
+    private static final int PDF_PAGE_HEIGHT = 842;
+
+    private static final float PDF_LEFT_MARGIN = 36f;
+    private static final float PDF_RIGHT_MARGIN = 559f;
+    private static final float PDF_BOTTOM_LIMIT = 785f;
+
+    private static final float PDF_ROW_HEIGHT = 57f;
 
     private TextView txtExportStatus;
-    private Button btnExportCsv;
-    private Button btnExportPdf;
+
+    private MaterialButton btnExportCsv;
+    private MaterialButton btnExportPdf;
+
+    private boolean exportInProgress = false;
+
+    private final ActivityResultLauncher<Intent> csvFileLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() != RESULT_OK
+                                || result.getData() == null
+                                || result.getData().getData() == null) {
+
+                            showReadyStatus(
+                                    "CSV export cancelled. Choose a format whenever you are ready."
+                            );
+
+                            return;
+                        }
+
+                        Uri fileUri =
+                                result.getData().getData();
+
+                        exportCsv(fileUri);
+                    }
+            );
+
+    private final ActivityResultLauncher<Intent> pdfFileLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (result.getResultCode() != RESULT_OK
+                                || result.getData() == null
+                                || result.getData().getData() == null) {
+
+                            showReadyStatus(
+                                    "PDF export cancelled. Choose a format whenever you are ready."
+                            );
+
+                            return;
+                        }
+
+                        Uri fileUri =
+                                result.getData().getData();
+
+                        exportPdf(fileUri);
+                    }
+            );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_export);
 
-        txtExportStatus = findViewById(R.id.txtExportStatus);
-        btnExportCsv = findViewById(R.id.btnExportCsv);
-        btnExportPdf = findViewById(R.id.btnExportPdf);
+        bindViews();
+        prepareScreen();
+    }
 
-        btnExportCsv.setOnClickListener(v -> createCsvFile());
+    private void bindViews() {
+        TextView btnBack =
+                findViewById(R.id.btnBack);
 
-        btnExportPdf.setOnClickListener(v -> createPdfFile());
+        txtExportStatus =
+                findViewById(R.id.txtExportStatus);
+
+        btnExportCsv =
+                findViewById(R.id.btnExportCsv);
+
+        btnExportPdf =
+                findViewById(R.id.btnExportPdf);
+
+        btnBack.setOnClickListener(
+                view -> finish()
+        );
+    }
+
+    private void prepareScreen() {
+        btnExportCsv.setOnClickListener(
+                view -> createCsvFile()
+        );
+
+        btnExportPdf.setOnClickListener(
+                view -> createPdfFile()
+        );
+
+        BubbleTouchAnimator.apply(
+                btnExportCsv
+        );
+
+        BubbleTouchAnimator.apply(
+                btnExportPdf
+        );
+
+        showReadyStatus(
+                "Choose CSV or PDF format to begin exporting your transaction data."
+        );
     }
 
     private void createCsvFile() {
-        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("text/csv");
-
-        intent.putExtra(
-                Intent.EXTRA_TITLE,
-                "MoneyManager_Transactions_" +
-                        getFileDate() +
-                        ".csv"
-        );
-
-        startActivityForResult(intent, REQUEST_EXPORT_CSV);
-    }
-
-    private void createPdfFile() {
-        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/pdf");
-
-        intent.putExtra(
-                Intent.EXTRA_TITLE,
-                "MoneyManager_Report_" +
-                        getFileDate() +
-                        ".pdf"
-        );
-
-        startActivityForResult(intent, REQUEST_EXPORT_PDF);
-    }
-
-    @Override
-    protected void onActivityResult(
-            int requestCode,
-            int resultCode,
-            @Nullable Intent data
-    ) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (resultCode != RESULT_OK ||
-                data == null ||
-                data.getData() == null) {
+        if (exportInProgress) {
+            showBusyMessage();
             return;
         }
 
-        Uri fileUri = data.getData();
+        Intent intent =
+                new Intent(
+                        Intent.ACTION_CREATE_DOCUMENT
+                );
 
-        if (requestCode == REQUEST_EXPORT_CSV) {
-            exportCsv(fileUri);
-        } else if (requestCode == REQUEST_EXPORT_PDF) {
-            exportPdf(fileUri);
+        intent.addCategory(
+                Intent.CATEGORY_OPENABLE
+        );
+
+        intent.setType(
+                "text/csv"
+        );
+
+        intent.putExtra(
+                Intent.EXTRA_TITLE,
+                "MoneyManager_Transactions_"
+                        + getFileDate()
+                        + ".csv"
+        );
+
+        txtExportStatus.setText(
+                "Choose a folder and file name for the CSV report."
+        );
+
+        txtExportStatus.setTextColor(
+                getColorValue(
+                        R.color.secondary
+                )
+        );
+
+        try {
+            csvFileLauncher.launch(intent);
+
+        } catch (Exception exception) {
+            showExportError(
+                    "Unable to open the file picker."
+            );
         }
     }
 
-    private void exportCsv(Uri fileUri) {
-        setExportButtonsEnabled(false);
-        txtExportStatus.setText("CSV report बन रहा है...");
+    private void createPdfFile() {
+        if (exportInProgress) {
+            showBusyMessage();
+            return;
+        }
+
+        Intent intent =
+                new Intent(
+                        Intent.ACTION_CREATE_DOCUMENT
+                );
+
+        intent.addCategory(
+                Intent.CATEGORY_OPENABLE
+        );
+
+        intent.setType(
+                "application/pdf"
+        );
+
+        intent.putExtra(
+                Intent.EXTRA_TITLE,
+                "MoneyManager_Report_"
+                        + getFileDate()
+                        + ".pdf"
+        );
+
+        txtExportStatus.setText(
+                "Choose a folder and file name for the PDF report."
+        );
+
+        txtExportStatus.setTextColor(
+                getColorValue(
+                        R.color.secondary
+                )
+        );
+
+        try {
+            pdfFileLauncher.launch(intent);
+
+        } catch (Exception exception) {
+            showExportError(
+                    "Unable to open the file picker."
+            );
+        }
+    }
+
+    private void exportCsv(
+            Uri fileUri
+    ) {
+        if (fileUri == null) {
+            showExportError(
+                    "The selected CSV location is unavailable."
+            );
+
+            return;
+        }
+
+        setExportState(
+                true,
+                "Creating CSV report..."
+        );
 
         new Thread(() -> {
             try {
-                List<Transaction> transactions = DatabaseClient
-                        .getInstance(getApplicationContext())
-                        .getAppDatabase()
-                        .transactionDao()
-                        .getAllTransactions();
+                List<Transaction> transactions =
+                        loadTransactions();
 
-                OutputStream outputStream = getContentResolver()
-                        .openOutputStream(fileUri);
-
-                if (outputStream == null) {
-                    throw new IOException("File cannot be created");
-                }
-
-                BufferedWriter writer = new BufferedWriter(
-                        new OutputStreamWriter(outputStream, "UTF-8")
+                writeCsvDocument(
+                        fileUri,
+                        transactions
                 );
 
-                writer.write("\uFEFF");
-                writer.write(
-                        "ID,Type,Amount,Category,Account,Note,Date"
+                String fileName =
+                        getDisplayName(
+                                fileUri,
+                                "CSV report"
+                        );
+
+                runOnUiThread(() ->
+                        showExportSuccess(
+                                fileName
+                                        + " saved successfully. "
+                                        + transactions.size()
+                                        + (
+                                        transactions.size() == 1
+                                                ? " transaction was exported."
+                                                : " transactions were exported."
+                                )
+                        )
                 );
-                writer.newLine();
-
-                for (Transaction transaction : transactions) {
-                    writer.write(
-                            transaction.getId() + "," +
-                                    escapeCsv(transaction.getType()) + "," +
-                                    transaction.getAmount() + "," +
-                                    escapeCsv(transaction.getCategory()) + "," +
-                                    escapeCsv(transaction.getAccount()) + "," +
-                                    escapeCsv(transaction.getNote()) + "," +
-                                    escapeCsv(transaction.getDate())
-                    );
-
-                    writer.newLine();
-                }
-
-                writer.flush();
-                writer.close();
-
-                runOnUiThread(() -> showExportSuccess(
-                        "CSV export सफल हुआ। इसे Excel में खोल सकते हैं।"
-                ));
 
             } catch (Exception exception) {
-                runOnUiThread(() -> showExportError());
+                deleteIncompleteDocument(
+                        fileUri
+                );
+
+                runOnUiThread(() ->
+                        showExportError(
+                                "CSV export failed. Please choose a location and try again."
+                        )
+                );
             }
         }).start();
     }
 
-    private void exportPdf(Uri fileUri) {
-        setExportButtonsEnabled(false);
-        txtExportStatus.setText("PDF report बन रही है...");
+    private void writeCsvDocument(
+            Uri fileUri,
+            List<Transaction> transactions
+    ) throws Exception {
+        OutputStream outputStream =
+                getContentResolver()
+                        .openOutputStream(
+                                fileUri,
+                                "w"
+                        );
 
-        new Thread(() -> {
-            PdfDocument document = new PdfDocument();
+        if (outputStream == null) {
+            throw new IOException(
+                    "Unable to create the CSV file."
+            );
+        }
 
-            try {
-                List<Transaction> transactions = DatabaseClient
-                        .getInstance(getApplicationContext())
-                        .getAppDatabase()
-                        .transactionDao()
-                        .getAllTransactions();
+        try (
+                OutputStream safeOutputStream =
+                        outputStream;
 
-                Paint titlePaint = new Paint();
-                titlePaint.setColor(Color.rgb(27, 94, 32));
-                titlePaint.setTextSize(21);
-                titlePaint.setFakeBoldText(true);
+                BufferedWriter writer =
+                        new BufferedWriter(
+                                new OutputStreamWriter(
+                                        safeOutputStream,
+                                        StandardCharsets.UTF_8
+                                )
+                        )
+        ) {
+            /*
+             * UTF-8 BOM helps Microsoft Excel display
+             * Indian currency symbols and non-English text correctly.
+             */
+            writer.write("\uFEFF");
 
-                Paint normalPaint = new Paint();
-                normalPaint.setColor(Color.DKGRAY);
-                normalPaint.setTextSize(10);
+            /*
+             * Date is kept as the first column so this exported file
+             * can also be imported through the app's CSV Import screen.
+             */
+            writer.write(
+                    "Date,Type,Amount,Category,Account,Note,ID"
+            );
 
-                Paint linePaint = new Paint();
-                linePaint.setColor(Color.LTGRAY);
-                linePaint.setStrokeWidth(1);
+            writer.newLine();
 
-                int pageNumber = 1;
-                PdfDocument.Page page = document.startPage(
-                        new PdfDocument.PageInfo.Builder(
-                                595,
-                                842,
-                                pageNumber
-                        ).create()
-                );
-
-                Canvas canvas = page.getCanvas();
-
-                float currentY = drawPdfHeader(
-                        canvas,
-                        titlePaint,
-                        normalPaint
-                );
-
-                if (transactions.isEmpty()) {
-                    canvas.drawText(
-                            "No transactions available.",
-                            40,
-                            currentY + 30,
-                            normalPaint
-                    );
+            for (Transaction transaction : transactions) {
+                if (transaction == null) {
+                    continue;
                 }
 
+                writer.write(
+                        escapeCsv(
+                                safeText(
+                                        transaction.getDate(),
+                                        ""
+                                )
+                        )
+                );
+
+                writer.write(",");
+
+                writer.write(
+                        escapeCsv(
+                                safeText(
+                                        transaction.getType(),
+                                        ""
+                                )
+                        )
+                );
+
+                writer.write(",");
+
+                writer.write(
+                        String.format(
+                                Locale.US,
+                                "%.2f",
+                                transaction.getAmount()
+                        )
+                );
+
+                writer.write(",");
+
+                writer.write(
+                        escapeCsv(
+                                safeText(
+                                        transaction.getCategory(),
+                                        ""
+                                )
+                        )
+                );
+
+                writer.write(",");
+
+                writer.write(
+                        escapeCsv(
+                                safeText(
+                                        transaction.getAccount(),
+                                        ""
+                                )
+                        )
+                );
+
+                writer.write(",");
+
+                writer.write(
+                        escapeCsv(
+                                safeText(
+                                        transaction.getNote(),
+                                        ""
+                                )
+                        )
+                );
+
+                writer.write(",");
+
+                writer.write(
+                        String.valueOf(
+                                transaction.getId()
+                        )
+                );
+
+                writer.newLine();
+            }
+
+            writer.flush();
+        }
+    }
+
+    private void exportPdf(
+            Uri fileUri
+    ) {
+        if (fileUri == null) {
+            showExportError(
+                    "The selected PDF location is unavailable."
+            );
+
+            return;
+        }
+
+        setExportState(
+                true,
+                "Creating formatted PDF report..."
+        );
+
+        new Thread(() -> {
+            try {
+                List<Transaction> transactions =
+                        loadTransactions();
+
+                ReportSummary summary =
+                        calculateSummary(
+                                transactions
+                        );
+
+                createPdfDocument(
+                        fileUri,
+                        transactions,
+                        summary
+                );
+
+                String fileName =
+                        getDisplayName(
+                                fileUri,
+                                "PDF report"
+                        );
+
+                runOnUiThread(() ->
+                        showExportSuccess(
+                                fileName
+                                        + " saved successfully with "
+                                        + transactions.size()
+                                        + (
+                                        transactions.size() == 1
+                                                ? " transaction."
+                                                : " transactions."
+                                )
+                        )
+                );
+
+            } catch (Exception exception) {
+                deleteIncompleteDocument(
+                        fileUri
+                );
+
+                runOnUiThread(() ->
+                        showExportError(
+                                "PDF export failed. Please choose a location and try again."
+                        )
+                );
+            }
+        }).start();
+    }
+
+    private void createPdfDocument(
+            Uri fileUri,
+            List<Transaction> transactions,
+            ReportSummary summary
+    ) throws Exception {
+        PdfDocument document =
+                new PdfDocument();
+
+        PdfDocument.Page currentPage =
+                null;
+
+        try {
+            PdfPaints paints =
+                    createPdfPaints();
+
+            int pageNumber = 1;
+
+            currentPage =
+                    startPdfPage(
+                            document,
+                            pageNumber
+                    );
+
+            Canvas canvas =
+                    currentPage.getCanvas();
+
+            float currentY =
+                    drawFirstPageHeader(
+                            canvas,
+                            paints,
+                            summary
+                    );
+
+            if (transactions.isEmpty()) {
+                drawEmptyPdfState(
+                        canvas,
+                        paints,
+                        currentY
+                );
+
+            } else {
                 for (Transaction transaction : transactions) {
-                    if (currentY > 770) {
-                        document.finishPage(page);
+                    if (transaction == null) {
+                        continue;
+                    }
+
+                    if (currentY + PDF_ROW_HEIGHT
+                            > PDF_BOTTOM_LIMIT) {
+
+                        drawPdfFooter(
+                                canvas,
+                                paints,
+                                pageNumber
+                        );
+
+                        document.finishPage(
+                                currentPage
+                        );
+
+                        currentPage = null;
 
                         pageNumber++;
 
-                        page = document.startPage(
-                                new PdfDocument.PageInfo.Builder(
-                                        595,
-                                        842,
+                        currentPage =
+                                startPdfPage(
+                                        document,
                                         pageNumber
-                                ).create()
-                        );
+                                );
 
-                        canvas = page.getCanvas();
+                        canvas =
+                                currentPage.getCanvas();
 
-                        currentY = drawPdfHeader(
-                                canvas,
-                                titlePaint,
-                                normalPaint
-                        );
+                        currentY =
+                                drawContinuationHeader(
+                                        canvas,
+                                        paints,
+                                        pageNumber
+                                );
                     }
 
-                    drawPdfTransaction(
-                            canvas,
-                            linePaint,
-                            normalPaint,
-                            transaction,
-                            currentY
+                    currentY =
+                            drawPdfTransaction(
+                                    canvas,
+                                    paints,
+                                    transaction,
+                                    currentY
+                            );
+                }
+            }
+
+            drawPdfFooter(
+                    canvas,
+                    paints,
+                    pageNumber
+            );
+
+            document.finishPage(
+                    currentPage
+            );
+
+            currentPage = null;
+
+            OutputStream outputStream =
+                    getContentResolver()
+                            .openOutputStream(
+                                    fileUri,
+                                    "w"
+                            );
+
+            if (outputStream == null) {
+                throw new IOException(
+                        "Unable to create the PDF file."
+                );
+            }
+
+            try (
+                    OutputStream safeOutputStream =
+                            outputStream
+            ) {
+                document.writeTo(
+                        safeOutputStream
+                );
+
+                safeOutputStream.flush();
+            }
+
+        } finally {
+            if (currentPage != null) {
+                try {
+                    document.finishPage(
+                            currentPage
                     );
 
-                    currentY += 46;
+                } catch (Exception ignored) {
+                    // The page may already be invalid after an export error.
                 }
-
-                document.finishPage(page);
-
-                OutputStream outputStream = getContentResolver()
-                        .openOutputStream(fileUri);
-
-                if (outputStream == null) {
-                    throw new IOException("File cannot be created");
-                }
-
-                document.writeTo(outputStream);
-                outputStream.close();
-                document.close();
-
-                runOnUiThread(() -> showExportSuccess(
-                        "PDF report सफलतापूर्वक save हो गई।"
-                ));
-
-            } catch (Exception exception) {
-                document.close();
-
-                runOnUiThread(() -> showExportError());
             }
-        }).start();
+
+            try {
+                document.close();
+
+            } catch (Exception ignored) {
+                // Closing failure does not require a second error.
+            }
+        }
     }
 
-    private float drawPdfHeader(
+    private PdfDocument.Page startPdfPage(
+            PdfDocument document,
+            int pageNumber
+    ) {
+        PdfDocument.PageInfo pageInfo =
+                new PdfDocument.PageInfo.Builder(
+                        PDF_PAGE_WIDTH,
+                        PDF_PAGE_HEIGHT,
+                        pageNumber
+                ).create();
+
+        PdfDocument.Page page =
+                document.startPage(
+                        pageInfo
+                );
+
+        page.getCanvas()
+                .drawColor(
+                        Color.WHITE
+                );
+
+        return page;
+    }
+
+    private PdfPaints createPdfPaints() {
+        PdfPaints paints =
+                new PdfPaints();
+
+        paints.titlePaint =
+                createPaint(
+                        Color.rgb(
+                                30,
+                                41,
+                                59
+                        ),
+                        22f,
+                        true
+                );
+
+        paints.subtitlePaint =
+                createPaint(
+                        Color.rgb(
+                                100,
+                                116,
+                                139
+                        ),
+                        9.5f,
+                        false
+                );
+
+        paints.sectionPaint =
+                createPaint(
+                        Color.rgb(
+                                30,
+                                64,
+                                175
+                        ),
+                        11f,
+                        true
+                );
+
+        paints.headerPaint =
+                createPaint(
+                        Color.rgb(
+                                71,
+                                85,
+                                105
+                        ),
+                        8.5f,
+                        true
+                );
+
+        paints.normalPaint =
+                createPaint(
+                        Color.rgb(
+                                51,
+                                65,
+                                85
+                        ),
+                        8.5f,
+                        false
+                );
+
+        paints.boldPaint =
+                createPaint(
+                        Color.rgb(
+                                30,
+                                41,
+                                59
+                        ),
+                        9f,
+                        true
+                );
+
+        paints.incomePaint =
+                createPaint(
+                        Color.rgb(
+                                22,
+                                101,
+                                52
+                        ),
+                        9f,
+                        true
+                );
+
+        paints.expensePaint =
+                createPaint(
+                        Color.rgb(
+                                185,
+                                28,
+                                28
+                        ),
+                        9f,
+                        true
+                );
+
+        paints.transferPaint =
+                createPaint(
+                        Color.rgb(
+                                109,
+                                40,
+                                217
+                        ),
+                        9f,
+                        true
+                );
+
+        paints.footerPaint =
+                createPaint(
+                        Color.rgb(
+                                100,
+                                116,
+                                139
+                        ),
+                        8f,
+                        false
+                );
+
+        paints.linePaint =
+                new Paint(
+                        Paint.ANTI_ALIAS_FLAG
+                );
+
+        paints.linePaint.setColor(
+                Color.rgb(
+                        226,
+                        232,
+                        240
+                )
+        );
+
+        paints.linePaint.setStrokeWidth(
+                1f
+        );
+
+        paints.cardPaint =
+                new Paint(
+                        Paint.ANTI_ALIAS_FLAG
+                );
+
+        paints.cardPaint.setStyle(
+                Paint.Style.FILL
+        );
+
+        return paints;
+    }
+
+    private Paint createPaint(
+            int color,
+            float textSize,
+            boolean bold
+    ) {
+        Paint paint =
+                new Paint(
+                        Paint.ANTI_ALIAS_FLAG
+                );
+
+        paint.setColor(color);
+        paint.setTextSize(textSize);
+
+        paint.setTypeface(
+                bold
+                        ? Typeface.create(
+                        Typeface.DEFAULT,
+                        Typeface.BOLD
+                )
+                        : Typeface.create(
+                        Typeface.DEFAULT,
+                        Typeface.NORMAL
+                )
+        );
+
+        return paint;
+    }
+
+    private float drawFirstPageHeader(
             Canvas canvas,
-            Paint titlePaint,
-            Paint normalPaint
+            PdfPaints paints,
+            ReportSummary summary
     ) {
         canvas.drawText(
                 "Money Manager Pro",
-                40,
-                45,
-                titlePaint
+                PDF_LEFT_MARGIN,
+                42f,
+                paints.titlePaint
         );
 
         canvas.drawText(
-                "Transaction Report • Generated: " +
-                        getCurrentDateTime(),
-                40,
-                66,
-                normalPaint
+                "Complete Transaction Report",
+                PDF_LEFT_MARGIN,
+                59f,
+                paints.sectionPaint
         );
+
+        canvas.drawText(
+                "Generated on "
+                        + getCurrentDateTime(),
+                PDF_LEFT_MARGIN,
+                74f,
+                paints.subtitlePaint
+        );
+
+        drawSummaryCards(
+                canvas,
+                paints,
+                summary
+        );
+
+        canvas.drawText(
+                "Transaction Details",
+                PDF_LEFT_MARGIN,
+                175f,
+                paints.sectionPaint
+        );
+
+        drawPdfTableHeader(
+                canvas,
+                paints,
+                188f
+        );
+
+        return 216f;
+    }
+
+    private float drawContinuationHeader(
+            Canvas canvas,
+            PdfPaints paints,
+            int pageNumber
+    ) {
+        canvas.drawText(
+                "Money Manager Pro",
+                PDF_LEFT_MARGIN,
+                39f,
+                paints.titlePaint
+        );
+
+        canvas.drawText(
+                "Transaction Report • Continued on page "
+                        + pageNumber,
+                PDF_LEFT_MARGIN,
+                57f,
+                paints.subtitlePaint
+        );
+
+        drawPdfTableHeader(
+                canvas,
+                paints,
+                74f
+        );
+
+        return 102f;
+    }
+
+    private void drawSummaryCards(
+            Canvas canvas,
+            PdfPaints paints,
+            ReportSummary summary
+    ) {
+        float top = 91f;
+        float bottom = 153f;
+
+        float gap = 8f;
+        float availableWidth =
+                PDF_RIGHT_MARGIN
+                        - PDF_LEFT_MARGIN;
+
+        float cardWidth =
+                (
+                        availableWidth
+                                - gap * 2
+                ) / 3f;
+
+        drawPdfSummaryCard(
+                canvas,
+                paints,
+                PDF_LEFT_MARGIN,
+                top,
+                PDF_LEFT_MARGIN + cardWidth,
+                bottom,
+                "Total Income",
+                formatPdfMoney(
+                        summary.income
+                ),
+                Color.rgb(
+                        22,
+                        101,
+                        52
+                ),
+                Color.rgb(
+                        240,
+                        253,
+                        244
+                )
+        );
+
+        drawPdfSummaryCard(
+                canvas,
+                paints,
+                PDF_LEFT_MARGIN
+                        + cardWidth
+                        + gap,
+                top,
+                PDF_LEFT_MARGIN
+                        + cardWidth * 2
+                        + gap,
+                bottom,
+                "Total Expense",
+                formatPdfMoney(
+                        summary.expense
+                ),
+                Color.rgb(
+                        185,
+                        28,
+                        28
+                ),
+                Color.rgb(
+                        254,
+                        242,
+                        242
+                )
+        );
+
+        int netColor =
+                summary.net >= 0
+                        ? Color.rgb(
+                        22,
+                        101,
+                        52
+                )
+                        : Color.rgb(
+                        185,
+                        28,
+                        28
+                );
+
+        int netSurface =
+                summary.net >= 0
+                        ? Color.rgb(
+                        240,
+                        253,
+                        244
+                )
+                        : Color.rgb(
+                        254,
+                        242,
+                        242
+                );
+
+        drawPdfSummaryCard(
+                canvas,
+                paints,
+                PDF_LEFT_MARGIN
+                        + cardWidth * 2
+                        + gap * 2,
+                top,
+                PDF_RIGHT_MARGIN,
+                bottom,
+                "Net Cash Flow",
+                formatPdfSignedMoney(
+                        summary.net
+                ),
+                netColor,
+                netSurface
+        );
+    }
+
+    private void drawPdfSummaryCard(
+            Canvas canvas,
+            PdfPaints paints,
+            float left,
+            float top,
+            float right,
+            float bottom,
+            String label,
+            String value,
+            int accentColor,
+            int surfaceColor
+    ) {
+        paints.cardPaint.setColor(
+                surfaceColor
+        );
+
+        RectF cardRect =
+                new RectF(
+                        left,
+                        top,
+                        right,
+                        bottom
+                );
+
+        canvas.drawRoundRect(
+                cardRect,
+                9f,
+                9f,
+                paints.cardPaint
+        );
+
+        Paint labelPaint =
+                createPaint(
+                        Color.rgb(
+                                100,
+                                116,
+                                139
+                        ),
+                        8f,
+                        true
+                );
+
+        Paint valuePaint =
+                createPaint(
+                        accentColor,
+                        12f,
+                        true
+                );
+
+        canvas.drawText(
+                label,
+                left + 10f,
+                top + 20f,
+                labelPaint
+        );
+
+        String fittedValue =
+                fitTextToWidth(
+                        valuePaint,
+                        value,
+                        right - left - 20f
+                );
+
+        canvas.drawText(
+                fittedValue,
+                left + 10f,
+                top + 43f,
+                valuePaint
+        );
+    }
+
+    private void drawPdfTableHeader(
+            Canvas canvas,
+            PdfPaints paints,
+            float top
+    ) {
+        paints.cardPaint.setColor(
+                Color.rgb(
+                        241,
+                        245,
+                        249
+                )
+        );
+
+        RectF headerRect =
+                new RectF(
+                        PDF_LEFT_MARGIN,
+                        top,
+                        PDF_RIGHT_MARGIN,
+                        top + 22f
+                );
+
+        canvas.drawRoundRect(
+                headerRect,
+                5f,
+                5f,
+                paints.cardPaint
+        );
+
+        float textY =
+                top + 15f;
 
         canvas.drawText(
                 "Date",
-                40,
-                95,
-                normalPaint
+                42f,
+                textY,
+                paints.headerPaint
         );
 
         canvas.drawText(
                 "Type",
-                155,
-                95,
-                normalPaint
+                131f,
+                textY,
+                paints.headerPaint
         );
 
         canvas.drawText(
                 "Category / Account",
-                235,
-                95,
-                normalPaint
+                207f,
+                textY,
+                paints.headerPaint
         );
 
         canvas.drawText(
                 "Amount",
-                470,
-                95,
-                normalPaint
+                488f,
+                textY,
+                paints.headerPaint
         );
-
-        return 118;
     }
 
-    private void drawPdfTransaction(
+    private float drawPdfTransaction(
             Canvas canvas,
-            Paint linePaint,
-            Paint normalPaint,
+            PdfPaints paints,
             Transaction transaction,
-            float y
+            float top
     ) {
-        canvas.drawLine(40, y - 13, 555, y - 13, linePaint);
+        String type =
+                safeText(
+                        transaction.getType(),
+                        "OTHER"
+                )
+                        .toUpperCase(
+                                Locale.US
+                        );
+
+        if (((int) (
+                (
+                        top - 216f
+                ) / PDF_ROW_HEIGHT
+        )) % 2 != 0) {
+
+            paints.cardPaint.setColor(
+                    Color.rgb(
+                            248,
+                            250,
+                            252
+                    )
+            );
+
+            canvas.drawRect(
+                    PDF_LEFT_MARGIN,
+                    top - 4f,
+                    PDF_RIGHT_MARGIN,
+                    top + PDF_ROW_HEIGHT - 5f,
+                    paints.cardPaint
+            );
+        }
+
+        float firstLineY =
+                top + 11f;
+
+        float secondLineY =
+                top + 28f;
+
+        float thirdLineY =
+                top + 44f;
 
         canvas.drawText(
-                shortText(transaction.getDate(), 16),
-                40,
-                y,
-                normalPaint
-        );
-
-        canvas.drawText(
-                shortText(transaction.getType(), 12),
-                155,
-                y,
-                normalPaint
-        );
-
-        canvas.drawText(
-                shortText(
-                        transaction.getCategory() +
-                                " / " +
-                                transaction.getAccount(),
-                        28
+                fitTextToWidth(
+                        paints.normalPaint,
+                        visiblePdfDate(
+                                transaction.getDate()
+                        ),
+                        80f
                 ),
-                235,
-                y,
-                normalPaint
+                42f,
+                firstLineY,
+                paints.normalPaint
         );
 
+        Paint typePaint =
+                getPdfTypePaint(
+                        paints,
+                        type
+                );
+
         canvas.drawText(
-                String.format(
-                        Locale.getDefault(),
-                        "₹%.2f",
+                fitTextToWidth(
+                        typePaint,
+                        getVisibleType(type),
+                        69f
+                ),
+                131f,
+                firstLineY,
+                typePaint
+        );
+
+        String categoryAccount =
+                safeText(
+                        transaction.getCategory(),
+                        "Other"
+                )
+                        + " / "
+                        + safeText(
+                        transaction.getAccount(),
+                        "Cash"
+                );
+
+        canvas.drawText(
+                fitTextToWidth(
+                        paints.boldPaint,
+                        categoryAccount,
+                        257f
+                ),
+                207f,
+                firstLineY,
+                paints.boldPaint
+        );
+
+        String amountText =
+                formatPdfMoney(
                         transaction.getAmount()
-                ),
-                470,
-                y,
-                normalPaint
+                );
+
+        Paint amountPaint =
+                getPdfTypePaint(
+                        paints,
+                        type
+                );
+
+        amountPaint.setTextAlign(
+                Paint.Align.RIGHT
         );
 
         canvas.drawText(
-                "Note: " + shortText(transaction.getNote(), 58),
-                40,
-                y + 15,
-                normalPaint
+                amountText,
+                PDF_RIGHT_MARGIN - 4f,
+                firstLineY,
+                amountPaint
+        );
+
+        amountPaint.setTextAlign(
+                Paint.Align.LEFT
+        );
+
+        canvas.drawText(
+                "Stored date: "
+                        + fitTextToWidth(
+                        paints.normalPaint,
+                        safeText(
+                                transaction.getDate(),
+                                "Not available"
+                        ),
+                        450f
+                ),
+                42f,
+                secondLineY,
+                paints.normalPaint
+        );
+
+        String note =
+                safeText(
+                        transaction.getNote(),
+                        "No note"
+                );
+
+        canvas.drawText(
+                "Note: "
+                        + fitTextToWidth(
+                        paints.normalPaint,
+                        note,
+                        475f
+                ),
+                42f,
+                thirdLineY,
+                paints.normalPaint
+        );
+
+        canvas.drawLine(
+                PDF_LEFT_MARGIN,
+                top + PDF_ROW_HEIGHT - 5f,
+                PDF_RIGHT_MARGIN,
+                top + PDF_ROW_HEIGHT - 5f,
+                paints.linePaint
+        );
+
+        return top + PDF_ROW_HEIGHT;
+    }
+
+    private Paint getPdfTypePaint(
+            PdfPaints paints,
+            String type
+    ) {
+        if ("INCOME".equals(type)) {
+            return paints.incomePaint;
+        }
+
+        if ("EXPENSE".equals(type)) {
+            return paints.expensePaint;
+        }
+
+        return paints.transferPaint;
+    }
+
+    private String getVisibleType(
+            String type
+    ) {
+        if ("TRANSFER_IN".equals(type)) {
+            return "TRANSFER IN";
+        }
+
+        if ("TRANSFER_OUT".equals(type)) {
+            return "TRANSFER OUT";
+        }
+
+        return type;
+    }
+
+    private void drawEmptyPdfState(
+            Canvas canvas,
+            PdfPaints paints,
+            float currentY
+    ) {
+        paints.cardPaint.setColor(
+                Color.rgb(
+                        248,
+                        250,
+                        252
+                )
+        );
+
+        RectF emptyRect =
+                new RectF(
+                        PDF_LEFT_MARGIN,
+                        currentY,
+                        PDF_RIGHT_MARGIN,
+                        currentY + 92f
+                );
+
+        canvas.drawRoundRect(
+                emptyRect,
+                10f,
+                10f,
+                paints.cardPaint
+        );
+
+        Paint emptyTitle =
+                createPaint(
+                        Color.rgb(
+                                51,
+                                65,
+                                85
+                        ),
+                        13f,
+                        true
+                );
+
+        canvas.drawText(
+                "No transactions available",
+                PDF_LEFT_MARGIN + 18f,
+                currentY + 35f,
+                emptyTitle
+        );
+
+        canvas.drawText(
+                "Add income or expense transactions and export the report again.",
+                PDF_LEFT_MARGIN + 18f,
+                currentY + 57f,
+                paints.subtitlePaint
         );
     }
 
-    private void showExportSuccess(String message) {
-        txtExportStatus.setText(message);
-        setExportButtonsEnabled(true);
+    private void drawPdfFooter(
+            Canvas canvas,
+            PdfPaints paints,
+            int pageNumber
+    ) {
+        canvas.drawLine(
+                PDF_LEFT_MARGIN,
+                807f,
+                PDF_RIGHT_MARGIN,
+                807f,
+                paints.linePaint
+        );
+
+        canvas.drawText(
+                "Money Manager Pro • Private financial report",
+                PDF_LEFT_MARGIN,
+                824f,
+                paints.footerPaint
+        );
+
+        paints.footerPaint.setTextAlign(
+                Paint.Align.RIGHT
+        );
+
+        canvas.drawText(
+                "Page "
+                        + pageNumber,
+                PDF_RIGHT_MARGIN,
+                824f,
+                paints.footerPaint
+        );
+
+        paints.footerPaint.setTextAlign(
+                Paint.Align.LEFT
+        );
+    }
+
+    private List<Transaction> loadTransactions() {
+        List<Transaction> transactions =
+                DatabaseClient
+                        .getInstance(
+                                getApplicationContext()
+                        )
+                        .getAppDatabase()
+                        .transactionDao()
+                        .getAllTransactions();
+
+        if (transactions == null) {
+            return new ArrayList<>();
+        }
+
+        return new ArrayList<>(
+                transactions
+        );
+    }
+
+    private ReportSummary calculateSummary(
+            List<Transaction> transactions
+    ) {
+        ReportSummary summary =
+                new ReportSummary();
+
+        if (transactions == null) {
+            return summary;
+        }
+
+        for (Transaction transaction : transactions) {
+            if (transaction == null) {
+                continue;
+            }
+
+            double amount =
+                    transaction.getAmount();
+
+            if (Double.isNaN(amount)
+                    || Double.isInfinite(amount)) {
+
+                continue;
+            }
+
+            String type =
+                    safeText(
+                            transaction.getType(),
+                            ""
+                    );
+
+            if ("INCOME".equalsIgnoreCase(type)) {
+                summary.income += amount;
+
+            } else if ("EXPENSE".equalsIgnoreCase(type)) {
+                summary.expense += amount;
+
+            } else if ("TRANSFER_IN".equalsIgnoreCase(type)) {
+                summary.transferIn += amount;
+
+            } else if ("TRANSFER_OUT".equalsIgnoreCase(type)) {
+                summary.transferOut += amount;
+            }
+        }
+
+        summary.net =
+                summary.income
+                        - summary.expense;
+
+        return summary;
+    }
+
+    private void setExportState(
+            boolean exporting,
+            String statusMessage
+    ) {
+        exportInProgress =
+                exporting;
+
+        btnExportCsv.setEnabled(
+                !exporting
+        );
+
+        btnExportPdf.setEnabled(
+                !exporting
+        );
+
+        btnExportCsv.setAlpha(
+                exporting
+                        ? 0.55f
+                        : 1f
+        );
+
+        btnExportPdf.setAlpha(
+                exporting
+                        ? 0.55f
+                        : 1f
+        );
+
+        btnExportCsv.setText(
+                exporting
+                        ? "Export in Progress..."
+                        : "Export CSV File"
+        );
+
+        btnExportPdf.setText(
+                exporting
+                        ? "Export in Progress..."
+                        : "Export PDF Report"
+        );
+
+        txtExportStatus.setText(
+                statusMessage
+        );
+
+        txtExportStatus.setTextColor(
+                exporting
+                        ? getColorValue(
+                        R.color.secondary
+                )
+                        : getColorValue(
+                        R.color.app_text_secondary
+                )
+        );
+    }
+
+    private void showExportSuccess(
+            String message
+    ) {
+        setExportState(
+                false,
+                message
+        );
+
+        txtExportStatus.setTextColor(
+                getColorValue(
+                        R.color.success
+                )
+        );
 
         Toast.makeText(
                 this,
@@ -388,12 +1592,19 @@ public class ExportActivity extends AppCompatActivity {
         ).show();
     }
 
-    private void showExportError() {
-        txtExportStatus.setText(
-                "Export नहीं हो सका। फिर से कोशिश करें।"
+    private void showExportError(
+            String message
+    ) {
+        setExportState(
+                false,
+                message
         );
 
-        setExportButtonsEnabled(true);
+        txtExportStatus.setTextColor(
+                getColorValue(
+                        R.color.expense
+                )
+        );
 
         Toast.makeText(
                 this,
@@ -402,44 +1613,369 @@ public class ExportActivity extends AppCompatActivity {
         ).show();
     }
 
-    private void setExportButtonsEnabled(boolean enabled) {
-        btnExportCsv.setEnabled(enabled);
-        btnExportPdf.setEnabled(enabled);
+    private void showReadyStatus(
+            String message
+    ) {
+        setExportState(
+                false,
+                message
+        );
     }
 
-    private String escapeCsv(String value) {
-        if (value == null) {
-            return "\"\"";
+    private void showBusyMessage() {
+        Toast.makeText(
+                this,
+                "Please wait for the current export to finish",
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+
+    private void deleteIncompleteDocument(
+            Uri fileUri
+    ) {
+        if (fileUri == null) {
+            return;
         }
 
-        return "\"" +
-                value.replace("\"", "\"\"") +
-                "\"";
+        try {
+            getContentResolver()
+                    .delete(
+                            fileUri,
+                            null,
+                            null
+                    );
+
+        } catch (Exception ignored) {
+            // Some document providers do not permit deletion here.
+        }
     }
 
-    private String shortText(String value, int length) {
-        if (value == null) {
+    private String getDisplayName(
+            Uri uri,
+            String fallback
+    ) {
+        if (uri == null) {
+            return fallback;
+        }
+
+        Cursor cursor =
+                null;
+
+        try {
+            cursor =
+                    getContentResolver()
+                            .query(
+                                    uri,
+                                    new String[]{
+                                            OpenableColumns.DISPLAY_NAME
+                                    },
+                                    null,
+                                    null,
+                                    null
+                            );
+
+            if (cursor != null
+                    && cursor.moveToFirst()) {
+
+                int nameColumn =
+                        cursor.getColumnIndex(
+                                OpenableColumns.DISPLAY_NAME
+                        );
+
+                if (nameColumn >= 0) {
+                    return safeText(
+                            cursor.getString(
+                                    nameColumn
+                            ),
+                            fallback
+                    );
+                }
+            }
+
+        } catch (Exception ignored) {
+            // Fallback text will be returned.
+
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        return fallback;
+    }
+
+    private String escapeCsv(
+            String value
+    ) {
+        String safeValue =
+                safeText(
+                        value,
+                        ""
+                );
+
+        return "\""
+                + safeValue.replace(
+                "\"",
+                "\"\""
+        )
+                + "\"";
+    }
+
+    private String visiblePdfDate(
+            String storedDate
+    ) {
+        Date parsedDate =
+                parseStoredDate(
+                        storedDate
+                );
+
+        if (parsedDate == null) {
+            String fallback =
+                    safeText(
+                            storedDate,
+                            "No date"
+                    );
+
+            return fallback.length() > 10
+                    ? fallback.substring(
+                    0,
+                    10
+            )
+                    : fallback;
+        }
+
+        return new SimpleDateFormat(
+                "dd MMM yyyy",
+                Locale.ENGLISH
+        ).format(parsedDate);
+    }
+
+    private Date parseStoredDate(
+            String value
+    ) {
+        if (value == null
+                || value.trim().isEmpty()) {
+
+            return null;
+        }
+
+        String cleanValue =
+                value.trim();
+
+        String[] patterns = {
+                "yyyy-MM-dd HH:mm:ss.SSS",
+                "yyyy-MM-dd HH:mm:ss",
+                "yyyy-MM-dd HH:mm",
+                "yyyy-MM-dd'T'HH:mm:ss.SSS",
+                "yyyy-MM-dd'T'HH:mm:ss",
+                "yyyy-MM-dd'T'HH:mm",
+                "yyyy-MM-dd",
+                "dd/MM/yyyy HH:mm:ss",
+                "dd/MM/yyyy HH:mm",
+                "dd/MM/yyyy",
+                "dd-MM-yyyy HH:mm:ss",
+                "dd-MM-yyyy HH:mm",
+                "dd-MM-yyyy",
+                "dd MMM yyyy HH:mm",
+                "dd MMM yyyy",
+                "dd MMMM yyyy HH:mm",
+                "dd MMMM yyyy"
+        };
+
+        for (String pattern : patterns) {
+            try {
+                SimpleDateFormat dateFormat =
+                        new SimpleDateFormat(
+                                pattern,
+                                Locale.ENGLISH
+                        );
+
+                dateFormat.setLenient(false);
+
+                ParsePosition parsePosition =
+                        new ParsePosition(0);
+
+                Date parsedDate =
+                        dateFormat.parse(
+                                cleanValue,
+                                parsePosition
+                        );
+
+                if (parsedDate != null
+                        && parsePosition.getIndex()
+                        == cleanValue.length()) {
+
+                    return parsedDate;
+                }
+
+            } catch (Exception ignored) {
+                // Try the next supported format.
+            }
+        }
+
+        return null;
+    }
+
+    private String fitTextToWidth(
+            Paint paint,
+            String value,
+            float maximumWidth
+    ) {
+        String text =
+                safeText(
+                        value,
+                        ""
+                );
+
+        if (paint.measureText(text)
+                <= maximumWidth) {
+
+            return text;
+        }
+
+        String ellipsis =
+                "...";
+
+        float ellipsisWidth =
+                paint.measureText(
+                        ellipsis
+                );
+
+        if (ellipsisWidth
+                >= maximumWidth) {
+
             return "";
         }
 
-        if (value.length() <= length) {
-            return value;
+        int endIndex =
+                text.length();
+
+        while (endIndex > 0) {
+            String candidate =
+                    text.substring(
+                            0,
+                            endIndex
+                    )
+                            + ellipsis;
+
+            if (paint.measureText(candidate)
+                    <= maximumWidth) {
+
+                return candidate;
+            }
+
+            endIndex--;
         }
 
-        return value.substring(0, length - 3) + "...";
+        return ellipsis;
+    }
+
+    private String formatPdfMoney(
+            double amount
+    ) {
+        NumberFormat formatter =
+                NumberFormat.getNumberInstance(
+                        new Locale(
+                                "en",
+                                "IN"
+                        )
+                );
+
+        formatter.setMinimumFractionDigits(2);
+        formatter.setMaximumFractionDigits(2);
+
+        return "Rs. "
+                + formatter.format(
+                amount
+        );
+    }
+
+    private String formatPdfSignedMoney(
+            double amount
+    ) {
+        if (amount > 0) {
+            return "+"
+                    + formatPdfMoney(amount);
+        }
+
+        if (amount < 0) {
+            return "-"
+                    + formatPdfMoney(
+                    Math.abs(amount)
+            );
+        }
+
+        return formatPdfMoney(0);
     }
 
     private String getFileDate() {
         return new SimpleDateFormat(
                 "yyyyMMdd_HHmm",
-                Locale.getDefault()
-        ).format(new Date());
+                Locale.US
+        ).format(
+                new Date()
+        );
     }
 
     private String getCurrentDateTime() {
         return new SimpleDateFormat(
                 "dd MMM yyyy, hh:mm a",
-                Locale.getDefault()
-        ).format(new Date());
+                Locale.ENGLISH
+        ).format(
+                new Date()
+        );
+    }
+
+    private String safeText(
+            String value,
+            String fallback
+    ) {
+        if (value == null
+                || value.trim().isEmpty()) {
+
+            return fallback;
+        }
+
+        return value.trim();
+    }
+
+    private int getColorValue(
+            int colorResource
+    ) {
+        return ContextCompat.getColor(
+                this,
+                colorResource
+        );
+    }
+
+    private static class ReportSummary {
+
+        private double income;
+        private double expense;
+
+        private double transferIn;
+        private double transferOut;
+
+        private double net;
+    }
+
+    private static class PdfPaints {
+
+        private Paint titlePaint;
+        private Paint subtitlePaint;
+        private Paint sectionPaint;
+
+        private Paint headerPaint;
+        private Paint normalPaint;
+        private Paint boldPaint;
+
+        private Paint incomePaint;
+        private Paint expensePaint;
+        private Paint transferPaint;
+
+        private Paint footerPaint;
+
+        private Paint linePaint;
+        private Paint cardPaint;
     }
 }

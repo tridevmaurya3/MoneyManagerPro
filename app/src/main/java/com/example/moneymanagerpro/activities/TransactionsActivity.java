@@ -5,11 +5,13 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -18,6 +20,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
@@ -61,11 +64,13 @@ public class TransactionsActivity extends AppCompatActivity {
 
     private TextView txtEmptyTransactions;
     private TextView txtResultCount;
+
     private LinearLayout transactionContainer;
 
     private TransactionRepository transactionRepository;
 
-    private final List<Transaction> allTransactions = new ArrayList<>();
+    private final List<Transaction> allTransactions =
+            new ArrayList<>();
 
     private Calendar filterStartDate;
     private Calendar filterEndDate;
@@ -78,7 +83,8 @@ public class TransactionsActivity extends AppCompatActivity {
         bindViews();
         setupFilters();
 
-        transactionRepository = new TransactionRepository(this);
+        transactionRepository =
+                new TransactionRepository(this);
 
         loadTransactions();
     }
@@ -93,47 +99,72 @@ public class TransactionsActivity extends AppCompatActivity {
     }
 
     private void bindViews() {
-        TextView btnBack = findViewById(R.id.btnBack);
+        TextView btnBack =
+                findViewById(R.id.btnBack);
 
-        etSearchTransactions = findViewById(R.id.etSearchTransactions);
-        etMinAmount = findViewById(R.id.etMinAmount);
-        etMaxAmount = findViewById(R.id.etMaxAmount);
-        etFromDate = findViewById(R.id.etFromDate);
-        etToDate = findViewById(R.id.etToDate);
+        etSearchTransactions =
+                findViewById(R.id.etSearchTransactions);
 
-        inputMinAmount = findViewById(R.id.inputMinAmount);
-        inputMaxAmount = findViewById(R.id.inputMaxAmount);
+        etMinAmount =
+                findViewById(R.id.etMinAmount);
 
-        dropdownTransactionType = findViewById(
-                R.id.dropdownTransactionType
+        etMaxAmount =
+                findViewById(R.id.etMaxAmount);
+
+        etFromDate =
+                findViewById(R.id.etFromDate);
+
+        etToDate =
+                findViewById(R.id.etToDate);
+
+        inputMinAmount =
+                findViewById(R.id.inputMinAmount);
+
+        inputMaxAmount =
+                findViewById(R.id.inputMaxAmount);
+
+        dropdownTransactionType =
+                findViewById(
+                        R.id.dropdownTransactionType
+                );
+
+        dropdownTransactionCategory =
+                findViewById(
+                        R.id.dropdownTransactionCategory
+                );
+
+        dropdownTransactionAccount =
+                findViewById(
+                        R.id.dropdownTransactionAccount
+                );
+
+        dropdownTransactionPeriod =
+                findViewById(
+                        R.id.dropdownTransactionPeriod
+                );
+
+        btnApplyFilters =
+                findViewById(R.id.btnApplyFilters);
+
+        btnResetFilters =
+                findViewById(R.id.btnResetFilters);
+
+        txtEmptyTransactions =
+                findViewById(
+                        R.id.txtEmptyTransactions
+                );
+
+        txtResultCount =
+                findViewById(R.id.txtResultCount);
+
+        transactionContainer =
+                findViewById(
+                        R.id.transactionContainer
+                );
+
+        btnBack.setOnClickListener(
+                view -> finish()
         );
-
-        dropdownTransactionCategory = findViewById(
-                R.id.dropdownTransactionCategory
-        );
-
-        dropdownTransactionAccount = findViewById(
-                R.id.dropdownTransactionAccount
-        );
-
-        dropdownTransactionPeriod = findViewById(
-                R.id.dropdownTransactionPeriod
-        );
-
-        btnApplyFilters = findViewById(R.id.btnApplyFilters);
-        btnResetFilters = findViewById(R.id.btnResetFilters);
-
-        txtEmptyTransactions = findViewById(
-                R.id.txtEmptyTransactions
-        );
-
-        txtResultCount = findViewById(R.id.txtResultCount);
-
-        transactionContainer = findViewById(
-                R.id.transactionContainer
-        );
-
-        btnBack.setOnClickListener(v -> finish());
     }
 
     private void setupFilters() {
@@ -150,13 +181,17 @@ public class TransactionsActivity extends AppCompatActivity {
 
         setDropdownItems(
                 dropdownTransactionCategory,
-                new String[]{"All Categories"},
+                new String[]{
+                        "All Categories"
+                },
                 "All Categories"
         );
 
         setDropdownItems(
                 dropdownTransactionAccount,
-                new String[]{"All Accounts"},
+                new String[]{
+                        "All Accounts"
+                },
                 "All Accounts"
         );
 
@@ -172,27 +207,35 @@ public class TransactionsActivity extends AppCompatActivity {
                 "All Time"
         );
 
-        dropdownTransactionType.setOnItemClickListener(
-                (parent, view, position, id) -> filterTransactions()
-        );
+        dropdownTransactionType
+                .setOnItemClickListener(
+                        (parent, view, position, id) ->
+                                filterTransactions()
+                );
 
-        dropdownTransactionCategory.setOnItemClickListener(
-                (parent, view, position, id) -> filterTransactions()
-        );
+        dropdownTransactionCategory
+                .setOnItemClickListener(
+                        (parent, view, position, id) ->
+                                filterTransactions()
+                );
 
-        dropdownTransactionAccount.setOnItemClickListener(
-                (parent, view, position, id) -> filterTransactions()
-        );
+        dropdownTransactionAccount
+                .setOnItemClickListener(
+                        (parent, view, position, id) ->
+                                filterTransactions()
+                );
 
-        dropdownTransactionPeriod.setOnItemClickListener(
-                (parent, view, position, id) -> filterTransactions()
-        );
+        dropdownTransactionPeriod
+                .setOnItemClickListener(
+                        (parent, view, position, id) ->
+                                filterTransactions()
+                );
 
         etSearchTransactions.addTextChangedListener(
                 new TextWatcher() {
                     @Override
                     public void beforeTextChanged(
-                            CharSequence s,
+                            CharSequence text,
                             int start,
                             int count,
                             int after
@@ -201,7 +244,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
                     @Override
                     public void onTextChanged(
-                            CharSequence s,
+                            CharSequence text,
                             int start,
                             int before,
                             int count
@@ -210,17 +253,28 @@ public class TransactionsActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void afterTextChanged(Editable s) {
+                    public void afterTextChanged(
+                            Editable editable
+                    ) {
                     }
                 }
         );
 
-        etFromDate.setOnClickListener(v -> showDatePicker(true));
-        etToDate.setOnClickListener(v -> showDatePicker(false));
+        etFromDate.setOnClickListener(
+                view -> showDatePicker(true)
+        );
 
-        btnApplyFilters.setOnClickListener(v -> filterTransactions());
+        etToDate.setOnClickListener(
+                view -> showDatePicker(false)
+        );
 
-        btnResetFilters.setOnClickListener(v -> resetAllFilters());
+        btnApplyFilters.setOnClickListener(
+                view -> filterTransactions()
+        );
+
+        btnResetFilters.setOnClickListener(
+                view -> resetAllFilters()
+        );
 
         BubbleTouchAnimator.apply(btnApplyFilters);
         BubbleTouchAnimator.apply(btnResetFilters);
@@ -231,55 +285,77 @@ public class TransactionsActivity extends AppCompatActivity {
             String[] items,
             String selectedItem
     ) {
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                items
-        );
+        ArrayAdapter<String> adapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_list_item_1,
+                        items
+                );
 
         dropdown.setAdapter(adapter);
         dropdown.setText(selectedItem, false);
     }
 
     private void loadTransactions() {
-        transactionRepository.getAllTransactions(transactions -> {
-            allTransactions.clear();
-            allTransactions.addAll(transactions);
+        transactionRepository.getAllTransactions(
+                transactions -> {
+                    allTransactions.clear();
 
-            updateCategoryFilterOptions();
-            updateAccountFilterOptions();
-            filterTransactions();
-        });
+                    if (transactions != null) {
+                        allTransactions.addAll(
+                                transactions
+                        );
+                    }
+
+                    updateCategoryFilterOptions();
+                    updateAccountFilterOptions();
+                    filterTransactions();
+                }
+        );
     }
 
     private void updateCategoryFilterOptions() {
-        String selectedCategory = getSelectedText(
-                dropdownTransactionCategory,
-                "All Categories"
-        );
+        String selectedCategory =
+                getSelectedText(
+                        dropdownTransactionCategory,
+                        "All Categories"
+                );
 
-        Set<String> categorySet = new LinkedHashSet<>();
+        Set<String> categorySet =
+                new LinkedHashSet<>();
+
         categorySet.add("All Categories");
 
-        for (Transaction transaction : allTransactions) {
-            String category = safeText(transaction.getCategory());
+        for (Transaction transaction :
+                allTransactions) {
+
+            String category =
+                    safeText(
+                            transaction.getCategory()
+                    );
 
             if (!category.isEmpty()) {
                 categorySet.add(category);
             }
         }
 
-        List<String> categoryList = new ArrayList<>(categorySet);
+        List<String> categoryList =
+                new ArrayList<>(categorySet);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                categoryList
+        ArrayAdapter<String> adapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_list_item_1,
+                        categoryList
+                );
+
+        dropdownTransactionCategory.setAdapter(
+                adapter
         );
 
-        dropdownTransactionCategory.setAdapter(adapter);
-
-        if (categoryList.contains(selectedCategory)) {
+        if (categoryList.contains(
+                selectedCategory
+        )) {
             dropdownTransactionCategory.setText(
                     selectedCategory,
                     false
@@ -293,33 +369,47 @@ public class TransactionsActivity extends AppCompatActivity {
     }
 
     private void updateAccountFilterOptions() {
-        String selectedAccount = getSelectedText(
-                dropdownTransactionAccount,
-                "All Accounts"
-        );
+        String selectedAccount =
+                getSelectedText(
+                        dropdownTransactionAccount,
+                        "All Accounts"
+                );
 
-        Set<String> accountSet = new LinkedHashSet<>();
+        Set<String> accountSet =
+                new LinkedHashSet<>();
+
         accountSet.add("All Accounts");
 
-        for (Transaction transaction : allTransactions) {
-            String account = safeText(transaction.getAccount());
+        for (Transaction transaction :
+                allTransactions) {
+
+            String account =
+                    safeText(
+                            transaction.getAccount()
+                    );
 
             if (!account.isEmpty()) {
                 accountSet.add(account);
             }
         }
 
-        List<String> accountList = new ArrayList<>(accountSet);
+        List<String> accountList =
+                new ArrayList<>(accountSet);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                accountList
+        ArrayAdapter<String> adapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_list_item_1,
+                        accountList
+                );
+
+        dropdownTransactionAccount.setAdapter(
+                adapter
         );
 
-        dropdownTransactionAccount.setAdapter(adapter);
-
-        if (accountList.contains(selectedAccount)) {
+        if (accountList.contains(
+                selectedAccount
+        )) {
             dropdownTransactionAccount.setText(
                     selectedAccount,
                     false
@@ -332,35 +422,53 @@ public class TransactionsActivity extends AppCompatActivity {
         }
     }
 
-    private void showDatePicker(boolean isFromDate) {
-        Calendar calendar = isFromDate
-                ? (filterStartDate == null
-                   ? Calendar.getInstance()
-                   : filterStartDate)
-                : (filterEndDate == null
-                   ? Calendar.getInstance()
-                   : filterEndDate);
+    private void showDatePicker(
+            boolean isFromDate
+    ) {
+        Calendar calendar;
 
-        DatePickerDialog dialog = new DatePickerDialog(
-                this,
-                (view, year, month, dayOfMonth) -> {
-                    Calendar selectedDate = Calendar.getInstance();
-                    selectedDate.set(year, month, dayOfMonth);
-                    clearTime(selectedDate);
+        if (isFromDate) {
+            calendar = filterStartDate == null
+                    ? Calendar.getInstance()
+                    : (Calendar) filterStartDate.clone();
+        } else {
+            calendar = filterEndDate == null
+                    ? Calendar.getInstance()
+                    : (Calendar) filterEndDate.clone();
+        }
 
-                    if (isFromDate) {
-                        filterStartDate = selectedDate;
-                    } else {
-                        filterEndDate = selectedDate;
-                    }
+        DatePickerDialog dialog =
+                new DatePickerDialog(
+                        this,
+                        (view, year, month, dayOfMonth) -> {
+                            Calendar selectedDate =
+                                    Calendar.getInstance();
 
-                    updateDateFields();
-                    filterTransactions();
-                },
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH)
-        );
+                            selectedDate.set(
+                                    year,
+                                    month,
+                                    dayOfMonth
+                            );
+
+                            clearTime(selectedDate);
+
+                            if (isFromDate) {
+                                filterStartDate =
+                                        selectedDate;
+                            } else {
+                                filterEndDate =
+                                        selectedDate;
+                            }
+
+                            updateDateFields();
+                            filterTransactions();
+                        },
+                        calendar.get(Calendar.YEAR),
+                        calendar.get(Calendar.MONTH),
+                        calendar.get(
+                                Calendar.DAY_OF_MONTH
+                        )
+                );
 
         dialog.show();
     }
@@ -369,13 +477,17 @@ public class TransactionsActivity extends AppCompatActivity {
         etFromDate.setText(
                 filterStartDate == null
                         ? ""
-                        : formatVisibleDate(filterStartDate)
+                        : formatVisibleDate(
+                        filterStartDate
+                )
         );
 
         etToDate.setText(
                 filterEndDate == null
                         ? ""
-                        : formatVisibleDate(filterEndDate)
+                        : formatVisibleDate(
+                        filterEndDate
+                )
         );
     }
 
@@ -386,6 +498,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
         filterStartDate = null;
         filterEndDate = null;
+
         updateDateFields();
 
         dropdownTransactionType.setText(
@@ -419,25 +532,47 @@ public class TransactionsActivity extends AppCompatActivity {
             return;
         }
 
-        Double minAmount = getOptionalAmount(
-                etMinAmount,
-                inputMinAmount
-        );
+        Double minAmount =
+                getOptionalAmount(
+                        etMinAmount,
+                        inputMinAmount
+                );
 
-        Double maxAmount = getOptionalAmount(
-                etMaxAmount,
-                inputMaxAmount
-        );
+        Double maxAmount =
+                getOptionalAmount(
+                        etMaxAmount,
+                        inputMaxAmount
+                );
 
-        if (minAmount == null || maxAmount == null) {
+        if (minAmount == null
+                || maxAmount == null) {
+
             return;
         }
 
-        if (minAmount >= 0 && maxAmount >= 0
+        if (minAmount >= 0
+                && maxAmount >= 0
                 && minAmount > maxAmount) {
+
             inputMaxAmount.setError(
                     "Maximum amount must be greater than minimum amount"
             );
+
+            return;
+        }
+
+        if (filterStartDate != null
+                && filterEndDate != null
+                && filterStartDate.after(
+                filterEndDate
+        )) {
+
+            Toast.makeText(
+                    this,
+                    "From date cannot be after To date",
+                    Toast.LENGTH_SHORT
+            ).show();
+
             return;
         }
 
@@ -446,67 +581,92 @@ public class TransactionsActivity extends AppCompatActivity {
 
         transactionContainer.removeAllViews();
 
-        String searchText = getText(etSearchTransactions)
-                .toLowerCase(Locale.getDefault());
+        String searchText =
+                getText(etSearchTransactions)
+                        .toLowerCase(
+                                Locale.getDefault()
+                        );
 
-        String typeFilter = getSelectedText(
-                dropdownTransactionType,
-                "All Transactions"
-        );
+        String typeFilter =
+                getSelectedText(
+                        dropdownTransactionType,
+                        "All Transactions"
+                );
 
-        String categoryFilter = getSelectedText(
-                dropdownTransactionCategory,
-                "All Categories"
-        );
+        String categoryFilter =
+                getSelectedText(
+                        dropdownTransactionCategory,
+                        "All Categories"
+                );
 
-        String accountFilter = getSelectedText(
-                dropdownTransactionAccount,
-                "All Accounts"
-        );
+        String accountFilter =
+                getSelectedText(
+                        dropdownTransactionAccount,
+                        "All Accounts"
+                );
 
-        String periodFilter = getSelectedText(
-                dropdownTransactionPeriod,
-                "All Time"
-        );
+        String periodFilter =
+                getSelectedText(
+                        dropdownTransactionPeriod,
+                        "All Time"
+                );
 
         int visibleCount = 0;
 
-        for (Transaction transaction : allTransactions) {
-            if (matchesTypeFilter(transaction, typeFilter)
-                    && matchesCategoryFilter(
-                    transaction,
-                    categoryFilter
-            )
-                    && matchesAccountFilter(
-                    transaction,
-                    accountFilter
-            )
-                    && matchesPeriodFilter(
-                    transaction,
-                    periodFilter
-            )
-                    && matchesCustomDateRange(transaction)
-                    && matchesAmountRange(
-                    transaction,
-                    minAmount,
-                    maxAmount
-            )
-                    && matchesSearch(
-                    transaction,
-                    searchText
-            )) {
+        for (Transaction transaction :
+                allTransactions) {
 
-                addTransactionRow(transaction);
+            boolean visible =
+                    matchesTypeFilter(
+                            transaction,
+                            typeFilter
+                    )
+                            && matchesCategoryFilter(
+                            transaction,
+                            categoryFilter
+                    )
+                            && matchesAccountFilter(
+                            transaction,
+                            accountFilter
+                    )
+                            && matchesPeriodFilter(
+                            transaction,
+                            periodFilter
+                    )
+                            && matchesCustomDateRange(
+                            transaction
+                    )
+                            && matchesAmountRange(
+                            transaction,
+                            minAmount,
+                            maxAmount
+                    )
+                            && matchesSearch(
+                            transaction,
+                            searchText
+                    );
+
+            if (visible) {
+                addTransactionCard(
+                        transaction
+                );
+
                 visibleCount++;
             }
         }
 
-        txtResultCount.setText(
-                visibleCount + " transaction(s) found"
-        );
+        String resultText =
+                visibleCount == 1
+                        ? "1 transaction found"
+                        : visibleCount
+                          + " transactions found";
+
+        txtResultCount.setText(resultText);
 
         txtEmptyTransactions.setVisibility(
-                visibleCount == 0 ? View.VISIBLE : View.GONE
+                visibleCount == 0
+                        ? View.VISIBLE
+                        : View.GONE
         );
     }
 
@@ -514,7 +674,8 @@ public class TransactionsActivity extends AppCompatActivity {
             EditText editText,
             TextInputLayout inputLayout
     ) {
-        String amountText = getText(editText);
+        String amountText =
+                getText(editText);
 
         if (amountText.isEmpty()) {
             inputLayout.setError(null);
@@ -522,10 +683,16 @@ public class TransactionsActivity extends AppCompatActivity {
         }
 
         try {
-            double amount = Double.parseDouble(amountText);
+            double amount =
+                    Double.parseDouble(
+                            amountText
+                    );
 
             if (amount < 0) {
-                inputLayout.setError("Amount cannot be negative");
+                inputLayout.setError(
+                        "Amount cannot be negative"
+                );
+
                 return null;
             }
 
@@ -533,7 +700,10 @@ public class TransactionsActivity extends AppCompatActivity {
             return amount;
 
         } catch (Exception exception) {
-            inputLayout.setError("Enter a valid amount");
+            inputLayout.setError(
+                    "Enter a valid amount"
+            );
+
             return null;
         }
     }
@@ -542,19 +712,32 @@ public class TransactionsActivity extends AppCompatActivity {
             Transaction transaction,
             String typeFilter
     ) {
-        String type = safeText(transaction.getType());
+        String type =
+                safeText(
+                        transaction.getType()
+                ).toUpperCase(
+                        Locale.getDefault()
+                );
 
-        if (typeFilter.equals("Income Only")) {
+        if (typeFilter.equals(
+                "Income Only"
+        )) {
             return type.equals("INCOME");
         }
 
-        if (typeFilter.equals("Expense Only")) {
+        if (typeFilter.equals(
+                "Expense Only"
+        )) {
             return type.equals("EXPENSE");
         }
 
-        if (typeFilter.equals("Transfers Only")) {
+        if (typeFilter.equals(
+                "Transfers Only"
+        )) {
             return type.equals("TRANSFER_IN")
-                    || type.equals("TRANSFER_OUT");
+                    || type.equals(
+                    "TRANSFER_OUT"
+            );
         }
 
         return true;
@@ -564,95 +747,158 @@ public class TransactionsActivity extends AppCompatActivity {
             Transaction transaction,
             String categoryFilter
     ) {
-        if (categoryFilter.equals("All Categories")) {
+        if (categoryFilter.equals(
+                "All Categories"
+        )) {
             return true;
         }
 
-        return safeText(transaction.getCategory())
-                .equalsIgnoreCase(categoryFilter);
+        return safeText(
+                transaction.getCategory()
+        ).equalsIgnoreCase(
+                categoryFilter
+        );
     }
 
     private boolean matchesAccountFilter(
             Transaction transaction,
             String accountFilter
     ) {
-        if (accountFilter.equals("All Accounts")) {
+        if (accountFilter.equals(
+                "All Accounts"
+        )) {
             return true;
         }
 
-        return safeText(transaction.getAccount())
-                .equalsIgnoreCase(accountFilter);
+        return safeText(
+                transaction.getAccount()
+        ).equalsIgnoreCase(
+                accountFilter
+        );
     }
 
     private boolean matchesPeriodFilter(
             Transaction transaction,
             String periodFilter
     ) {
-        if (periodFilter.equals("All Time")) {
+        if (periodFilter.equals(
+                "All Time"
+        )) {
             return true;
         }
 
-        Calendar transactionDate = parseTransactionDate(
-                safeText(transaction.getDate())
-        );
+        Calendar transactionDate =
+                parseTransactionDate(
+                        safeText(
+                                transaction.getDate()
+                        )
+                );
 
         if (transactionDate == null) {
             return false;
         }
 
-        Calendar today = Calendar.getInstance();
+        Calendar today =
+                Calendar.getInstance();
+
         clearTime(today);
         clearTime(transactionDate);
 
         if (periodFilter.equals("Today")) {
-            return transactionDate.get(Calendar.YEAR)
-                    == today.get(Calendar.YEAR)
-                    && transactionDate.get(Calendar.DAY_OF_YEAR)
-                    == today.get(Calendar.DAY_OF_YEAR);
+            return transactionDate.get(
+                    Calendar.YEAR
+            ) == today.get(
+                    Calendar.YEAR
+            )
+                    && transactionDate.get(
+                    Calendar.DAY_OF_YEAR
+            ) == today.get(
+                    Calendar.DAY_OF_YEAR
+            );
         }
 
-        if (periodFilter.equals("This Month")) {
-            return transactionDate.get(Calendar.YEAR)
-                    == today.get(Calendar.YEAR)
-                    && transactionDate.get(Calendar.MONTH)
-                    == today.get(Calendar.MONTH);
+        if (periodFilter.equals(
+                "This Month"
+        )) {
+            return transactionDate.get(
+                    Calendar.YEAR
+            ) == today.get(
+                    Calendar.YEAR
+            )
+                    && transactionDate.get(
+                    Calendar.MONTH
+            ) == today.get(
+                    Calendar.MONTH
+            );
         }
 
-        if (periodFilter.equals("This Year")) {
-            return transactionDate.get(Calendar.YEAR)
-                    == today.get(Calendar.YEAR);
+        if (periodFilter.equals(
+                "This Year"
+        )) {
+            return transactionDate.get(
+                    Calendar.YEAR
+            ) == today.get(
+                    Calendar.YEAR
+            );
         }
 
-        Calendar weekStart = Calendar.getInstance();
+        Calendar weekStart =
+                Calendar.getInstance();
+
         clearTime(weekStart);
-        weekStart.setFirstDayOfWeek(Calendar.MONDAY);
 
-        int day = weekStart.get(Calendar.DAY_OF_WEEK);
-        int difference = day - Calendar.MONDAY;
+        weekStart.setFirstDayOfWeek(
+                Calendar.MONDAY
+        );
+
+        int day =
+                weekStart.get(
+                        Calendar.DAY_OF_WEEK
+                );
+
+        int difference =
+                day - Calendar.MONDAY;
 
         if (difference < 0) {
             difference += 7;
         }
 
-        weekStart.add(Calendar.DAY_OF_MONTH, -difference);
+        weekStart.add(
+                Calendar.DAY_OF_MONTH,
+                -difference
+        );
 
-        Calendar weekEnd = (Calendar) weekStart.clone();
-        weekEnd.add(Calendar.DAY_OF_MONTH, 7);
+        Calendar weekEnd =
+                (Calendar) weekStart.clone();
 
-        return !transactionDate.before(weekStart)
-                && transactionDate.before(weekEnd);
+        weekEnd.add(
+                Calendar.DAY_OF_MONTH,
+                7
+        );
+
+        return !transactionDate.before(
+                weekStart
+        )
+                && transactionDate.before(
+                weekEnd
+        );
     }
 
     private boolean matchesCustomDateRange(
             Transaction transaction
     ) {
-        if (filterStartDate == null && filterEndDate == null) {
+        if (filterStartDate == null
+                && filterEndDate == null) {
+
             return true;
         }
 
-        Calendar transactionDate = parseTransactionDate(
-                safeText(transaction.getDate())
-        );
+        Calendar transactionDate =
+                parseTransactionDate(
+                        safeText(
+                                transaction.getDate()
+                        )
+                );
 
         if (transactionDate == null) {
             return false;
@@ -661,12 +907,18 @@ public class TransactionsActivity extends AppCompatActivity {
         clearTime(transactionDate);
 
         if (filterStartDate != null
-                && transactionDate.before(filterStartDate)) {
+                && transactionDate.before(
+                filterStartDate
+        )) {
+
             return false;
         }
 
         if (filterEndDate != null
-                && transactionDate.after(filterEndDate)) {
+                && transactionDate.after(
+                filterEndDate
+        )) {
+
             return false;
         }
 
@@ -678,13 +930,18 @@ public class TransactionsActivity extends AppCompatActivity {
             double minAmount,
             double maxAmount
     ) {
-        double amount = transaction.getAmount();
+        double amount =
+                transaction.getAmount();
 
-        if (minAmount >= 0 && amount < minAmount) {
+        if (minAmount >= 0
+                && amount < minAmount) {
+
             return false;
         }
 
-        if (maxAmount >= 0 && amount > maxAmount) {
+        if (maxAmount >= 0
+                && amount > maxAmount) {
+
             return false;
         }
 
@@ -700,19 +957,38 @@ public class TransactionsActivity extends AppCompatActivity {
         }
 
         String combinedText =
-                safeText(transaction.getType()) + " "
-                        + transaction.getAmount() + " "
-                        + safeText(transaction.getCategory()) + " "
-                        + safeText(transaction.getAccount()) + " "
-                        + safeText(transaction.getNote()) + " "
-                        + safeText(transaction.getDate());
+                safeText(
+                        transaction.getType()
+                )
+                        + " "
+                        + transaction.getAmount()
+                        + " "
+                        + safeText(
+                        transaction.getCategory()
+                )
+                        + " "
+                        + safeText(
+                        transaction.getAccount()
+                )
+                        + " "
+                        + safeText(
+                        transaction.getNote()
+                )
+                        + " "
+                        + safeText(
+                        transaction.getDate()
+                );
 
         return combinedText
-                .toLowerCase(Locale.getDefault())
+                .toLowerCase(
+                        Locale.getDefault()
+                )
                 .contains(searchText);
     }
 
-    private Calendar parseTransactionDate(String dateText) {
+    private Calendar parseTransactionDate(
+            String dateText
+    ) {
         String[] formats = {
                 "yyyy-MM-dd HH:mm",
                 "yyyy-MM-dd"
@@ -720,248 +996,1104 @@ public class TransactionsActivity extends AppCompatActivity {
 
         for (String format : formats) {
             try {
-                Date parsedDate = new SimpleDateFormat(
-                        format,
-                        Locale.US
-                ).parse(dateText);
+                Date parsedDate =
+                        new SimpleDateFormat(
+                                format,
+                                Locale.US
+                        ).parse(dateText);
 
                 if (parsedDate != null) {
-                    Calendar calendar = Calendar.getInstance();
-                    calendar.setTime(parsedDate);
+                    Calendar calendar =
+                            Calendar.getInstance();
+
+                    calendar.setTime(
+                            parsedDate
+                    );
+
                     return calendar;
                 }
+
             } catch (ParseException exception) {
-                // Try the next date format.
+                // अगला date format try होगा।
             }
         }
 
         return null;
     }
 
-    private void addTransactionRow(Transaction transaction) {
-        String type = safeText(transaction.getType());
+    private void addTransactionCard(
+            Transaction transaction
+    ) {
+        TransactionVisual visual =
+                getTransactionVisual(
+                        transaction
+                );
 
-        boolean isIncome = type.equals("INCOME");
-        boolean isExpense = type.equals("EXPENSE");
-        boolean isTransferIn = type.equals("TRANSFER_IN");
-        boolean isTransferOut = type.equals("TRANSFER_OUT");
-        boolean isTransfer = isTransferIn || isTransferOut;
+        MaterialCardView card =
+                new MaterialCardView(this);
 
-        String title;
-        String amountPrefix;
-        int amountColor;
+        card.setCardBackgroundColor(
+                getColorValue(
+                        R.color.app_surface
+                )
+        );
 
-        if (isIncome) {
-            title = "Income | " + safeText(transaction.getCategory());
-            amountPrefix = "+ ";
-            amountColor = Color.parseColor("#188038");
+        card.setRadius(dp(19));
+        card.setCardElevation(dp(1));
 
-        } else if (isExpense) {
-            title = "Expense | " + safeText(transaction.getCategory());
-            amountPrefix = "- ";
-            amountColor = Color.parseColor("#D93025");
+        card.setStrokeColor(
+                createTranslucentColor(
+                        visual.accentColor,
+                        80
+                )
+        );
 
-        } else if (isTransferIn) {
-            title = "Transfer In | " + safeText(transaction.getAccount());
-            amountPrefix = "+ ";
-            amountColor = Color.parseColor("#1565C0");
-
-        } else if (isTransferOut) {
-            title = "Transfer Out | " + safeText(transaction.getAccount());
-            amountPrefix = "- ";
-            amountColor = Color.parseColor("#7B1FA2");
-
-        } else {
-            title = type;
-            amountPrefix = "";
-            amountColor = Color.parseColor("#344054");
-        }
-
-        MaterialCardView card = new MaterialCardView(this);
-        card.setCardBackgroundColor(Color.WHITE);
-        card.setRadius(dp(18));
-        card.setCardElevation(dp(3));
         card.setStrokeWidth(dp(1));
-        card.setStrokeColor(Color.parseColor("#DCE3EE"));
+        card.setClickable(true);
+        card.setFocusable(true);
+
+        card.setRippleColor(
+                ColorStateList.valueOf(
+                        createTranslucentColor(
+                                visual.accentColor,
+                                35
+                        )
+                )
+        );
 
         LinearLayout.LayoutParams cardParams =
                 new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
                 );
 
-        cardParams.setMargins(0, dp(7), 0, dp(7));
+        cardParams.setMargins(
+                0,
+                dp(6),
+                0,
+                dp(6)
+        );
+
         card.setLayoutParams(cardParams);
 
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16), dp(14), dp(16), dp(14));
+        LinearLayout content =
+                new LinearLayout(this);
 
-        LinearLayout topRow = new LinearLayout(this);
-        topRow.setOrientation(LinearLayout.HORIZONTAL);
-        topRow.setGravity(Gravity.CENTER_VERTICAL);
-
-        TextView txtTitle = createText(
-                title,
-                16,
-                Color.parseColor("#1D2939"),
-                true
+        content.setOrientation(
+                LinearLayout.VERTICAL
         );
 
-        txtTitle.setLayoutParams(new LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1
-        ));
-
-        TextView txtAmount = createText(
-                amountPrefix + formatAmount(transaction.getAmount()),
-                17,
-                amountColor,
-                true
+        content.setPadding(
+                dp(15),
+                dp(15),
+                dp(15),
+                dp(13)
         );
 
-        txtAmount.setGravity(Gravity.END);
+        LinearLayout topRow =
+                new LinearLayout(this);
 
-        topRow.addView(txtTitle);
-        topRow.addView(txtAmount);
-
-        TextView txtDetails = createText(
-                "Account: " + safeText(transaction.getAccount())
-                        + "\nDate: "
-                        + formatTransactionDate(
-                        safeText(transaction.getDate())
-                )
-                        + (safeText(transaction.getNote()).isEmpty()
-                        ? ""
-                        : "\nNote: "
-                          + safeText(transaction.getNote())),
-                13,
-                Color.parseColor("#667085"),
-                false
+        topRow.setOrientation(
+                LinearLayout.HORIZONTAL
         );
 
-        LinearLayout.LayoutParams detailsParams =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
+        topRow.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        TextView transactionIcon =
+                createTransactionIcon(
+                        visual
                 );
 
-        detailsParams.setMargins(0, dp(8), 0, 0);
-        txtDetails.setLayoutParams(detailsParams);
+        topRow.addView(
+                transactionIcon
+        );
+
+        LinearLayout titleContainer =
+                new LinearLayout(this);
+
+        titleContainer.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        LinearLayout.LayoutParams titleParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f
+                );
+
+        titleParams.setMargins(
+                dp(12),
+                0,
+                dp(8),
+                0
+        );
+
+        titleContainer.setLayoutParams(
+                titleParams
+        );
+
+        TextView txtTitle =
+                createText(
+                        visual.title,
+                        16,
+                        getColorValue(
+                                R.color.app_text_primary
+                        ),
+                        true
+                );
+
+        txtTitle.setMaxLines(2);
+
+        TextView txtAccount =
+                createText(
+                        getAccountDescription(
+                                transaction
+                        ),
+                        11,
+                        getColorValue(
+                                R.color.app_text_secondary
+                        ),
+                        false
+                );
+
+        LinearLayout.LayoutParams accountParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        accountParams.setMargins(
+                0,
+                dp(3),
+                0,
+                0
+        );
+
+        txtAccount.setLayoutParams(
+                accountParams
+        );
+
+        titleContainer.addView(txtTitle);
+        titleContainer.addView(txtAccount);
+
+        topRow.addView(titleContainer);
+
+        LinearLayout amountContainer =
+                new LinearLayout(this);
+
+        amountContainer.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        amountContainer.setGravity(
+                Gravity.END
+        );
+
+        TextView txtAmountLabel =
+                createText(
+                        visual.amountLabel,
+                        9,
+                        getColorValue(
+                                R.color.app_text_secondary
+                        ),
+                        false
+                );
+
+        txtAmountLabel.setGravity(
+                Gravity.END
+        );
+
+        TextView txtAmount =
+                createText(
+                        visual.amountPrefix
+                                + formatAmount(
+                                transaction.getAmount()
+                        ),
+                        16,
+                        visual.accentColor,
+                        true
+                );
+
+        txtAmount.setGravity(Gravity.END);
+        txtAmount.setMaxLines(1);
+
+        LinearLayout.LayoutParams amountParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        amountParams.setMargins(
+                0,
+                dp(3),
+                0,
+                0
+        );
+
+        txtAmount.setLayoutParams(
+                amountParams
+        );
+
+        amountContainer.addView(
+                txtAmountLabel
+        );
+
+        amountContainer.addView(
+                txtAmount
+        );
+
+        topRow.addView(amountContainer);
 
         content.addView(topRow);
-        content.addView(txtDetails);
 
-        if (isTransfer) {
-            TextView txtTransferInfo = createText(
-                    "Transfer entries are protected and cannot be edited or deleted here.",
-                    12,
-                    Color.parseColor("#5B4B8A"),
-                    false
+        View divider =
+                createDivider();
+
+        LinearLayout.LayoutParams dividerParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(1)
+                );
+
+        dividerParams.setMargins(
+                0,
+                dp(13),
+                0,
+                dp(11)
+        );
+
+        divider.setLayoutParams(
+                dividerParams
+        );
+
+        content.addView(divider);
+
+        LinearLayout informationRow =
+                new LinearLayout(this);
+
+        informationRow.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        informationRow.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        LinearLayout dateContainer =
+                createInformationBlock(
+                        "Date",
+                        formatTransactionDate(
+                                safeText(
+                                        transaction.getDate()
+                                )
+                        )
+                );
+
+        LinearLayout.LayoutParams dateParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f
+                );
+
+        dateContainer.setLayoutParams(
+                dateParams
+        );
+
+        informationRow.addView(
+                dateContainer
+        );
+
+        TextView typeBadge =
+                createTypeBadge(
+                        visual
+                );
+
+        informationRow.addView(
+                typeBadge
+        );
+
+        content.addView(
+                informationRow
+        );
+
+        String note =
+                safeText(
+                        transaction.getNote()
+                );
+
+        if (!note.isEmpty()) {
+            TextView noteView =
+                    createNoteView(note);
+
+            content.addView(noteView);
+        }
+
+        if (visual.isTransfer) {
+            TextView protectedInfo =
+                    createProtectedInfo();
+
+            content.addView(
+                    protectedInfo
             );
 
-            LinearLayout.LayoutParams infoParams =
-                    new LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                    );
-
-            infoParams.setMargins(0, dp(10), 0, 0);
-            txtTransferInfo.setLayoutParams(infoParams);
-
-            content.addView(txtTransferInfo);
-
-            card.setOnClickListener(v ->
-                    Toast.makeText(
+            card.setOnClickListener(
+                    view -> Toast.makeText(
                             TransactionsActivity.this,
-                            "Transfer entries cannot be edited or deleted.",
+                            "Transfer entries are protected and cannot be edited or deleted.",
                             Toast.LENGTH_SHORT
                     ).show()
             );
 
         } else {
-            LinearLayout actionRow = new LinearLayout(this);
-            actionRow.setOrientation(LinearLayout.HORIZONTAL);
-
-            LinearLayout.LayoutParams rowParams =
-                    new LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            dp(42)
+            LinearLayout actionRow =
+                    createActionRow(
+                            transaction
                     );
-
-            rowParams.setMargins(0, dp(12), 0, 0);
-            actionRow.setLayoutParams(rowParams);
-
-            MaterialButton btnEdit = createActionButton(
-                    "Edit",
-                    Color.parseColor("#1565C0")
-            );
-
-            MaterialButton btnDelete = createActionButton(
-                    "Delete",
-                    Color.parseColor("#64748B")
-            );
-
-            addButtonToRow(actionRow, btnEdit);
-            addButtonToRow(actionRow, btnDelete);
-
-            btnEdit.setOnClickListener(v ->
-                    openEditScreen(transaction)
-            );
-
-            btnDelete.setOnClickListener(v ->
-                    confirmDelete(transaction)
-            );
-
-            BubbleTouchAnimator.apply(btnEdit);
-            BubbleTouchAnimator.apply(btnDelete);
 
             content.addView(actionRow);
 
-            card.setOnClickListener(v ->
-                    openEditScreen(transaction)
+            card.setOnClickListener(
+                    view -> openEditScreen(
+                            transaction
+                    )
             );
         }
 
         card.addView(content);
 
         BubbleTouchAnimator.apply(card);
+
         transactionContainer.addView(card);
+    }
+
+    private TransactionVisual getTransactionVisual(
+            Transaction transaction
+    ) {
+        String type =
+                safeText(
+                        transaction.getType()
+                ).toUpperCase(
+                        Locale.getDefault()
+                );
+
+        String category =
+                safeText(
+                        transaction.getCategory()
+                );
+
+        String account =
+                safeText(
+                        transaction.getAccount()
+                );
+
+        if (type.equals("INCOME")) {
+            return new TransactionVisual(
+                    category.isEmpty()
+                            ? "Income"
+                            : category,
+                    "INCOME",
+                    "Income",
+                    "+ ",
+                    "Received",
+                    "+",
+                    getColorValue(
+                            R.color.success
+                    ),
+                    false
+            );
+        }
+
+        if (type.equals("EXPENSE")) {
+            return new TransactionVisual(
+                    category.isEmpty()
+                            ? "Expense"
+                            : category,
+                    "EXPENSE",
+                    "Expense",
+                    "− ",
+                    "Spent",
+                    "−",
+                    getColorValue(
+                            R.color.expense
+                    ),
+                    false
+            );
+        }
+
+        if (type.equals("TRANSFER_IN")) {
+            return new TransactionVisual(
+                    account.isEmpty()
+                            ? "Transfer In"
+                            : "Transfer to " + account,
+                    "TRANSFER_IN",
+                    "Transfer In",
+                    "+ ",
+                    "Received",
+                    "↙",
+                    getColorValue(
+                            R.color.secondary
+                    ),
+                    true
+            );
+        }
+
+        if (type.equals("TRANSFER_OUT")) {
+            return new TransactionVisual(
+                    account.isEmpty()
+                            ? "Transfer Out"
+                            : "Transfer from " + account,
+                    "TRANSFER_OUT",
+                    "Transfer Out",
+                    "− ",
+                    "Transferred",
+                    "↗",
+                    getColorValue(
+                            R.color.purple
+                    ),
+                    true
+            );
+        }
+
+        return new TransactionVisual(
+                type.isEmpty()
+                        ? "Transaction"
+                        : type,
+                type,
+                "Transaction",
+                "",
+                "Amount",
+                "₹",
+                getColorValue(
+                        R.color.app_text_secondary
+                ),
+                false
+        );
+    }
+
+    private TextView createTransactionIcon(
+            TransactionVisual visual
+    ) {
+        TextView icon =
+                new TextView(this);
+
+        icon.setText(visual.iconText);
+        icon.setTextColor(
+                visual.accentColor
+        );
+
+        icon.setTextSize(20);
+
+        icon.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+
+        icon.setGravity(Gravity.CENTER);
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setColor(
+                createTranslucentColor(
+                        visual.accentColor,
+                        24
+                )
+        );
+
+        background.setStroke(
+                dp(1),
+                createTranslucentColor(
+                        visual.accentColor,
+                        75
+                )
+        );
+
+        background.setCornerRadius(
+                dp(14)
+        );
+
+        icon.setBackground(background);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        dp(48),
+                        dp(48)
+                );
+
+        icon.setLayoutParams(params);
+
+        return icon;
+    }
+
+    private TextView createTypeBadge(
+            TransactionVisual visual
+    ) {
+        TextView badge =
+                new TextView(this);
+
+        badge.setText(visual.badgeText);
+        badge.setTextColor(
+                visual.accentColor
+        );
+
+        badge.setTextSize(10);
+
+        badge.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+
+        badge.setGravity(Gravity.CENTER);
+
+        badge.setPadding(
+                dp(10),
+                0,
+                dp(10),
+                0
+        );
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setColor(
+                createTranslucentColor(
+                        visual.accentColor,
+                        20
+                )
+        );
+
+        background.setStroke(
+                dp(1),
+                createTranslucentColor(
+                        visual.accentColor,
+                        65
+                )
+        );
+
+        background.setCornerRadius(
+                dp(13)
+        );
+
+        badge.setBackground(background);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(30)
+                );
+
+        badge.setLayoutParams(params);
+
+        return badge;
+    }
+
+    private LinearLayout createInformationBlock(
+            String label,
+            String value
+    ) {
+        LinearLayout container =
+                new LinearLayout(this);
+
+        container.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        TextView labelView =
+                createText(
+                        label,
+                        9,
+                        getColorValue(
+                                R.color.app_text_secondary
+                        ),
+                        false
+                );
+
+        TextView valueView =
+                createText(
+                        value,
+                        12,
+                        getColorValue(
+                                R.color.app_text_primary
+                        ),
+                        true
+                );
+
+        LinearLayout.LayoutParams valueParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        valueParams.setMargins(
+                0,
+                dp(3),
+                0,
+                0
+        );
+
+        valueView.setLayoutParams(
+                valueParams
+        );
+
+        container.addView(labelView);
+        container.addView(valueView);
+
+        return container;
+    }
+
+    private TextView createNoteView(
+            String note
+    ) {
+        TextView noteView =
+                createText(
+                        "Note: " + note,
+                        11,
+                        getColorValue(
+                                R.color.app_text_secondary
+                        ),
+                        false
+                );
+
+        noteView.setLineSpacing(
+                dp(2),
+                1f
+        );
+
+        noteView.setPadding(
+                dp(12),
+                dp(10),
+                dp(12),
+                dp(10)
+        );
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setColor(
+                getColorValue(
+                        R.color.app_surface_soft
+                )
+        );
+
+        background.setStroke(
+                dp(1),
+                getColorValue(
+                        R.color.app_outline_soft
+                )
+        );
+
+        background.setCornerRadius(
+                dp(12)
+        );
+
+        noteView.setBackground(background);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        params.setMargins(
+                0,
+                dp(11),
+                0,
+                0
+        );
+
+        noteView.setLayoutParams(params);
+
+        return noteView;
+    }
+
+    private TextView createProtectedInfo() {
+        TextView info =
+                createText(
+                        "Protected transfer entry · Edit and delete are disabled",
+                        10,
+                        getColorValue(
+                                R.color.purple
+                        ),
+                        true
+                );
+
+        info.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        info.setPadding(
+                dp(12),
+                dp(9),
+                dp(12),
+                dp(9)
+        );
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setColor(
+                getColorValue(
+                        R.color.purple_surface
+                )
+        );
+
+        background.setStroke(
+                dp(1),
+                getColorValue(
+                        R.color.purple_outline
+                )
+        );
+
+        background.setCornerRadius(
+                dp(12)
+        );
+
+        info.setBackground(background);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        params.setMargins(
+                0,
+                dp(11),
+                0,
+                0
+        );
+
+        info.setLayoutParams(params);
+
+        return info;
+    }
+
+    private LinearLayout createActionRow(
+            Transaction transaction
+    ) {
+        LinearLayout actionRow =
+                new LinearLayout(this);
+
+        actionRow.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        actionRow.setGravity(Gravity.END);
+
+        LinearLayout.LayoutParams rowParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(42)
+                );
+
+        rowParams.setMargins(
+                0,
+                dp(12),
+                0,
+                0
+        );
+
+        actionRow.setLayoutParams(
+                rowParams
+        );
+
+        MaterialButton btnEdit =
+                createActionButton(
+                        "Edit",
+                        getColorValue(
+                                R.color.secondary
+                        ),
+                        getColorValue(
+                                R.color.info_surface
+                        ),
+                        getColorValue(
+                                R.color.info_outline
+                        )
+                );
+
+        MaterialButton btnDelete =
+                createActionButton(
+                        "Delete",
+                        getColorValue(
+                                R.color.expense
+                        ),
+                        getColorValue(
+                                R.color.error_surface
+                        ),
+                        getColorValue(
+                                R.color.error_outline
+                        )
+                );
+
+        LinearLayout.LayoutParams editParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        1f
+                );
+
+        editParams.setMargins(
+                0,
+                0,
+                dp(5),
+                0
+        );
+
+        btnEdit.setLayoutParams(
+                editParams
+        );
+
+        LinearLayout.LayoutParams deleteParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        1f
+                );
+
+        deleteParams.setMargins(
+                dp(5),
+                0,
+                0,
+                0
+        );
+
+        btnDelete.setLayoutParams(
+                deleteParams
+        );
+
+        btnEdit.setOnClickListener(
+                view -> openEditScreen(
+                        transaction
+                )
+        );
+
+        btnDelete.setOnClickListener(
+                view -> confirmDelete(
+                        transaction
+                )
+        );
+
+        BubbleTouchAnimator.apply(btnEdit);
+        BubbleTouchAnimator.apply(btnDelete);
+
+        actionRow.addView(btnEdit);
+        actionRow.addView(btnDelete);
+
+        return actionRow;
     }
 
     private MaterialButton createActionButton(
             String text,
-            int color
+            int textColor,
+            int backgroundColor,
+            int strokeColor
     ) {
-        MaterialButton button = new MaterialButton(this);
+        MaterialButton button =
+                new MaterialButton(this);
+
         button.setText(text);
-        button.setTextSize(13);
-        button.setTextColor(Color.WHITE);
+        button.setTextSize(12);
+        button.setTextColor(textColor);
         button.setAllCaps(false);
-        button.setCornerRadius(dp(18));
-        button.setBackgroundTintList(
-                ColorStateList.valueOf(color)
+
+        button.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
         );
+
+        button.setGravity(Gravity.CENTER);
+        button.setCornerRadius(dp(13));
+
+        button.setBackgroundTintList(
+                ColorStateList.valueOf(
+                        backgroundColor
+                )
+        );
+
+        button.setStrokeColor(
+                ColorStateList.valueOf(
+                        strokeColor
+                )
+        );
+
+        button.setStrokeWidth(dp(1));
+
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
 
         return button;
     }
 
-    private void addButtonToRow(
-            LinearLayout row,
-            MaterialButton button
+    private View createDivider() {
+        View divider =
+                new View(this);
+
+        divider.setBackgroundColor(
+                getColorValue(
+                        R.color.app_divider
+                )
+        );
+
+        return divider;
+    }
+
+    private String getAccountDescription(
+            Transaction transaction
     ) {
-        LinearLayout.LayoutParams buttonParams =
-                new LinearLayout.LayoutParams(
-                        0,
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        1
+        String account =
+                safeText(
+                        transaction.getAccount()
                 );
 
-        buttonParams.setMargins(dp(4), 0, dp(4), 0);
-        button.setLayoutParams(buttonParams);
+        if (account.isEmpty()) {
+            return "Account not specified";
+        }
 
-        row.addView(button);
+        return "Account: " + account;
+    }
+
+    private void openEditScreen(
+            Transaction transaction
+    ) {
+        Intent intent =
+                new Intent(
+                        this,
+                        EditTransactionActivity.class
+                );
+
+        intent.putExtra(
+                "id",
+                transaction.getId()
+        );
+
+        intent.putExtra(
+                "type",
+                transaction.getType()
+        );
+
+        intent.putExtra(
+                "amount",
+                transaction.getAmount()
+        );
+
+        intent.putExtra(
+                "category",
+                transaction.getCategory()
+        );
+
+        intent.putExtra(
+                "account",
+                transaction.getAccount()
+        );
+
+        intent.putExtra(
+                "note",
+                transaction.getNote()
+        );
+
+        intent.putExtra(
+                "date",
+                transaction.getDate()
+        );
+
+        intent.putExtra(
+                "transaction_id",
+                transaction.getId()
+        );
+
+        intent.putExtra(
+                "transaction_type",
+                transaction.getType()
+        );
+
+        intent.putExtra(
+                "transaction_amount",
+                transaction.getAmount()
+        );
+
+        intent.putExtra(
+                "transaction_category",
+                transaction.getCategory()
+        );
+
+        intent.putExtra(
+                "transaction_account",
+                transaction.getAccount()
+        );
+
+        intent.putExtra(
+                "transaction_note",
+                transaction.getNote()
+        );
+
+        intent.putExtra(
+                "transaction_date",
+                transaction.getDate()
+        );
+
+        startActivity(intent);
+    }
+
+    private void confirmDelete(
+            Transaction transaction
+    ) {
+        String category =
+                safeText(
+                        transaction.getCategory()
+                );
+
+        String description =
+                category.isEmpty()
+                        ? "this transaction"
+                        : "\"" + category + "\" transaction";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Transaction")
+                .setMessage(
+                        "Permanently delete "
+                                + description
+                                + "?\n\nThis action cannot be undone."
+                )
+                .setNegativeButton(
+                        "Cancel",
+                        null
+                )
+                .setPositiveButton(
+                        "Delete",
+                        (dialog, which) ->
+                                deleteTransaction(
+                                        transaction
+                                )
+                )
+                .show();
+    }
+
+    private void deleteTransaction(
+            Transaction transaction
+    ) {
+        new Thread(() -> {
+            DatabaseClient
+                    .getInstance(
+                            getApplicationContext()
+                    )
+                    .getAppDatabase()
+                    .transactionDao()
+                    .delete(transaction);
+
+            runOnUiThread(() -> {
+                Toast.makeText(
+                        TransactionsActivity.this,
+                        "Transaction deleted",
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                loadTransactions();
+            });
+        }).start();
     }
 
     private TextView createText(
@@ -970,103 +2102,71 @@ public class TransactionsActivity extends AppCompatActivity {
             int color,
             boolean bold
     ) {
-        TextView textView = new TextView(this);
+        TextView textView =
+                new TextView(this);
+
         textView.setText(text);
         textView.setTextSize(size);
         textView.setTextColor(color);
 
         if (bold) {
-            textView.setTypeface(Typeface.DEFAULT_BOLD);
+            textView.setTypeface(
+                    Typeface.DEFAULT,
+                    Typeface.BOLD
+            );
         }
 
         return textView;
-    }
-
-    private void openEditScreen(Transaction transaction) {
-        Intent intent = new Intent(
-                this,
-                EditTransactionActivity.class
-        );
-
-        intent.putExtra("id", transaction.getId());
-        intent.putExtra("type", transaction.getType());
-        intent.putExtra("amount", transaction.getAmount());
-        intent.putExtra("category", transaction.getCategory());
-        intent.putExtra("account", transaction.getAccount());
-        intent.putExtra("note", transaction.getNote());
-        intent.putExtra("date", transaction.getDate());
-
-        intent.putExtra("transaction_id", transaction.getId());
-        intent.putExtra("transaction_type", transaction.getType());
-        intent.putExtra("transaction_amount", transaction.getAmount());
-        intent.putExtra("transaction_category", transaction.getCategory());
-        intent.putExtra("transaction_account", transaction.getAccount());
-        intent.putExtra("transaction_note", transaction.getNote());
-        intent.putExtra("transaction_date", transaction.getDate());
-
-        startActivity(intent);
-    }
-
-    private void confirmDelete(Transaction transaction) {
-        new AlertDialog.Builder(this)
-                .setTitle("Delete Transaction")
-                .setMessage(
-                        "Do you want to permanently delete this transaction?"
-                )
-                .setPositiveButton("Delete", (dialog, which) -> {
-                    new Thread(() -> {
-                        DatabaseClient.getInstance(
-                                        getApplicationContext()
-                                ).getAppDatabase()
-                                .transactionDao()
-                                .delete(transaction);
-
-                        runOnUiThread(() -> {
-                            Toast.makeText(
-                                    TransactionsActivity.this,
-                                    "Transaction deleted",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-
-                            loadTransactions();
-                        });
-                    }).start();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
     }
 
     private String getSelectedText(
             MaterialAutoCompleteTextView dropdown,
             String defaultText
     ) {
-        String value = getText(dropdown);
+        String value =
+                getText(dropdown);
 
-        return value.isEmpty() ? defaultText : value;
+        return value.isEmpty()
+                ? defaultText
+                : value;
     }
 
-    private String getText(TextView view) {
+    private String getText(
+            TextView view
+    ) {
         return view.getText() == null
                 ? ""
-                : view.getText().toString().trim();
+                : view.getText()
+                .toString()
+                .trim();
     }
 
-    private String safeText(String value) {
-        return value == null ? "" : value;
+    private String safeText(
+            String value
+    ) {
+        return value == null
+                ? ""
+                : value.trim();
     }
 
-    private String formatAmount(double amount) {
-        NumberFormat numberFormat = NumberFormat.getNumberInstance(
-                new Locale("en", "IN")
-        );
+    private String formatAmount(
+            double amount
+    ) {
+        NumberFormat numberFormat =
+                NumberFormat.getNumberInstance(
+                        new Locale("en", "IN")
+                );
 
         numberFormat.setMinimumFractionDigits(2);
         numberFormat.setMaximumFractionDigits(2);
 
-        return "₹" + numberFormat.format(amount);
+        return "₹"
+                + numberFormat.format(amount);
     }
 
-    private String formatTransactionDate(String dateText) {
+    private String formatTransactionDate(
+            String dateText
+    ) {
         String[] formats = {
                 "yyyy-MM-dd HH:mm",
                 "yyyy-MM-dd"
@@ -1074,10 +2174,11 @@ public class TransactionsActivity extends AppCompatActivity {
 
         for (String format : formats) {
             try {
-                Date date = new SimpleDateFormat(
-                        format,
-                        Locale.US
-                ).parse(dateText);
+                Date date =
+                        new SimpleDateFormat(
+                                format,
+                                Locale.US
+                        ).parse(dateText);
 
                 if (date != null) {
                     return new SimpleDateFormat(
@@ -1085,31 +2186,113 @@ public class TransactionsActivity extends AppCompatActivity {
                             Locale.ENGLISH
                     ).format(date);
                 }
+
             } catch (Exception exception) {
-                // Try the next date format.
+                // अगला date format try होगा।
             }
         }
 
-        return dateText;
+        return dateText.isEmpty()
+                ? "Date unavailable"
+                : dateText;
     }
 
-    private String formatVisibleDate(Calendar calendar) {
+    private String formatVisibleDate(
+            Calendar calendar
+    ) {
         return new SimpleDateFormat(
                 "dd MMM yyyy",
                 Locale.ENGLISH
-        ).format(calendar.getTime());
-    }
-
-    private void clearTime(Calendar calendar) {
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-    }
-
-    private int dp(int value) {
-        return (int) (
-                value * getResources().getDisplayMetrics().density
+        ).format(
+                calendar.getTime()
         );
+    }
+
+    private void clearTime(
+            Calendar calendar
+    ) {
+        calendar.set(
+                Calendar.HOUR_OF_DAY,
+                0
+        );
+
+        calendar.set(
+                Calendar.MINUTE,
+                0
+        );
+
+        calendar.set(
+                Calendar.SECOND,
+                0
+        );
+
+        calendar.set(
+                Calendar.MILLISECOND,
+                0
+        );
+    }
+
+    private int createTranslucentColor(
+            int baseColor,
+            int alpha
+    ) {
+        return Color.argb(
+                alpha,
+                Color.red(baseColor),
+                Color.green(baseColor),
+                Color.blue(baseColor)
+        );
+    }
+
+    private int getColorValue(
+            int colorResource
+    ) {
+        return ContextCompat.getColor(
+                this,
+                colorResource
+        );
+    }
+
+    private int dp(
+            int value
+    ) {
+        return Math.round(
+                value
+                        * getResources()
+                        .getDisplayMetrics()
+                        .density
+        );
+    }
+
+    private static class TransactionVisual {
+
+        private final String title;
+        private final String rawType;
+        private final String badgeText;
+        private final String amountPrefix;
+        private final String amountLabel;
+        private final String iconText;
+        private final int accentColor;
+        private final boolean isTransfer;
+
+        private TransactionVisual(
+                String title,
+                String rawType,
+                String badgeText,
+                String amountPrefix,
+                String amountLabel,
+                String iconText,
+                int accentColor,
+                boolean isTransfer
+        ) {
+            this.title = title;
+            this.rawType = rawType;
+            this.badgeText = badgeText;
+            this.amountPrefix = amountPrefix;
+            this.amountLabel = amountLabel;
+            this.iconText = iconText;
+            this.accentColor = accentColor;
+            this.isTransfer = isTransfer;
+        }
     }
 }

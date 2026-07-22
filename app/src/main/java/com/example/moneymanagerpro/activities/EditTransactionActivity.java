@@ -26,6 +26,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -52,14 +53,19 @@ public class EditTransactionActivity extends AppCompatActivity {
     private Calendar selectedDate;
 
     private int transactionId;
-    private String selectedCategoryName;
-    private String selectedAccountName;
+
+    private String originalTransactionType = "EXPENSE";
+    private String selectedCategoryName = "";
+    private String selectedAccountName = "Cash";
 
     private boolean categoryReady = false;
     private boolean accountReady = false;
 
-    private final List<Category> categories = new ArrayList<>();
-    private final List<Account> accounts = new ArrayList<>();
+    private final List<Category> categories =
+            new ArrayList<>();
+
+    private final List<Account> accounts =
+            new ArrayList<>();
 
     private ArrayAdapter<String> categoryAdapter;
     private ArrayAdapter<String> accountAdapter;
@@ -69,98 +75,282 @@ public class EditTransactionActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_transaction);
 
-        etAmount = findViewById(R.id.etEditAmount);
-        etNote = findViewById(R.id.etEditNote);
-
-        spinnerType = findViewById(R.id.spinnerEditType);
-        spinnerCategory = findViewById(R.id.spinnerEditCategory);
-        spinnerAccount = findViewById(R.id.spinnerEditAccount);
-
-        txtSelectedDate = findViewById(R.id.txtSelectedEditDate);
-        txtCategoryMessage = findViewById(R.id.txtEditCategoryMessage);
-        txtAccountMessage = findViewById(R.id.txtEditAccountMessage);
-
-        btnSelectDate = findViewById(R.id.btnSelectEditDate);
-        btnUpdate = findViewById(R.id.btnUpdateTransaction);
-
-        transactionRepository = new TransactionRepository(this);
-        categoryRepository = new CategoryRepository(this);
-        accountRepository = new AccountRepository(this);
-
+        bindViews();
+        initializeRepositories();
         readTransactionData();
-        setupTypeSpinner();
+
         setupCategorySpinner();
         setupAccountSpinner();
+        setupTypeSpinner();
 
-        btnSelectDate.setOnClickListener(view -> showDatePicker());
-        btnUpdate.setOnClickListener(view -> updateTransaction());
+        btnSelectDate.setOnClickListener(
+                view -> showDatePicker()
+        );
+
+        btnUpdate.setOnClickListener(
+                view -> updateTransaction()
+        );
+    }
+
+    private void bindViews() {
+        etAmount =
+                findViewById(R.id.etEditAmount);
+
+        etNote =
+                findViewById(R.id.etEditNote);
+
+        spinnerType =
+                findViewById(R.id.spinnerEditType);
+
+        spinnerCategory =
+                findViewById(R.id.spinnerEditCategory);
+
+        spinnerAccount =
+                findViewById(R.id.spinnerEditAccount);
+
+        txtSelectedDate =
+                findViewById(R.id.txtSelectedEditDate);
+
+        txtCategoryMessage =
+                findViewById(R.id.txtEditCategoryMessage);
+
+        txtAccountMessage =
+                findViewById(R.id.txtEditAccountMessage);
+
+        btnSelectDate =
+                findViewById(R.id.btnSelectEditDate);
+
+        btnUpdate =
+                findViewById(R.id.btnUpdateTransaction);
+    }
+
+    private void initializeRepositories() {
+        transactionRepository =
+                new TransactionRepository(this);
+
+        categoryRepository =
+                new CategoryRepository(this);
+
+        accountRepository =
+                new AccountRepository(this);
     }
 
     private void readTransactionData() {
-        transactionId = getIntent().getIntExtra("transaction_id", 0);
+        transactionId =
+                getIntent().getIntExtra(
+                        "transaction_id",
+                        getIntent().getIntExtra(
+                                "id",
+                                0
+                        )
+                );
 
-        String type = getIntent().getStringExtra("transaction_type");
-        String category = getIntent().getStringExtra("transaction_category");
-        String account = getIntent().getStringExtra("transaction_account");
-        String note = getIntent().getStringExtra("transaction_note");
-        String date = getIntent().getStringExtra("transaction_date");
+        String type =
+                getStringExtra(
+                        "transaction_type",
+                        "type"
+                );
 
-        double amount = getIntent().getDoubleExtra(
-                "transaction_amount",
-                0
+        String category =
+                getStringExtra(
+                        "transaction_category",
+                        "category"
+                );
+
+        String account =
+                getStringExtra(
+                        "transaction_account",
+                        "account"
+                );
+
+        String note =
+                getStringExtra(
+                        "transaction_note",
+                        "note"
+                );
+
+        String date =
+                getStringExtra(
+                        "transaction_date",
+                        "date"
+                );
+
+        double amount;
+
+        if (getIntent().hasExtra(
+                "transaction_amount"
+        )) {
+            amount = getIntent().getDoubleExtra(
+                    "transaction_amount",
+                    0
+            );
+        } else {
+            amount = getIntent().getDoubleExtra(
+                    "amount",
+                    0
+            );
+        }
+
+        originalTransactionType =
+                normalizeDatabaseType(type);
+
+        selectedCategoryName =
+                category == null
+                        ? ""
+                        : category.trim();
+
+        selectedAccountName =
+                account == null
+                        || account.trim().isEmpty()
+                        ? "Cash"
+                        : account.trim();
+
+        etAmount.setText(
+                formatPlainAmount(amount)
         );
 
-        selectedCategoryName = category == null ? "" : category;
-        selectedAccountName = account == null ? "Cash" : account;
+        etNote.setText(
+                note == null
+                        ? ""
+                        : note
+        );
 
-        etAmount.setText(String.valueOf(amount));
-        etNote.setText(note == null ? "" : note);
+        selectedDate =
+                parseSavedDate(date);
 
-        selectedDate = Calendar.getInstance();
+        updateSelectedDateText();
+    }
 
-        if (date != null && !date.isEmpty()) {
-            try {
-                selectedDate.setTime(
-                        new SimpleDateFormat(
-                                "yyyy-MM-dd HH:mm",
-                                Locale.getDefault()
-                        ).parse(date)
+    private String getStringExtra(
+            String primaryKey,
+            String fallbackKey
+    ) {
+        String value =
+                getIntent().getStringExtra(
+                        primaryKey
                 );
-            } catch (ParseException exception) {
-                selectedDate = Calendar.getInstance();
+
+        if (value == null) {
+            value = getIntent().getStringExtra(
+                    fallbackKey
+            );
+        }
+
+        return value;
+    }
+
+    private Calendar parseSavedDate(
+            String dateText
+    ) {
+        Calendar calendar =
+                Calendar.getInstance();
+
+        if (dateText == null
+                || dateText.trim().isEmpty()) {
+            return calendar;
+        }
+
+        String[] formats = {
+                "yyyy-MM-dd HH:mm",
+                "yyyy-MM-dd"
+        };
+
+        for (String format : formats) {
+            try {
+                SimpleDateFormat dateFormat =
+                        new SimpleDateFormat(
+                                format,
+                                Locale.US
+                        );
+
+                dateFormat.setLenient(false);
+
+                Date parsedDate =
+                        dateFormat.parse(
+                                dateText.trim()
+                        );
+
+                if (parsedDate != null) {
+                    calendar.setTime(parsedDate);
+                    return calendar;
+                }
+
+            } catch (ParseException ignored) {
             }
         }
 
-        updateSelectedDateText();
+        return calendar;
+    }
 
-        if (type == null || !type.equals("EXPENSE")) {
-            spinnerType.setTag("INCOME");
-        } else {
-            spinnerType.setTag("EXPENSE");
-        }
+    private void setupCategorySpinner() {
+        categoryAdapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_spinner_item,
+                        new ArrayList<>()
+                );
+
+        categoryAdapter.setDropDownViewResource(
+                android.R.layout.simple_spinner_dropdown_item
+        );
+
+        spinnerCategory.setAdapter(
+                categoryAdapter
+        );
+    }
+
+    private void setupAccountSpinner() {
+        accountAdapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_spinner_item,
+                        new ArrayList<>()
+                );
+
+        accountAdapter.setDropDownViewResource(
+                android.R.layout.simple_spinner_dropdown_item
+        );
+
+        spinnerAccount.setAdapter(
+                accountAdapter
+        );
+
+        loadAccounts();
     }
 
     private void setupTypeSpinner() {
-        String[] types = {"Income", "Expense"};
+        String[] types = {
+                "Income",
+                "Expense"
+        };
 
-        ArrayAdapter<String> typeAdapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_spinner_item,
-                types
-        );
+        ArrayAdapter<String> typeAdapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_spinner_item,
+                        types
+                );
 
         typeAdapter.setDropDownViewResource(
                 android.R.layout.simple_spinner_dropdown_item
         );
 
-        spinnerType.setAdapter(typeAdapter);
+        spinnerType.setAdapter(
+                typeAdapter
+        );
 
-        String savedType = String.valueOf(spinnerType.getTag());
-
-        if (savedType.equals("EXPENSE")) {
-            spinnerType.setSelection(1);
+        if (originalTransactionType.equals(
+                "INCOME"
+        )) {
+            spinnerType.setSelection(
+                    0,
+                    false
+            );
         } else {
-            spinnerType.setSelection(0);
+            spinnerType.setSelection(
+                    1,
+                    false
+            );
         }
 
         spinnerType.setOnItemSelectedListener(
@@ -177,42 +367,14 @@ public class EditTransactionActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void onNothingSelected(AdapterView<?> parent) {
+                    public void onNothingSelected(
+                            AdapterView<?> parent
+                    ) {
                     }
                 }
         );
-    }
-
-    private void setupCategorySpinner() {
-        categoryAdapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_spinner_item,
-                new ArrayList<>()
-        );
-
-        categoryAdapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item
-        );
-
-        spinnerCategory.setAdapter(categoryAdapter);
 
         loadCategoriesForSelectedType();
-    }
-
-    private void setupAccountSpinner() {
-        accountAdapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_spinner_item,
-                new ArrayList<>()
-        );
-
-        accountAdapter.setDropDownViewResource(
-                android.R.layout.simple_spinner_dropdown_item
-        );
-
-        spinnerAccount.setAdapter(accountAdapter);
-
-        loadAccounts();
     }
 
     private void loadCategoriesForSelectedType() {
@@ -223,165 +385,444 @@ public class EditTransactionActivity extends AppCompatActivity {
         categoryReady = false;
         updateSaveButtonState();
 
-        String requiredType = getSelectedType();
+        String selectedDatabaseType =
+                getSelectedDatabaseType();
 
-        categoryRepository.getCategoriesByType(requiredType, result -> {
-            if (!requiredType.equals(getSelectedType())) {
-                return;
-            }
+        String repositoryType =
+                getSelectedRepositoryType();
 
-            categories.clear();
-            categories.addAll(result);
+        categoryRepository.getCategoriesByType(
+                repositoryType,
+                result -> {
+                    if (!selectedDatabaseType.equals(
+                            getSelectedDatabaseType()
+                    )) {
+                        return;
+                    }
 
-            categoryAdapter.clear();
+                    categories.clear();
+                    categoryAdapter.clear();
 
-            int matchingPosition = 0;
+                    if (result != null) {
+                        for (Category category : result) {
+                            if (category == null
+                                    || category.getName() == null
+                                    || category.getName()
+                                    .trim()
+                                    .isEmpty()) {
+                                continue;
+                            }
 
-            for (int index = 0; index < result.size(); index++) {
-                Category category = result.get(index);
+                            categories.add(category);
 
-                categoryAdapter.add(category.getName());
+                            categoryAdapter.add(
+                                    category.getName().trim()
+                            );
+                        }
+                    }
 
-                if (category.getName().equals(selectedCategoryName)) {
-                    matchingPosition = index;
+                    int matchingPosition =
+                            findCategoryPosition(
+                                    selectedCategoryName
+                            );
+
+                    boolean editingOriginalType =
+                            selectedDatabaseType.equals(
+                                    originalTransactionType
+                            );
+
+                    if (matchingPosition < 0
+                            && editingOriginalType
+                            && !selectedCategoryName.isEmpty()) {
+
+                        Category oldCategory =
+                                new Category();
+
+                        oldCategory.setName(
+                                selectedCategoryName
+                        );
+
+                        oldCategory.setType(
+                                repositoryType
+                        );
+
+                        oldCategory.setColor(
+                                selectedDatabaseType.equals(
+                                        "INCOME"
+                                )
+                                        ? "#107C10"
+                                        : "#C42B1C"
+                        );
+
+                        categories.add(
+                                0,
+                                oldCategory
+                        );
+
+                        categoryAdapter.insert(
+                                selectedCategoryName,
+                                0
+                        );
+
+                        matchingPosition = 0;
+                    }
+
+                    categoryAdapter.notifyDataSetChanged();
+
+                    if (categories.isEmpty()) {
+                        txtCategoryMessage.setText(
+                                "इस type की कोई category उपलब्ध नहीं है। पहले Category बनाएँ।"
+                        );
+
+                        txtCategoryMessage.setVisibility(
+                                View.VISIBLE
+                        );
+
+                        spinnerCategory.setEnabled(
+                                false
+                        );
+
+                        categoryReady = false;
+
+                    } else {
+                        txtCategoryMessage.setVisibility(
+                                View.GONE
+                        );
+
+                        spinnerCategory.setEnabled(
+                                true
+                        );
+
+                        if (matchingPosition >= 0
+                                && matchingPosition
+                                < categories.size()) {
+
+                            spinnerCategory.setSelection(
+                                    matchingPosition
+                            );
+
+                        } else {
+                            spinnerCategory.setSelection(
+                                    0
+                            );
+                        }
+
+                        categoryReady = true;
+                    }
+
+                    updateSaveButtonState();
                 }
+        );
+    }
+
+    private int findCategoryPosition(
+            String categoryName
+    ) {
+        if (categoryName == null
+                || categoryName.trim().isEmpty()) {
+            return -1;
+        }
+
+        for (int index = 0;
+             index < categories.size();
+             index++) {
+
+            Category category =
+                    categories.get(index);
+
+            if (category.getName() != null
+                    && category.getName()
+                    .trim()
+                    .equalsIgnoreCase(
+                            categoryName.trim()
+                    )) {
+                return index;
             }
+        }
 
-            categoryAdapter.notifyDataSetChanged();
-
-            if (categories.isEmpty()) {
-                txtCategoryMessage.setVisibility(View.VISIBLE);
-                categoryReady = false;
-            } else {
-                txtCategoryMessage.setVisibility(View.GONE);
-                spinnerCategory.setSelection(matchingPosition);
-                categoryReady = true;
-            }
-
-            updateSaveButtonState();
-        });
+        return -1;
     }
 
     private void loadAccounts() {
         accountReady = false;
         updateSaveButtonState();
 
-        accountRepository.getAllAccounts(result -> {
-            accounts.clear();
-            accounts.addAll(result);
+        accountRepository.getAllAccounts(
+                result -> {
+                    accounts.clear();
+                    accountAdapter.clear();
 
-            accountAdapter.clear();
+                    if (result != null) {
+                        for (Account account : result) {
+                            if (account == null
+                                    || account.getName() == null
+                                    || account.getName()
+                                    .trim()
+                                    .isEmpty()) {
+                                continue;
+                            }
 
-            int matchingPosition = 0;
-            int cashPosition = 0;
-            boolean accountFound = false;
+                            accounts.add(account);
 
-            for (int index = 0; index < result.size(); index++) {
-                Account account = result.get(index);
+                            accountAdapter.add(
+                                    account.getName().trim()
+                            );
+                        }
+                    }
 
-                accountAdapter.add(account.getName());
+                    int matchingPosition =
+                            findAccountPosition(
+                                    selectedAccountName
+                            );
 
-                if (account.getName().equals(selectedAccountName)) {
-                    matchingPosition = index;
-                    accountFound = true;
+                    if (matchingPosition < 0
+                            && !selectedAccountName.isEmpty()) {
+
+                        Account oldAccount =
+                                new Account();
+
+                        oldAccount.setName(
+                                selectedAccountName
+                        );
+
+                        oldAccount.setType(
+                                "Other"
+                        );
+
+                        oldAccount.setOpeningBalance(
+                                0
+                        );
+
+                        oldAccount.setColor(
+                                "#0F6CBD"
+                        );
+
+                        accounts.add(
+                                0,
+                                oldAccount
+                        );
+
+                        accountAdapter.insert(
+                                selectedAccountName,
+                                0
+                        );
+
+                        matchingPosition = 0;
+                    }
+
+                    accountAdapter.notifyDataSetChanged();
+
+                    if (accounts.isEmpty()) {
+                        txtAccountMessage.setText(
+                                "कोई account उपलब्ध नहीं है। पहले Account बनाएँ।"
+                        );
+
+                        txtAccountMessage.setVisibility(
+                                View.VISIBLE
+                        );
+
+                        spinnerAccount.setEnabled(
+                                false
+                        );
+
+                        accountReady = false;
+
+                    } else {
+                        txtAccountMessage.setVisibility(
+                                View.GONE
+                        );
+
+                        spinnerAccount.setEnabled(
+                                true
+                        );
+
+                        if (matchingPosition >= 0
+                                && matchingPosition
+                                < accounts.size()) {
+
+                            spinnerAccount.setSelection(
+                                    matchingPosition
+                            );
+
+                        } else {
+                            int cashPosition =
+                                    findAccountPosition(
+                                            "Cash"
+                                    );
+
+                            spinnerAccount.setSelection(
+                                    cashPosition >= 0
+                                            ? cashPosition
+                                            : 0
+                            );
+                        }
+
+                        accountReady = true;
+                    }
+
+                    updateSaveButtonState();
                 }
+        );
+    }
 
-                if ("Cash".equalsIgnoreCase(account.getName())) {
-                    cashPosition = index;
-                }
+    private int findAccountPosition(
+            String accountName
+    ) {
+        if (accountName == null
+                || accountName.trim().isEmpty()) {
+            return -1;
+        }
+
+        for (int index = 0;
+             index < accounts.size();
+             index++) {
+
+            Account account =
+                    accounts.get(index);
+
+            if (account.getName() != null
+                    && account.getName()
+                    .trim()
+                    .equalsIgnoreCase(
+                            accountName.trim()
+                    )) {
+                return index;
             }
+        }
 
-            accountAdapter.notifyDataSetChanged();
-
-            if (accounts.isEmpty()) {
-                txtAccountMessage.setVisibility(View.VISIBLE);
-                accountReady = false;
-            } else {
-                txtAccountMessage.setVisibility(View.GONE);
-
-                if (accountFound) {
-                    spinnerAccount.setSelection(matchingPosition);
-                } else {
-                    spinnerAccount.setSelection(cashPosition);
-                }
-
-                accountReady = true;
-            }
-
-            updateSaveButtonState();
-        });
+        return -1;
     }
 
     private void updateSaveButtonState() {
-        btnUpdate.setEnabled(categoryReady && accountReady);
+        if (btnUpdate == null) {
+            return;
+        }
+
+        btnUpdate.setEnabled(
+                categoryReady
+                        && accountReady
+        );
     }
 
     private void showDatePicker() {
-        int year = selectedDate.get(Calendar.YEAR);
-        int month = selectedDate.get(Calendar.MONTH);
-        int day = selectedDate.get(Calendar.DAY_OF_MONTH);
+        int year =
+                selectedDate.get(
+                        Calendar.YEAR
+                );
 
-        DatePickerDialog datePickerDialog = new DatePickerDialog(
-                this,
-                (view, selectedYear, selectedMonth, selectedDay) -> {
-                    selectedDate.set(
-                            selectedYear,
-                            selectedMonth,
-                            selectedDay
-                    );
+        int month =
+                selectedDate.get(
+                        Calendar.MONTH
+                );
 
-                    updateSelectedDateText();
-                },
-                year,
-                month,
-                day
-        );
+        int day =
+                selectedDate.get(
+                        Calendar.DAY_OF_MONTH
+                );
+
+        DatePickerDialog datePickerDialog =
+                new DatePickerDialog(
+                        this,
+                        (view,
+                         selectedYear,
+                         selectedMonth,
+                         selectedDay) -> {
+
+                            selectedDate.set(
+                                    Calendar.YEAR,
+                                    selectedYear
+                            );
+
+                            selectedDate.set(
+                                    Calendar.MONTH,
+                                    selectedMonth
+                            );
+
+                            selectedDate.set(
+                                    Calendar.DAY_OF_MONTH,
+                                    selectedDay
+                            );
+
+                            updateSelectedDateText();
+                        },
+                        year,
+                        month,
+                        day
+                );
 
         datePickerDialog.show();
     }
 
     private void updateSelectedDateText() {
-        String dateText = new SimpleDateFormat(
-                "dd MMMM yyyy",
-                Locale.getDefault()
-        ).format(selectedDate.getTime());
+        String dateText =
+                new SimpleDateFormat(
+                        "dd MMMM yyyy",
+                        Locale.ENGLISH
+                ).format(
+                        selectedDate.getTime()
+                );
 
-        txtSelectedDate.setText(dateText);
+        txtSelectedDate.setText(
+                dateText
+        );
     }
 
     private void updateTransaction() {
-        String amountText = etAmount.getText().toString().trim();
-        String note = etNote.getText().toString().trim();
+        String amountText =
+                etAmount.getText() == null
+                        ? ""
+                        : etAmount.getText()
+                        .toString()
+                        .trim();
 
-        if (transactionId == 0) {
+        String note =
+                etNote.getText() == null
+                        ? ""
+                        : etNote.getText()
+                        .toString()
+                        .trim();
+
+        if (transactionId <= 0) {
             Toast.makeText(
                     this,
                     "Transaction नहीं मिला",
                     Toast.LENGTH_SHORT
             ).show();
+
             return;
         }
 
-        if (categories.isEmpty()) {
+        if (!categoryReady
+                || categories.isEmpty()) {
+
             Toast.makeText(
                     this,
                     "पहले इस type की category बनाएँ",
                     Toast.LENGTH_SHORT
             ).show();
+
             return;
         }
 
-        if (accounts.isEmpty()) {
+        if (!accountReady
+                || accounts.isEmpty()) {
+
             Toast.makeText(
                     this,
                     "पहले Account बनाएँ",
                     Toast.LENGTH_SHORT
             ).show();
+
             return;
         }
 
-        if (TextUtils.isEmpty(amountText)) {
-            etAmount.setError("Amount डालें");
+        if (TextUtils.isEmpty(
+                amountText
+        )) {
+            etAmount.setError(
+                    "Amount डालें"
+            );
+
             etAmount.requestFocus();
             return;
         }
@@ -389,78 +830,178 @@ public class EditTransactionActivity extends AppCompatActivity {
         double amount;
 
         try {
-            amount = Double.parseDouble(amountText);
+            amount =
+                    Double.parseDouble(
+                            amountText
+                    );
+
         } catch (NumberFormatException exception) {
-            etAmount.setError("सही amount डालें");
+            etAmount.setError(
+                    "सही amount डालें"
+            );
+
             etAmount.requestFocus();
             return;
         }
 
         if (amount <= 0) {
-            etAmount.setError("Amount 0 से बड़ा होना चाहिए");
+            etAmount.setError(
+                    "Amount 0 से बड़ा होना चाहिए"
+            );
+
             etAmount.requestFocus();
             return;
         }
 
-        int categoryPosition = spinnerCategory.getSelectedItemPosition();
-        int accountPosition = spinnerAccount.getSelectedItemPosition();
+        int categoryPosition =
+                spinnerCategory
+                        .getSelectedItemPosition();
 
-        if (categoryPosition < 0 || categoryPosition >= categories.size()) {
+        int accountPosition =
+                spinnerAccount
+                        .getSelectedItemPosition();
+
+        if (categoryPosition < 0
+                || categoryPosition
+                >= categories.size()) {
+
             Toast.makeText(
                     this,
                     "Category चुनें",
                     Toast.LENGTH_SHORT
             ).show();
+
             return;
         }
 
-        if (accountPosition < 0 || accountPosition >= accounts.size()) {
+        if (accountPosition < 0
+                || accountPosition
+                >= accounts.size()) {
+
             Toast.makeText(
                     this,
                     "Account चुनें",
                     Toast.LENGTH_SHORT
             ).show();
+
             return;
         }
 
-        Category selectedCategory = categories.get(categoryPosition);
-        Account selectedAccount = accounts.get(accountPosition);
+        Category selectedCategory =
+                categories.get(
+                        categoryPosition
+                );
+
+        Account selectedAccount =
+                accounts.get(
+                        accountPosition
+                );
 
         btnUpdate.setEnabled(false);
+        btnUpdate.setText(
+                "Updating Transaction..."
+        );
 
-        Transaction transaction = new Transaction();
-        transaction.setId(transactionId);
-        transaction.setType(getSelectedType());
-        transaction.setAmount(amount);
-        transaction.setCategory(selectedCategory.getName());
-        transaction.setAccount(selectedAccount.getName());
+        Transaction transaction =
+                new Transaction();
+
+        transaction.setId(
+                transactionId
+        );
+
+        transaction.setType(
+                getSelectedDatabaseType()
+        );
+
+        transaction.setAmount(
+                amount
+        );
+
+        transaction.setCategory(
+                selectedCategory.getName()
+        );
+
+        transaction.setAccount(
+                selectedAccount.getName()
+        );
+
         transaction.setNote(note);
 
-        String date = new SimpleDateFormat(
-                "yyyy-MM-dd HH:mm",
-                Locale.getDefault()
-        ).format(selectedDate.getTime());
+        String date =
+                new SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm",
+                        Locale.US
+                ).format(
+                        selectedDate.getTime()
+                );
 
         transaction.setDate(date);
 
-        transactionRepository.update(transaction, () -> {
-            Toast.makeText(
-                    EditTransactionActivity.this,
-                    "Transaction updated",
-                    Toast.LENGTH_SHORT
-            ).show();
+        transactionRepository.update(
+                transaction,
+                () -> {
+                    Toast.makeText(
+                            EditTransactionActivity.this,
+                            "Transaction updated",
+                            Toast.LENGTH_SHORT
+                    ).show();
 
-            finish();
-        });
+                    finish();
+                }
+        );
     }
 
-    private String getSelectedType() {
-        String type = spinnerType.getSelectedItem().toString();
+    private String getSelectedDatabaseType() {
+        Object selectedItem =
+                spinnerType.getSelectedItem();
 
-        if (type.equals("Income")) {
+        if (selectedItem != null
+                && selectedItem.toString()
+                .equalsIgnoreCase(
+                        "Income"
+                )) {
             return "INCOME";
         }
 
         return "EXPENSE";
+    }
+
+    private String getSelectedRepositoryType() {
+        return getSelectedDatabaseType()
+                .equals("INCOME")
+                ? "Income"
+                : "Expense";
+    }
+
+    private String normalizeDatabaseType(
+            String type
+    ) {
+        if (type != null
+                && type.trim()
+                .equalsIgnoreCase(
+                        "INCOME"
+                )) {
+            return "INCOME";
+        }
+
+        return "EXPENSE";
+    }
+
+    private String formatPlainAmount(
+            double amount
+    ) {
+        if (amount == Math.rint(amount)) {
+            return String.format(
+                    Locale.US,
+                    "%.0f",
+                    amount
+            );
+        }
+
+        return String.format(
+                Locale.US,
+                "%.2f",
+                amount
+        );
     }
 }

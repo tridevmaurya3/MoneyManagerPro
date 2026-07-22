@@ -1,19 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Android 13+ bill and subscription notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Fingerprint and Face Unlock -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- Compatibility for Android 8.1 and older -->
+    <uses-permission
+        android:name="android.permission.USE_FINGERPRINT"
+        android:maxSdkVersion="27" />
+
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="Money Manager Pro"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MoneyManagerPro">
 
+        <!-- HELP -->
+
         <activity
             android:name=".activities.HelpActivity"
             android:exported="false" />
+
+        <!-- IMPORT AND RECEIPTS -->
 
         <activity
             android:name=".activities.CsvImportActivity"
@@ -23,6 +37,8 @@
             android:name=".activities.ReceiptGalleryActivity"
             android:exported="false" />
 
+        <!-- FINANCIAL INSIGHTS -->
+
         <activity
             android:name=".activities.FinanceAdvisorActivity"
             android:exported="false" />
@@ -30,6 +46,16 @@
         <activity
             android:name=".activities.ChartsActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".activities.AnalyticsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.ReportActivity"
+            android:exported="false" />
+
+        <!-- PLANNING AND TRACKING -->
 
         <activity
             android:name=".activities.SubscriptionActivity"
@@ -44,15 +70,7 @@
             android:exported="false" />
 
         <activity
-            android:name=".activities.BackupActivity"
-            android:exported="false" />
-
-        <activity
             android:name=".activities.LoanActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.ExportActivity"
             android:exported="false" />
 
         <activity
@@ -64,8 +82,24 @@
             android:exported="false" />
 
         <activity
-            android:name=".activities.AnalyticsActivity"
+            android:name=".activities.GoalActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".activities.InvestmentActivity"
+            android:exported="false" />
+
+        <!-- BACKUP AND EXPORT -->
+
+        <activity
+            android:name=".activities.BackupActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.ExportActivity"
+            android:exported="false" />
+
+        <!-- SETTINGS AND SECURITY -->
 
         <activity
             android:name=".activities.SettingsActivity"
@@ -75,9 +109,7 @@
             android:name=".activities.PinActivity"
             android:exported="false" />
 
-        <activity
-            android:name=".activities.GoalActivity"
-            android:exported="false" />
+        <!-- ACCOUNTS AND TRANSACTIONS -->
 
         <activity
             android:name=".activities.TransferActivity"
@@ -96,10 +128,6 @@
             android:exported="false" />
 
         <activity
-            android:name=".activities.ReportActivity"
-            android:exported="false" />
-
-        <activity
             android:name=".activities.CategoryActivity"
             android:exported="false" />
 
@@ -111,13 +139,13 @@
             android:name=".activities.AddIncomeActivity"
             android:exported="false" />
 
+        <!-- MAIN DASHBOARD -->
+
         <activity
             android:name=".activities.DashboardActivity"
             android:exported="false" />
 
-        <activity
-            android:name=".activities.InvestmentActivity"
-            android:exported="false" />
+        <!-- HOME-SCREEN FINANCE WIDGET -->
 
         <receiver
             android:name=".widget.FinanceWidgetProvider"
@@ -133,12 +161,15 @@
 
         </receiver>
 
+        <!-- APP LAUNCHER -->
+
         <activity
             android:name=".activities.SplashActivity"
             android:exported="true">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 

@@ -1,251 +1,352 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F4F7FC"
-    android:fillViewport="true">
+    android:background="@color/app_background"
+    android:clipToPadding="false"
+    android:fillViewport="true"
+    android:overScrollMode="never">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="18dp">
+        android:paddingStart="16dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="36dp">
+
+        <!-- BACK BUTTON -->
 
         <TextView
             android:id="@+id/btnBack"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:padding="6dp"
-            android:text="← Back"
-            android:textColor="#2E7D32"
-            android:textSize="16sp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:minWidth="74dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="12dp"
+            android:text="←  Back"
+            android:textColor="@color/success"
+            android:textSize="15sp"
             android:textStyle="bold" />
+
+        <!-- PAGE TITLE -->
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:text="Savings Goals"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:lineSpacingExtra="2dp"
+            android:text="Create financial targets and track your saving progress."
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
+
+        <!-- GOAL OVERVIEW CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:cardBackgroundColor="#2E7D32"
-            app:cardCornerRadius="28dp"
-            app:cardElevation="10dp">
+            android:layout_marginTop="17dp"
+            app:cardBackgroundColor="@color/success_surface"
+            app:cardCornerRadius="22dp"
+            app:cardElevation="1dp"
+            app:strokeColor="@color/success_outline"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:padding="22dp">
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="17dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="SAVINGS GOALS"
-                    android:textColor="#DFF7E2"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    app:cardBackgroundColor="@color/app_surface"
+                    app:cardCornerRadius="15dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/success_outline"
+                    app:strokeWidth="1dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Create a Goal"
-                    android:textColor="#FFFFFF"
-                    android:textSize="27sp"
-                    android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="◎"
+                        android:textColor="@color/success"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="wrap_content"
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="Turn your savings plans into reality"
-                    android:textColor="#DFF7E2"
-                    android:textSize="15sp" />
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Plan Your Future"
+                        android:textColor="@color/success"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="Set a target, add savings regularly and watch your progress grow."
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="11sp" />
+
+                </LinearLayout>
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- CREATE GOAL TITLE -->
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="23dp"
+            android:text="Create New Goal"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="Enter the target details and optional initial saving"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
+
+        <!-- GOAL FORM CARD -->
+
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            app:cardBackgroundColor="#FFFFFF"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="6dp">
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@color/app_surface"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="1dp"
+            app:strokeColor="@color/app_outline_soft"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="17dp">
+
+                <!-- GOAL NAME -->
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="New Savings Goal"
-                    android:textColor="#172033"
-                    android:textSize="19sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:gravity="center"
                     android:text="Goal Name"
-                    android:textColor="#2E7D32"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputGoalName"
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32">
+                    android:layout_marginTop="3dp"
+                    android:text="Give your savings goal a clear name"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputGoalName"
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Example: New Laptop">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etGoalName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:hint="Example: New Laptop"
-                        android:textAlignment="center"
-                        android:textSize="16sp" />
+                        android:inputType="textCapWords"
+                        android:maxLength="60"
+                        android:maxLines="1"
+                        android:minHeight="54dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="15sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- TARGET AMOUNT -->
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
+                    android:layout_marginTop="17dp"
                     android:text="Target Amount"
-                    android:textColor="#2E7D32"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputTargetAmount"
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32">
+                    android:layout_marginTop="3dp"
+                    android:text="Enter the total amount required to complete this goal"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputTargetAmount"
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Target amount"
+                    app:prefixText="₹  ">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etTargetAmount"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:hint="₹ 0.00"
+                        android:gravity="start|center_vertical"
                         android:inputType="numberDecimal"
-                        android:textAlignment="center"
-                        android:textSize="19sp"
+                        android:maxLines="1"
+                        android:minHeight="56dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- INITIAL SAVING -->
+
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
-                    android:text="Initial Saving (Optional)"
-                    android:textColor="#2E7D32"
+                    android:layout_marginTop="17dp"
+                    android:text="Initial Saving"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputInitialSaving"
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32">
+                    android:layout_marginTop="3dp"
+                    android:text="Optional amount you have already saved"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputInitialSaving"
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Initial saving"
+                    app:helperText="Leave empty when you are starting from zero"
+                    app:prefixText="₹  ">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etInitialSaving"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:hint="₹ 0.00"
+                        android:gravity="start|center_vertical"
                         android:inputType="numberDecimal"
-                        android:textAlignment="center"
-                        android:textSize="19sp" />
+                        android:maxLines="1"
+                        android:minHeight="56dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="16sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- TARGET DATE -->
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
+                    android:layout_marginTop="17dp"
                     android:text="Target Date"
-                    android:textColor="#2E7D32"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32">
+                    android:layout_marginTop="3dp"
+                    android:text="Select the planned completion date"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Goal target date">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etTargetDate"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:clickable="true"
+                        android:cursorVisible="false"
                         android:focusable="false"
-                        android:gravity="center"
+                        android:gravity="start|center_vertical"
                         android:inputType="none"
-                        android:textAlignment="center"
-                        android:textSize="16sp" />
+                        android:minHeight="54dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
 
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- GOAL COLOR -->
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
-                    android:text="Goal Color"
-                    android:textColor="#2E7D32"
+                    android:layout_marginTop="17dp"
+                    android:text="Goal Colour"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32"
+                    android:layout_marginTop="3dp"
+                    android:text="This colour will identify the goal and its progress"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Select goal colour"
                     app:endIconMode="dropdown_menu">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -254,38 +355,91 @@
                         android:layout_height="wrap_content"
                         android:clickable="true"
                         android:focusable="false"
-                        android:gravity="center"
+                        android:gravity="start|center_vertical"
                         android:inputType="none"
-                        android:textAlignment="center"
-                        android:textSize="16sp" />
+                        android:minHeight="54dp"
+                        android:paddingStart="15dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="15sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- CREATE BUTTON -->
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSaveGoal"
+                    style="@style/Widget.MoneyManagerPro.Button.Secondary"
                     android:layout_width="match_parent"
-                    android:layout_height="58dp"
-                    android:layout_marginTop="22dp"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="20dp"
                     android:text="Create Goal"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="#2E7D32"
-                    app:cornerRadius="26dp" />
+                    android:textColor="@color/white"
+                    app:backgroundTint="@color/success"
+                    app:cornerRadius="18dp" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- INFORMATION CARD -->
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="13dp"
+            app:cardBackgroundColor="@color/info_surface"
+            app:cardCornerRadius="15dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/info_outline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="13dp">
+
+                <TextView
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:gravity="center"
+                    android:text="i"
+                    android:textColor="@color/secondary"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Goal savings are tracked separately. Adding saving here does not automatically deduct money from an account."
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- SAVED GOALS -->
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:gravity="center"
+            android:layout_marginTop="25dp"
             android:text="Your Goals"
-            android:textColor="#172033"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="Review progress, add savings or remove completed plans"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
+
+        <!-- EMPTY STATE -->
 
         <TextView
             android:id="@+id/txtEmptyGoals"
@@ -293,17 +447,23 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:gravity="center"
-            android:text="No savings goals created yet."
-            android:textColor="#64748B"
-            android:textSize="15sp"
+            android:lineSpacingExtra="3dp"
+            android:paddingStart="20dp"
+            android:paddingTop="30dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="30dp"
+            android:text="No savings goals created yet.&#10;Create your first goal using the form above."
+            android:textColor="@color/app_text_secondary"
+            android:textSize="14sp"
             android:visibility="gone" />
+
+        <!-- DYNAMIC GOAL CARDS -->
 
         <LinearLayout
             android:id="@+id/goalContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginTop="7dp"
             android:orientation="vertical" />
 
     </LinearLayout>

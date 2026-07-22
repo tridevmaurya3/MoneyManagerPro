@@ -6,8 +6,10 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -15,6 +17,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
@@ -28,7 +31,6 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.NumberFormat;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -38,15 +40,22 @@ public class AccountActivity extends AppCompatActivity {
 
     private TextInputLayout inputCustomAccountName;
     private TextInputLayout inputOpeningBalance;
+
     private TextInputEditText etCustomAccountName;
     private TextInputEditText etOpeningBalance;
+
     private MaterialAutoCompleteTextView dropdownAccountName;
     private MaterialAutoCompleteTextView dropdownColor;
+
     private TextView txtDetectedType;
+    private TextView txtEmptyAccounts;
+
     private MaterialButton btnSaveAccount;
     private MaterialButton btnTransferMoney;
+
     private LinearLayout accountContainer;
-    private TextView txtEmptyAccounts;
+
+    private View emptyAccountsCard;
 
     private String selectedAccountType = "Bank";
 
@@ -73,7 +82,12 @@ public class AccountActivity extends AppCompatActivity {
     };
 
     private final String[] colorNames = {
-            "Blue", "Green", "Purple", "Orange", "Red", "Teal"
+            "Blue",
+            "Green",
+            "Purple",
+            "Orange",
+            "Red",
+            "Teal"
     };
 
     @Override
@@ -81,32 +95,10 @@ public class AccountActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_account);
 
-        inputCustomAccountName = findViewById(R.id.inputCustomAccountName);
-        inputOpeningBalance = findViewById(R.id.inputOpeningBalance);
-        etCustomAccountName = findViewById(R.id.etCustomAccountName);
-        etOpeningBalance = findViewById(R.id.etOpeningBalance);
-        dropdownAccountName = findViewById(R.id.dropdownAccountName);
-        dropdownColor = findViewById(R.id.dropdownColor);
-        txtDetectedType = findViewById(R.id.txtDetectedType);
-        btnSaveAccount = findViewById(R.id.btnSaveAccount);
-        btnTransferMoney = findViewById(R.id.btnTransferMoney);
-        accountContainer = findViewById(R.id.accountContainer);
-        txtEmptyAccounts = findViewById(R.id.txtEmptyAccounts);
-
-        TextView btnBack = findViewById(R.id.btnBack);
-
-        btnBack.setOnClickListener(v -> finish());
-
+        initializeViews();
         setupDropdowns();
-
-        BubbleTouchAnimator.apply(btnSaveAccount);
-        BubbleTouchAnimator.apply(btnTransferMoney);
-
-        btnSaveAccount.setOnClickListener(v -> saveAccount());
-
-        btnTransferMoney.setOnClickListener(v ->
-                startActivity(new Intent(AccountActivity.this, TransferActivity.class))
-        );
+        setupClickListeners();
+        applyTouchAnimations();
     }
 
     @Override
@@ -115,101 +107,251 @@ public class AccountActivity extends AppCompatActivity {
         loadAccounts();
     }
 
+    private void initializeViews() {
+        inputCustomAccountName =
+                findViewById(R.id.inputCustomAccountName);
+
+        inputOpeningBalance =
+                findViewById(R.id.inputOpeningBalance);
+
+        etCustomAccountName =
+                findViewById(R.id.etCustomAccountName);
+
+        etOpeningBalance =
+                findViewById(R.id.etOpeningBalance);
+
+        dropdownAccountName =
+                findViewById(R.id.dropdownAccountName);
+
+        dropdownColor =
+                findViewById(R.id.dropdownColor);
+
+        txtDetectedType =
+                findViewById(R.id.txtDetectedType);
+
+        btnSaveAccount =
+                findViewById(R.id.btnSaveAccount);
+
+        btnTransferMoney =
+                findViewById(R.id.btnTransferMoney);
+
+        accountContainer =
+                findViewById(R.id.accountContainer);
+
+        txtEmptyAccounts =
+                findViewById(R.id.txtEmptyAccounts);
+
+        View parentView =
+                (View) txtEmptyAccounts.getParent();
+
+        emptyAccountsCard = parentView;
+
+        TextView btnBack =
+                findViewById(R.id.btnBack);
+
+        btnBack.setOnClickListener(
+                view -> finish()
+        );
+    }
+
+    private void setupClickListeners() {
+        btnSaveAccount.setOnClickListener(
+                view -> saveAccount()
+        );
+
+        btnTransferMoney.setOnClickListener(
+                view -> startActivity(
+                        new Intent(
+                                AccountActivity.this,
+                                TransferActivity.class
+                        )
+                )
+        );
+    }
+
+    private void applyTouchAnimations() {
+        BubbleTouchAnimator.apply(btnSaveAccount);
+        BubbleTouchAnimator.apply(btnTransferMoney);
+    }
+
     private void setupDropdowns() {
-        ArrayAdapter<String> accountAdapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                accountNames
+        ArrayAdapter<String> accountAdapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_list_item_1,
+                        accountNames
+                );
+
+        ArrayAdapter<String> colorAdapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_list_item_1,
+                        colorNames
+                );
+
+        dropdownAccountName.setAdapter(
+                accountAdapter
         );
 
-        ArrayAdapter<String> colorAdapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                colorNames
+        dropdownColor.setAdapter(
+                colorAdapter
         );
 
-        dropdownAccountName.setAdapter(accountAdapter);
-        dropdownColor.setAdapter(colorAdapter);
+        dropdownAccountName.setText(
+                "Cash",
+                false
+        );
 
-        dropdownAccountName.setText("Cash", false);
-        dropdownColor.setText("Blue", false);
+        dropdownColor.setText(
+                "Blue",
+                false
+        );
 
         updateAccountType("Cash");
 
-        dropdownAccountName.setOnItemClickListener((parent, view, position, id) -> {
-            String accountName = dropdownAccountName.getText().toString().trim();
-            updateAccountType(accountName);
-        });
+        dropdownAccountName.setOnItemClickListener(
+                (parent, view, position, id) -> {
+                    String accountName =
+                            dropdownAccountName
+                                    .getText()
+                                    .toString()
+                                    .trim();
+
+                    updateAccountType(accountName);
+                }
+        );
     }
 
-    private void updateAccountType(String accountName) {
-        boolean isCustomAccount = accountName.equalsIgnoreCase("Other / Custom Name");
+    private void updateAccountType(
+            String accountName
+    ) {
+        inputCustomAccountName.setError(null);
+
+        boolean isCustomAccount =
+                accountName.equalsIgnoreCase(
+                        "Other / Custom Name"
+                );
 
         inputCustomAccountName.setVisibility(
-                isCustomAccount ? View.VISIBLE : View.GONE
+                isCustomAccount
+                        ? View.VISIBLE
+                        : View.GONE
         );
 
         if (isCustomAccount) {
             selectedAccountType = "Other";
-            txtDetectedType.setText("Account Type: Custom Account");
+
+            txtDetectedType.setText(
+                    "Account Type: Custom Account"
+            );
+
             return;
         }
 
         if (accountName.equalsIgnoreCase("Cash")) {
             selectedAccountType = "Cash";
-            txtDetectedType.setText("Account Type: Cash");
+
+            txtDetectedType.setText(
+                    "Account Type: Cash"
+            );
+
             return;
         }
 
-        String lowerName = accountName.toLowerCase();
+        String lowerName =
+                accountName.toLowerCase(
+                        Locale.getDefault()
+                );
 
         if (lowerName.contains("wallet")) {
             selectedAccountType = "Wallet";
-            txtDetectedType.setText("Account Type: Digital Wallet");
+
+            txtDetectedType.setText(
+                    "Account Type: Digital Wallet"
+            );
+
             return;
         }
 
         if (lowerName.contains("google pay")
                 || lowerName.contains("amazon pay")
                 || lowerName.contains("phonepe")) {
+
             selectedAccountType = "UPI";
-            txtDetectedType.setText("Account Type: UPI / Digital Payment");
+
+            txtDetectedType.setText(
+                    "Account Type: UPI / Digital Payment"
+            );
+
             return;
         }
 
         selectedAccountType = "Bank";
-        txtDetectedType.setText("Account Type: Bank Account");
+
+        txtDetectedType.setText(
+                "Account Type: Bank Account"
+        );
     }
 
     private void saveAccount() {
-        String selectedName = dropdownAccountName.getText().toString().trim();
+        String selectedName =
+                dropdownAccountName
+                        .getText()
+                        .toString()
+                        .trim();
+
+        if (selectedName.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "Please select an account",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
+        }
 
         String accountName;
 
-        if (selectedName.equalsIgnoreCase("Other / Custom Name")) {
-            accountName = etCustomAccountName.getText() == null
-                    ? ""
-                    : etCustomAccountName.getText().toString().trim();
+        if (selectedName.equalsIgnoreCase(
+                "Other / Custom Name"
+        )) {
+            accountName =
+                    getEditTextValue(
+                            etCustomAccountName
+                    );
 
             if (accountName.isEmpty()) {
-                inputCustomAccountName.setError("Please enter account name");
+                inputCustomAccountName.setError(
+                        "Please enter account name"
+                );
+
+                etCustomAccountName.requestFocus();
                 return;
             }
         } else {
             accountName = selectedName;
         }
 
-        String openingBalanceText = etOpeningBalance.getText() == null
-                ? ""
-                : etOpeningBalance.getText().toString().trim();
+        String openingBalanceText =
+                getEditTextValue(
+                        etOpeningBalance
+                );
 
         double openingBalance = 0;
 
         if (!openingBalanceText.isEmpty()) {
             try {
-                openingBalance = Double.parseDouble(openingBalanceText);
+                openingBalance =
+                        Double.parseDouble(
+                                openingBalanceText
+                        );
+
             } catch (Exception exception) {
-                inputOpeningBalance.setError("Enter a valid amount");
+                inputOpeningBalance.setError(
+                        "Enter a valid amount"
+                );
+
+                etOpeningBalance.requestFocus();
                 return;
             }
         }
@@ -217,27 +359,44 @@ public class AccountActivity extends AppCompatActivity {
         inputCustomAccountName.setError(null);
         inputOpeningBalance.setError(null);
 
-        String finalAccountName = accountName;
-        double finalOpeningBalance = openingBalance;
-        String selectedColor = getColorCode(
-                dropdownColor.getText().toString().trim()
-        );
+        String finalAccountName =
+                accountName;
 
-        btnSaveAccount.setEnabled(false);
-        btnSaveAccount.setText("Saving Account...");
+        double finalOpeningBalance =
+                openingBalance;
+
+        String finalAccountType =
+                selectedAccountType;
+
+        String selectedColor =
+                getColorCode(
+                        dropdownColor
+                                .getText()
+                                .toString()
+                                .trim()
+                );
+
+        setSaveButtonLoading(true);
 
         new Thread(() -> {
-            List<Account> accounts = DatabaseClient
-                    .getInstance(getApplicationContext())
-                    .getAppDatabase()
-                    .accountDao()
-                    .getAllAccounts();
+            List<Account> accounts =
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
+                            .getAppDatabase()
+                            .accountDao()
+                            .getAllAccounts();
 
-            for (Account account : accounts) {
-                if (account.getName().equalsIgnoreCase(finalAccountName)) {
+            for (Account savedAccount : accounts) {
+                if (savedAccount
+                        .getName()
+                        .equalsIgnoreCase(
+                                finalAccountName
+                        )) {
+
                     runOnUiThread(() -> {
-                        btnSaveAccount.setEnabled(true);
-                        btnSaveAccount.setText("Save Account");
+                        setSaveButtonLoading(false);
 
                         Toast.makeText(
                                 AccountActivity.this,
@@ -250,26 +409,36 @@ public class AccountActivity extends AppCompatActivity {
                 }
             }
 
-            Account account = new Account();
-            account.setName(finalAccountName);
-            account.setType(selectedAccountType);
-            account.setOpeningBalance(finalOpeningBalance);
-            account.setColor(selectedColor);
+            Account newAccount =
+                    new Account();
 
-            DatabaseClient.getInstance(getApplicationContext())
+            newAccount.setName(
+                    finalAccountName
+            );
+
+            newAccount.setType(
+                    finalAccountType
+            );
+
+            newAccount.setOpeningBalance(
+                    finalOpeningBalance
+            );
+
+            newAccount.setColor(
+                    selectedColor
+            );
+
+            DatabaseClient
+                    .getInstance(
+                            getApplicationContext()
+                    )
                     .getAppDatabase()
                     .accountDao()
-                    .insert(account);
+                    .insert(newAccount);
 
             runOnUiThread(() -> {
-                etCustomAccountName.setText("");
-                etOpeningBalance.setText("");
-                dropdownAccountName.setText("Cash", false);
-                dropdownColor.setText("Blue", false);
-                updateAccountType("Cash");
-
-                btnSaveAccount.setEnabled(true);
-                btnSaveAccount.setText("Save Account");
+                resetAccountForm();
+                setSaveButtonLoading(false);
 
                 Toast.makeText(
                         AccountActivity.this,
@@ -282,27 +451,71 @@ public class AccountActivity extends AppCompatActivity {
         }).start();
     }
 
+    private void setSaveButtonLoading(
+            boolean loading
+    ) {
+        btnSaveAccount.setEnabled(!loading);
+
+        btnSaveAccount.setText(
+                loading
+                        ? "Saving Account..."
+                        : "Save Account"
+        );
+    }
+
+    private void resetAccountForm() {
+        etCustomAccountName.setText("");
+        etOpeningBalance.setText("");
+
+        dropdownAccountName.setText(
+                "Cash",
+                false
+        );
+
+        dropdownColor.setText(
+                "Blue",
+                false
+        );
+
+        updateAccountType("Cash");
+    }
+
     private void loadAccounts() {
         new Thread(() -> {
-            List<Account> accounts = DatabaseClient
-                    .getInstance(getApplicationContext())
-                    .getAppDatabase()
-                    .accountDao()
-                    .getAllAccounts();
+            List<Account> accounts =
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
+                            .getAppDatabase()
+                            .accountDao()
+                            .getAllAccounts();
 
-            List<AccountBalance> balances = DatabaseClient
-                    .getInstance(getApplicationContext())
-                    .getAppDatabase()
-                    .accountDao()
-                    .getAccountBalances();
+            List<AccountBalance> balances =
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
+                            .getAppDatabase()
+                            .accountDao()
+                            .getAccountBalances();
 
-            Map<Integer, Double> balanceMap = new HashMap<>();
+            Map<Integer, Double> balanceMap =
+                    new HashMap<>();
 
             for (AccountBalance balance : balances) {
-                balanceMap.put(balance.id, balance.currentBalance);
+                balanceMap.put(
+                        balance.id,
+                        balance.currentBalance
+                );
             }
 
-            runOnUiThread(() -> showAccounts(accounts, balanceMap));
+            runOnUiThread(() ->
+                    showAccounts(
+                            accounts,
+                            balanceMap
+                    )
+            );
         }).start();
     }
 
@@ -312,246 +525,933 @@ public class AccountActivity extends AppCompatActivity {
     ) {
         accountContainer.removeAllViews();
 
+        boolean accountListEmpty =
+                accounts == null
+                        || accounts.isEmpty();
+
         txtEmptyAccounts.setVisibility(
-                accounts.isEmpty() ? View.VISIBLE : View.GONE
+                accountListEmpty
+                        ? View.VISIBLE
+                        : View.GONE
         );
+
+        if (emptyAccountsCard != null) {
+            emptyAccountsCard.setVisibility(
+                    accountListEmpty
+                            ? View.VISIBLE
+                            : View.GONE
+            );
+        }
+
+        if (accountListEmpty) {
+            return;
+        }
 
         for (Account account : accounts) {
             double currentBalance = 0;
 
-            if (balanceMap.containsKey(account.getId())) {
-                currentBalance = balanceMap.get(account.getId());
+            Double balance =
+                    balanceMap.get(
+                            account.getId()
+                    );
+
+            if (balance != null) {
+                currentBalance = balance;
             }
 
-            addAccountCard(account, currentBalance);
+            addAccountCard(
+                    account,
+                    currentBalance
+            );
         }
     }
 
-    private void addAccountCard(Account account, double currentBalance) {
-        MaterialCardView card = new MaterialCardView(this);
-        card.setCardBackgroundColor(Color.WHITE);
-        card.setRadius(dpToPx(20));
-        card.setCardElevation(dpToPx(5));
+    private void addAccountCard(
+            Account account,
+            double currentBalance
+    ) {
+        int accountColor =
+                parseAccountColor(
+                        account.getColor()
+                );
 
-        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+        MaterialCardView card =
+                new MaterialCardView(this);
+
+        card.setCardBackgroundColor(
+                getColorValue(
+                        R.color.app_surface
+                )
         );
-        cardParams.setMargins(0, 0, 0, dpToPx(12));
+
+        card.setRadius(dpToPx(20));
+        card.setCardElevation(dpToPx(1));
+        card.setStrokeColor(
+                createTranslucentColor(
+                        accountColor,
+                        90
+                )
+        );
+        card.setStrokeWidth(dpToPx(1));
+        card.setClickable(true);
+        card.setFocusable(true);
+
+        card.setRippleColor(
+                ColorStateList.valueOf(
+                        createTranslucentColor(
+                                accountColor,
+                                35
+                        )
+                )
+        );
+
+        LinearLayout.LayoutParams cardParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        cardParams.setMargins(
+                0,
+                0,
+                0,
+                dpToPx(12)
+        );
+
         card.setLayoutParams(cardParams);
 
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dpToPx(16), dpToPx(15), dpToPx(16), dpToPx(15));
+        LinearLayout content =
+                new LinearLayout(this);
 
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-
-        View colorDot = new View(this);
-
-        GradientDrawable dotBackground = new GradientDrawable();
-        dotBackground.setShape(GradientDrawable.OVAL);
-        dotBackground.setColor(Color.parseColor(safeColor(account.getColor())));
-        colorDot.setBackground(dotBackground);
-
-        LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(
-                dpToPx(44),
-                dpToPx(44)
+        content.setOrientation(
+                LinearLayout.VERTICAL
         );
-        colorDot.setLayoutParams(dotParams);
 
-        LinearLayout details = new LinearLayout(this);
-        details.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(
+                dpToPx(16),
+                dpToPx(16),
+                dpToPx(16),
+                dpToPx(14)
+        );
 
-        LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(
+        LinearLayout header =
+                new LinearLayout(this);
+
+        header.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        header.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        TextView accountIcon =
+                createAccountIcon(
+                        account,
+                        accountColor
+                );
+
+        header.addView(accountIcon);
+
+        LinearLayout accountDetails =
+                new LinearLayout(this);
+
+        accountDetails.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        LinearLayout.LayoutParams detailsParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f
+                );
+
+        detailsParams.setMargins(
+                dpToPx(13),
                 0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1
+                dpToPx(8),
+                0
         );
-        detailsParams.setMargins(dpToPx(12), 0, 0, 0);
-        details.setLayoutParams(detailsParams);
 
-        TextView txtName = new TextView(this);
-        txtName.setText(account.getName());
-        txtName.setTextColor(Color.parseColor("#172033"));
-        txtName.setTextSize(18);
-        txtName.setTypeface(Typeface.DEFAULT_BOLD);
+        accountDetails.setLayoutParams(
+                detailsParams
+        );
 
-        TextView txtType = new TextView(this);
-        txtType.setText(account.getType() + " Account");
-        txtType.setTextColor(Color.parseColor("#64748B"));
-        txtType.setTextSize(13);
+        TextView txtName =
+                new TextView(this);
 
-        details.addView(txtName);
-        details.addView(txtType);
+        txtName.setText(
+                account.getName()
+        );
 
-        TextView txtBalance = new TextView(this);
-        txtBalance.setText(formatAmount(currentBalance));
-        txtBalance.setTextColor(Color.parseColor(safeColor(account.getColor())));
-        txtBalance.setTextSize(19);
-        txtBalance.setTypeface(Typeface.DEFAULT_BOLD);
-        txtBalance.setGravity(Gravity.END);
+        txtName.setTextColor(
+                getColorValue(
+                        R.color.app_text_primary
+                )
+        );
 
-        header.addView(colorDot);
-        header.addView(details);
-        header.addView(txtBalance);
+        txtName.setTextSize(17);
+        txtName.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+        txtName.setMaxLines(2);
 
-        TextView txtOpeningBalance = new TextView(this);
+        TextView txtType =
+                new TextView(this);
+
+        txtType.setText(
+                getAccountTypeLabel(
+                        account.getType()
+                )
+        );
+
+        txtType.setTextColor(
+                getColorValue(
+                        R.color.app_text_secondary
+                )
+        );
+
+        txtType.setTextSize(12);
+
+        LinearLayout.LayoutParams typeParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        typeParams.setMargins(
+                0,
+                dpToPx(3),
+                0,
+                0
+        );
+
+        txtType.setLayoutParams(typeParams);
+
+        accountDetails.addView(txtName);
+        accountDetails.addView(txtType);
+
+        header.addView(accountDetails);
+
+        LinearLayout balanceContainer =
+                new LinearLayout(this);
+
+        balanceContainer.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        balanceContainer.setGravity(
+                Gravity.END
+        );
+
+        TextView balanceLabel =
+                new TextView(this);
+
+        balanceLabel.setText(
+                "Current Balance"
+        );
+
+        balanceLabel.setTextColor(
+                getColorValue(
+                        R.color.app_text_secondary
+                )
+        );
+
+        balanceLabel.setTextSize(10);
+        balanceLabel.setGravity(Gravity.END);
+
+        TextView txtCurrentBalance =
+                new TextView(this);
+
+        txtCurrentBalance.setText(
+                formatAmount(currentBalance)
+        );
+
+        txtCurrentBalance.setTextColor(
+                accountColor
+        );
+
+        txtCurrentBalance.setTextSize(17);
+        txtCurrentBalance.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+        txtCurrentBalance.setGravity(Gravity.END);
+        txtCurrentBalance.setMaxLines(1);
+
+        LinearLayout.LayoutParams balanceParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        balanceParams.setMargins(
+                0,
+                dpToPx(3),
+                0,
+                0
+        );
+
+        txtCurrentBalance.setLayoutParams(
+                balanceParams
+        );
+
+        balanceContainer.addView(balanceLabel);
+        balanceContainer.addView(txtCurrentBalance);
+
+        header.addView(balanceContainer);
+
+        content.addView(header);
+
+        View divider =
+                createDivider();
+
+        LinearLayout.LayoutParams dividerParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dpToPx(1)
+                );
+
+        dividerParams.setMargins(
+                0,
+                dpToPx(15),
+                0,
+                dpToPx(13)
+        );
+
+        divider.setLayoutParams(
+                dividerParams
+        );
+
+        content.addView(divider);
+
+        LinearLayout lowerRow =
+                new LinearLayout(this);
+
+        lowerRow.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        lowerRow.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        LinearLayout openingBalanceContainer =
+                new LinearLayout(this);
+
+        openingBalanceContainer.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        LinearLayout.LayoutParams openingContainerParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f
+                );
+
+        openingBalanceContainer.setLayoutParams(
+                openingContainerParams
+        );
+
+        TextView openingLabel =
+                new TextView(this);
+
+        openingLabel.setText(
+                "Opening Balance"
+        );
+
+        openingLabel.setTextColor(
+                getColorValue(
+                        R.color.app_text_secondary
+                )
+        );
+
+        openingLabel.setTextSize(10);
+
+        TextView txtOpeningBalance =
+                new TextView(this);
+
         txtOpeningBalance.setText(
-                "Opening Balance: " + formatAmount(account.getOpeningBalance())
+                formatAmount(
+                        account.getOpeningBalance()
+                )
         );
-        txtOpeningBalance.setTextColor(Color.parseColor("#64748B"));
-        txtOpeningBalance.setTextSize(13);
 
-        LinearLayout actionRow = new LinearLayout(this);
+        txtOpeningBalance.setTextColor(
+                getColorValue(
+                        R.color.app_text_primary
+                )
+        );
+
+        txtOpeningBalance.setTextSize(14);
+        txtOpeningBalance.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+
+        LinearLayout.LayoutParams openingValueParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        openingValueParams.setMargins(
+                0,
+                dpToPx(3),
+                0,
+                0
+        );
+
+        txtOpeningBalance.setLayoutParams(
+                openingValueParams
+        );
+
+        openingBalanceContainer.addView(
+                openingLabel
+        );
+
+        openingBalanceContainer.addView(
+                txtOpeningBalance
+        );
+
+        lowerRow.addView(
+                openingBalanceContainer
+        );
+
+        LinearLayout actionRow =
+                new LinearLayout(this);
+
         actionRow.setGravity(Gravity.END);
-        actionRow.setOrientation(LinearLayout.HORIZONTAL);
-
-        MaterialButton btnEdit = new MaterialButton(this);
-        btnEdit.setText("Edit");
-        btnEdit.setTextSize(12);
-        btnEdit.setTextColor(Color.WHITE);
-        btnEdit.setAllCaps(false);
-        btnEdit.setCornerRadius(dpToPx(16));
-        btnEdit.setBackgroundTintList(
-                ColorStateList.valueOf(Color.parseColor("#3949AB"))
+        actionRow.setOrientation(
+                LinearLayout.HORIZONTAL
         );
 
-        MaterialButton btnDelete = new MaterialButton(this);
-        btnDelete.setText("Delete");
-        btnDelete.setTextSize(12);
-        btnDelete.setTextColor(Color.WHITE);
-        btnDelete.setAllCaps(false);
-        btnDelete.setCornerRadius(dpToPx(16));
-        btnDelete.setBackgroundTintList(
-                ColorStateList.valueOf(Color.parseColor("#D32F2F"))
+        MaterialButton btnEdit =
+                createActionButton(
+                        "Edit",
+                        getColorValue(
+                                R.color.secondary
+                        ),
+                        getColorValue(
+                                R.color.info_surface
+                        ),
+                        getColorValue(
+                                R.color.info_outline
+                        )
+                );
+
+        MaterialButton btnDelete =
+                createActionButton(
+                        "Delete",
+                        getColorValue(
+                                R.color.expense
+                        ),
+                        getColorValue(
+                                R.color.error_surface
+                        ),
+                        getColorValue(
+                                R.color.error_outline
+                        )
+                );
+
+        LinearLayout.LayoutParams editParams =
+                new LinearLayout.LayoutParams(
+                        dpToPx(72),
+                        dpToPx(42)
+                );
+
+        btnEdit.setLayoutParams(
+                editParams
         );
 
-        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(
-                dpToPx(78),
-                dpToPx(40)
+        LinearLayout.LayoutParams deleteParams =
+                new LinearLayout.LayoutParams(
+                        dpToPx(78),
+                        dpToPx(42)
+                );
+
+        deleteParams.setMargins(
+                dpToPx(7),
+                0,
+                0,
+                0
         );
 
-        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(
-                dpToPx(78),
-                dpToPx(40)
+        btnDelete.setLayoutParams(
+                deleteParams
         );
-        deleteParams.setMargins(dpToPx(8), 0, 0, 0);
 
-        btnEdit.setLayoutParams(editParams);
-        btnDelete.setLayoutParams(deleteParams);
-
-        BubbleTouchAnimator.apply(card);
         BubbleTouchAnimator.apply(btnEdit);
         BubbleTouchAnimator.apply(btnDelete);
 
-        btnEdit.setOnClickListener(v -> showEditDialog(account));
-        btnDelete.setOnClickListener(v -> confirmDelete(account));
+        btnEdit.setOnClickListener(
+                view -> showEditDialog(account)
+        );
+
+        btnDelete.setOnClickListener(
+                view -> confirmDelete(account)
+        );
 
         actionRow.addView(btnEdit);
         actionRow.addView(btnDelete);
 
-        content.addView(header);
-        content.addView(txtOpeningBalance);
-        content.addView(actionRow);
+        lowerRow.addView(actionRow);
+
+        content.addView(lowerRow);
 
         card.addView(content);
+
+        BubbleTouchAnimator.apply(card);
+
+        card.setOnClickListener(
+                view -> showEditDialog(account)
+        );
+
         accountContainer.addView(card);
     }
 
-    private void showEditDialog(Account account) {
-        LinearLayout dialogLayout = new LinearLayout(this);
-        dialogLayout.setOrientation(LinearLayout.VERTICAL);
-        dialogLayout.setPadding(dpToPx(22), dpToPx(10), dpToPx(22), dpToPx(8));
+    private TextView createAccountIcon(
+            Account account,
+            int accountColor
+    ) {
+        TextView iconView =
+                new TextView(this);
 
-        TextView txtAccountName = new TextView(this);
-        txtAccountName.setText(account.getName());
-        txtAccountName.setTextColor(Color.parseColor("#172033"));
-        txtAccountName.setTextSize(20);
-        txtAccountName.setTypeface(Typeface.DEFAULT_BOLD);
-        txtAccountName.setGravity(Gravity.CENTER);
-
-        TextView txtInfo = new TextView(this);
-        txtInfo.setText("Account name cannot be changed to protect transaction history.");
-        txtInfo.setTextColor(Color.parseColor("#64748B"));
-        txtInfo.setTextSize(13);
-        txtInfo.setGravity(Gravity.CENTER);
-
-        dialogLayout.addView(txtAccountName);
-        dialogLayout.addView(txtInfo);
-
-        TextView txtBalanceLabel = createLabel("Opening Balance");
-        dialogLayout.addView(txtBalanceLabel);
-
-        TextInputLayout inputBalance = new TextInputLayout(this);
-        inputBalance.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
-
-        TextInputEditText editBalance = new TextInputEditText(this);
-        editBalance.setText(String.valueOf(account.getOpeningBalance()));
-        editBalance.setGravity(Gravity.CENTER);
-        editBalance.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        editBalance.setInputType(2);
-
-        inputBalance.addView(editBalance);
-        dialogLayout.addView(inputBalance);
-
-        TextView txtColorLabel = createLabel("Account Color");
-        dialogLayout.addView(txtColorLabel);
-
-        TextInputLayout inputColor = new TextInputLayout(this);
-        inputColor.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
-        inputColor.setEndIconMode(TextInputLayout.END_ICON_DROPDOWN_MENU);
-
-        MaterialAutoCompleteTextView editColor = new MaterialAutoCompleteTextView(this);
-        editColor.setGravity(Gravity.CENTER);
-        editColor.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        editColor.setFocusable(false);
-        editColor.setInputType(0);
-
-        ArrayAdapter<String> colorAdapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                colorNames
+        iconView.setText(
+                getAccountIconText(
+                        account.getType()
+                )
         );
 
+        iconView.setTextColor(
+                accountColor
+        );
+
+        iconView.setTextSize(19);
+        iconView.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+
+        iconView.setGravity(Gravity.CENTER);
+
+        GradientDrawable iconBackground =
+                new GradientDrawable();
+
+        iconBackground.setShape(
+                GradientDrawable.RECTANGLE
+        );
+
+        iconBackground.setColor(
+                createTranslucentColor(
+                        accountColor,
+                        25
+                )
+        );
+
+        iconBackground.setStroke(
+                dpToPx(1),
+                createTranslucentColor(
+                        accountColor,
+                        80
+                )
+        );
+
+        iconBackground.setCornerRadius(
+                dpToPx(14)
+        );
+
+        iconView.setBackground(
+                iconBackground
+        );
+
+        LinearLayout.LayoutParams iconParams =
+                new LinearLayout.LayoutParams(
+                        dpToPx(48),
+                        dpToPx(48)
+                );
+
+        iconView.setLayoutParams(
+                iconParams
+        );
+
+        return iconView;
+    }
+
+    private MaterialButton createActionButton(
+            String text,
+            int textColor,
+            int backgroundColor,
+            int strokeColor
+    ) {
+        MaterialButton button =
+                new MaterialButton(this);
+
+        button.setText(text);
+        button.setTextSize(12);
+        button.setTextColor(textColor);
+        button.setAllCaps(false);
+        button.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+        button.setGravity(Gravity.CENTER);
+        button.setCornerRadius(dpToPx(13));
+
+        button.setBackgroundTintList(
+                ColorStateList.valueOf(
+                        backgroundColor
+                )
+        );
+
+        button.setStrokeColor(
+                ColorStateList.valueOf(
+                        strokeColor
+                )
+        );
+
+        button.setStrokeWidth(dpToPx(1));
+
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+
+        button.setPadding(
+                dpToPx(6),
+                0,
+                dpToPx(6),
+                0
+        );
+
+        return button;
+    }
+
+    private View createDivider() {
+        View divider =
+                new View(this);
+
+        divider.setBackgroundColor(
+                getColorValue(
+                        R.color.app_divider
+                )
+        );
+
+        return divider;
+    }
+
+    private void showEditDialog(
+            Account account
+    ) {
+        LinearLayout dialogLayout =
+                new LinearLayout(this);
+
+        dialogLayout.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        dialogLayout.setPadding(
+                dpToPx(22),
+                dpToPx(8),
+                dpToPx(22),
+                dpToPx(8)
+        );
+
+        TextView accountIcon =
+                createAccountIcon(
+                        account,
+                        parseAccountColor(
+                                account.getColor()
+                        )
+                );
+
+        LinearLayout.LayoutParams iconParams =
+                new LinearLayout.LayoutParams(
+                        dpToPx(54),
+                        dpToPx(54)
+                );
+
+        iconParams.gravity =
+                Gravity.CENTER_HORIZONTAL;
+
+        accountIcon.setLayoutParams(
+                iconParams
+        );
+
+        dialogLayout.addView(
+                accountIcon
+        );
+
+        TextView txtAccountName =
+                new TextView(this);
+
+        txtAccountName.setText(
+                account.getName()
+        );
+
+        txtAccountName.setTextColor(
+                getColorValue(
+                        R.color.app_text_primary
+                )
+        );
+
+        txtAccountName.setTextSize(20);
+        txtAccountName.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+        txtAccountName.setGravity(
+                Gravity.CENTER
+        );
+
+        LinearLayout.LayoutParams accountNameParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        accountNameParams.setMargins(
+                0,
+                dpToPx(10),
+                0,
+                0
+        );
+
+        txtAccountName.setLayoutParams(
+                accountNameParams
+        );
+
+        dialogLayout.addView(
+                txtAccountName
+        );
+
+        TextView txtInfo =
+                new TextView(this);
+
+        txtInfo.setText(
+                "Account name cannot be changed because existing transactions are linked to it."
+        );
+
+        txtInfo.setTextColor(
+                getColorValue(
+                        R.color.app_text_secondary
+                )
+        );
+
+        txtInfo.setTextSize(12);
+        txtInfo.setGravity(Gravity.CENTER);
+        txtInfo.setLineSpacing(
+                dpToPx(2),
+                1f
+        );
+
+        LinearLayout.LayoutParams infoParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        infoParams.setMargins(
+                0,
+                dpToPx(5),
+                0,
+                dpToPx(4)
+        );
+
+        txtInfo.setLayoutParams(
+                infoParams
+        );
+
+        dialogLayout.addView(txtInfo);
+
+        TextView txtBalanceLabel =
+                createLabel(
+                        "Opening Balance"
+                );
+
+        dialogLayout.addView(
+                txtBalanceLabel
+        );
+
+        TextInputLayout inputBalance =
+                createDialogInputLayout(
+                        "Opening balance"
+                );
+
+        inputBalance.setPrefixText("₹  ");
+
+        TextInputEditText editBalance =
+                new TextInputEditText(this);
+
+        editBalance.setText(
+                formatPlainAmount(
+                        account.getOpeningBalance()
+                )
+        );
+
+        editBalance.setInputType(
+                InputType.TYPE_CLASS_NUMBER
+                        | InputType.TYPE_NUMBER_FLAG_DECIMAL
+                        | InputType.TYPE_NUMBER_FLAG_SIGNED
+        );
+
+        editBalance.setSingleLine(true);
+        editBalance.setTextSize(16);
+        editBalance.setTextColor(
+                getColorValue(
+                        R.color.app_text_primary
+                )
+        );
+
+        inputBalance.addView(editBalance);
+
+        dialogLayout.addView(
+                inputBalance
+        );
+
+        TextView txtColorLabel =
+                createLabel(
+                        "Account Color"
+                );
+
+        dialogLayout.addView(
+                txtColorLabel
+        );
+
+        TextInputLayout inputColor =
+                createDialogInputLayout(
+                        "Select color"
+                );
+
+        inputColor.setEndIconMode(
+                TextInputLayout.END_ICON_DROPDOWN_MENU
+        );
+
+        MaterialAutoCompleteTextView editColor =
+                new MaterialAutoCompleteTextView(this);
+
+        editColor.setFocusable(false);
+        editColor.setInputType(
+                InputType.TYPE_NULL
+        );
+        editColor.setTextSize(15);
+        editColor.setTextColor(
+                getColorValue(
+                        R.color.app_text_primary
+                )
+        );
+        editColor.setPadding(
+                dpToPx(16),
+                0,
+                dpToPx(12),
+                0
+        );
+
+        ArrayAdapter<String> colorAdapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_list_item_1,
+                        colorNames
+                );
+
         editColor.setAdapter(colorAdapter);
-        editColor.setText(getColorName(account.getColor()), false);
+
+        editColor.setText(
+                getColorName(
+                        account.getColor()
+                ),
+                false
+        );
 
         inputColor.addView(editColor);
-        dialogLayout.addView(inputColor);
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Edit Account")
-                .setView(dialogLayout)
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Save", null)
-                .create();
+        dialogLayout.addView(
+                inputColor
+        );
+
+        AlertDialog dialog =
+                new AlertDialog.Builder(this)
+                        .setTitle("Edit Account")
+                        .setView(dialogLayout)
+                        .setNegativeButton(
+                                "Cancel",
+                                null
+                        )
+                        .setPositiveButton(
+                                "Save",
+                                null
+                        )
+                        .create();
 
         dialog.setOnShowListener(listener -> {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                String openingText = editBalance.getText() == null
-                        ? ""
-                        : editBalance.getText().toString().trim();
+            dialog.getButton(
+                    AlertDialog.BUTTON_POSITIVE
+            ).setTextColor(
+                    getColorValue(
+                            R.color.secondary
+                    )
+            );
+
+            dialog.getButton(
+                    AlertDialog.BUTTON_NEGATIVE
+            ).setTextColor(
+                    getColorValue(
+                            R.color.app_text_secondary
+                    )
+            );
+
+            dialog.getButton(
+                    AlertDialog.BUTTON_POSITIVE
+            ).setOnClickListener(view -> {
+                String openingText =
+                        getEditTextValue(
+                                editBalance
+                        );
 
                 double openingBalance;
 
                 try {
-                    openingBalance = openingText.isEmpty()
-                            ? 0
-                            : Double.parseDouble(openingText);
+                    openingBalance =
+                            openingText.isEmpty()
+                                    ? 0
+                                    : Double.parseDouble(
+                                    openingText
+                            );
+
                 } catch (Exception exception) {
-                    inputBalance.setError("Enter a valid amount");
+                    inputBalance.setError(
+                            "Enter a valid amount"
+                    );
+
+                    editBalance.requestFocus();
                     return;
                 }
 
-                account.setOpeningBalance(openingBalance);
-                account.setColor(
-                        getColorCode(editColor.getText().toString().trim())
+                inputBalance.setError(null);
+
+                account.setOpeningBalance(
+                        openingBalance
                 );
 
+                account.setColor(
+                        getColorCode(
+                                editColor
+                                        .getText()
+                                        .toString()
+                                        .trim()
+                        )
+                );
+
+                dialog.getButton(
+                        AlertDialog.BUTTON_POSITIVE
+                ).setEnabled(false);
+
                 new Thread(() -> {
-                    DatabaseClient.getInstance(getApplicationContext())
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
                             .getAppDatabase()
                             .accountDao()
                             .update(account);
@@ -574,132 +1474,376 @@ public class AccountActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    private void confirmDelete(Account account) {
-        if (account.getName().equalsIgnoreCase("Cash")) {
+    private TextInputLayout createDialogInputLayout(
+            String hint
+    ) {
+        TextInputLayout inputLayout =
+                new TextInputLayout(this);
+
+        inputLayout.setHint(hint);
+
+        inputLayout.setBoxBackgroundMode(
+                TextInputLayout.BOX_BACKGROUND_OUTLINE
+        );
+
+        inputLayout.setBoxBackgroundColor(
+                getColorValue(
+                        R.color.app_surface
+                )
+        );
+
+        inputLayout.setBoxStrokeColor(
+                getColorValue(
+                        R.color.secondary
+                )
+        );
+
+        inputLayout.setBoxCornerRadii(
+                dpToPx(14),
+                dpToPx(14),
+                dpToPx(14),
+                dpToPx(14)
+        );
+
+        inputLayout.setHintTextColor(
+                ColorStateList.valueOf(
+                        getColorValue(
+                                R.color.app_text_secondary
+                        )
+                )
+        );
+
+        inputLayout.setLayoutParams(
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+        );
+
+        return inputLayout;
+    }
+
+    private void confirmDelete(
+            Account account
+    ) {
+        if (account
+                .getName()
+                .equalsIgnoreCase("Cash")) {
+
             Toast.makeText(
                     this,
                     "Cash account cannot be deleted",
                     Toast.LENGTH_SHORT
             ).show();
+
             return;
         }
 
         new AlertDialog.Builder(this)
                 .setTitle("Delete Account")
                 .setMessage(
-                        "Delete \"" + account.getName()
-                                + "\"? Existing transaction history will remain safe."
+                        "Delete \""
+                                + account.getName()
+                                + "\"?\n\n"
+                                + "Existing transaction history will remain safe."
                 )
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Delete", (dialog, which) -> {
-                    new Thread(() -> {
-                        DatabaseClient.getInstance(getApplicationContext())
-                                .getAppDatabase()
-                                .accountDao()
-                                .delete(account);
-
-                        runOnUiThread(() -> {
-                            Toast.makeText(
-                                    AccountActivity.this,
-                                    "Account deleted",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-
-                            loadAccounts();
-                        });
-                    }).start();
-                })
+                .setNegativeButton(
+                        "Cancel",
+                        null
+                )
+                .setPositiveButton(
+                        "Delete",
+                        (dialog, which) ->
+                                deleteAccount(account)
+                )
                 .show();
     }
 
-    private TextView createLabel(String text) {
-        TextView label = new TextView(this);
-        label.setText(text);
-        label.setTextColor(Color.parseColor("#1565C0"));
-        label.setTextSize(14);
-        label.setTypeface(Typeface.DEFAULT_BOLD);
-        label.setGravity(Gravity.CENTER);
+    private void deleteAccount(
+            Account account
+    ) {
+        new Thread(() -> {
+            DatabaseClient
+                    .getInstance(
+                            getApplicationContext()
+                    )
+                    .getAppDatabase()
+                    .accountDao()
+                    .delete(account);
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+            runOnUiThread(() -> {
+                Toast.makeText(
+                        AccountActivity.this,
+                        "Account deleted",
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                loadAccounts();
+            });
+        }).start();
+    }
+
+    private TextView createLabel(
+            String text
+    ) {
+        TextView label =
+                new TextView(this);
+
+        label.setText(text);
+        label.setTextColor(
+                getColorValue(
+                        R.color.app_text_primary
+                )
         );
-        params.setMargins(0, dpToPx(16), 0, dpToPx(5));
+
+        label.setTextSize(14);
+        label.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        params.setMargins(
+                0,
+                dpToPx(16),
+                0,
+                dpToPx(7)
+        );
 
         label.setLayoutParams(params);
 
         return label;
     }
 
-    private String getColorCode(String colorName) {
-        switch (colorName) {
-            case "Green":
-                return "#2E7D32";
+    private String getAccountTypeLabel(
+            String accountType
+    ) {
+        if (accountType == null
+                || accountType.trim().isEmpty()) {
 
-            case "Purple":
-                return "#6A1B9A";
+            return "Financial Account";
+        }
 
-            case "Orange":
-                return "#EF6C00";
+        switch (accountType.toLowerCase(
+                Locale.getDefault()
+        )) {
+            case "cash":
+                return "Cash Account";
 
-            case "Red":
-                return "#D32F2F";
+            case "wallet":
+                return "Digital Wallet";
 
-            case "Teal":
-                return "#00838F";
+            case "upi":
+                return "UPI / Digital Payment";
 
-            case "Blue":
+            case "bank":
+                return "Bank Account";
+
+            case "other":
+                return "Custom Account";
+
             default:
-                return "#1565C0";
+                return accountType + " Account";
         }
     }
 
-    private String getColorName(String colorCode) {
+    private String getAccountIconText(
+            String accountType
+    ) {
+        if (accountType == null) {
+            return "A";
+        }
+
+        switch (accountType.toLowerCase(
+                Locale.getDefault()
+        )) {
+            case "cash":
+                return "₹";
+
+            case "wallet":
+                return "W";
+
+            case "upi":
+                return "U";
+
+            case "bank":
+                return "B";
+
+            default:
+                return "A";
+        }
+    }
+
+    private String getColorCode(
+            String colorName
+    ) {
+        if (colorName == null) {
+            return "#0F6CBD";
+        }
+
+        switch (colorName) {
+            case "Green":
+                return "#107C10";
+
+            case "Purple":
+                return "#6B4FA3";
+
+            case "Orange":
+                return "#A15A00";
+
+            case "Red":
+                return "#C42B1C";
+
+            case "Teal":
+                return "#087A81";
+
+            case "Blue":
+            default:
+                return "#0F6CBD";
+        }
+    }
+
+    private String getColorName(
+            String colorCode
+    ) {
         if (colorCode == null) {
             return "Blue";
         }
 
-        if (colorCode.equalsIgnoreCase("#2E7D32")) {
+        if (colorCode.equalsIgnoreCase("#107C10")
+                || colorCode.equalsIgnoreCase("#2E7D32")) {
+
             return "Green";
         }
 
-        if (colorCode.equalsIgnoreCase("#6A1B9A")) {
+        if (colorCode.equalsIgnoreCase("#6B4FA3")
+                || colorCode.equalsIgnoreCase("#6A1B9A")) {
+
             return "Purple";
         }
 
-        if (colorCode.equalsIgnoreCase("#EF6C00")) {
+        if (colorCode.equalsIgnoreCase("#A15A00")
+                || colorCode.equalsIgnoreCase("#EF6C00")) {
+
             return "Orange";
         }
 
-        if (colorCode.equalsIgnoreCase("#D32F2F")) {
+        if (colorCode.equalsIgnoreCase("#C42B1C")
+                || colorCode.equalsIgnoreCase("#D32F2F")) {
+
             return "Red";
         }
 
-        if (colorCode.equalsIgnoreCase("#00838F")) {
+        if (colorCode.equalsIgnoreCase("#087A81")
+                || colorCode.equalsIgnoreCase("#00838F")) {
+
             return "Teal";
         }
 
         return "Blue";
     }
 
-    private String safeColor(String colorCode) {
-        if (colorCode == null || colorCode.trim().isEmpty()) {
-            return "#1565C0";
+    private int parseAccountColor(
+            String colorCode
+    ) {
+        if (colorCode == null
+                || colorCode.trim().isEmpty()) {
+
+            return getColorValue(
+                    R.color.secondary
+            );
         }
 
-        return colorCode;
+        try {
+            return Color.parseColor(
+                    colorCode
+            );
+
+        } catch (Exception exception) {
+            return getColorValue(
+                    R.color.secondary
+            );
+        }
     }
 
-    private String formatAmount(double amount) {
-        NumberFormat numberFormat = NumberFormat.getCurrencyInstance(
-                new Locale("en", "IN")
+    private int createTranslucentColor(
+            int baseColor,
+            int alpha
+    ) {
+        return Color.argb(
+                alpha,
+                Color.red(baseColor),
+                Color.green(baseColor),
+                Color.blue(baseColor)
         );
+    }
+
+    private String getEditTextValue(
+            TextInputEditText editText
+    ) {
+        if (editText.getText() == null) {
+            return "";
+        }
+
+        return editText
+                .getText()
+                .toString()
+                .trim();
+    }
+
+    private String formatPlainAmount(
+            double amount
+    ) {
+        if (amount == Math.rint(amount)) {
+            return String.format(
+                    Locale.getDefault(),
+                    "%.0f",
+                    amount
+            );
+        }
+
+        return String.format(
+                Locale.getDefault(),
+                "%.2f",
+                amount
+        );
+    }
+
+    private String formatAmount(
+            double amount
+    ) {
+        NumberFormat numberFormat =
+                NumberFormat.getCurrencyInstance(
+                        new Locale("en", "IN")
+                );
 
         return numberFormat.format(amount);
     }
 
-    private int dpToPx(int dp) {
-        float density = getResources().getDisplayMetrics().density;
-        return (int) (dp * density);
+    private int getColorValue(
+            int colorResource
+    ) {
+        return ContextCompat.getColor(
+                this,
+                colorResource
+        );
+    }
+
+    private int dpToPx(
+            int dp
+    ) {
+        float density =
+                getResources()
+                        .getDisplayMetrics()
+                        .density;
+
+        return Math.round(
+                dp * density
+        );
     }
 }

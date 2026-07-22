@@ -3,9 +3,13 @@ package com.example.moneymanagerpro.activities;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -67,6 +71,7 @@ public class ReportActivity extends AppCompatActivity {
         );
 
         loadSavedBudget();
+
         btnSaveBudget.setOnClickListener(view -> saveMonthlyBudget());
 
         loadAllReports();
@@ -222,10 +227,12 @@ public class ReportActivity extends AppCompatActivity {
         }
 
         double remaining = budget - expense;
-        int percentage = (int) Math.round((expense / budget) * 100);
+        int percentage = budget == 0
+                ? 0
+                : (int) Math.round((expense / budget) * 100);
 
         progressMonthlyBudget.setProgress(
-                Math.min(percentage, 100)
+                Math.min(Math.max(percentage, 0), 100)
         );
 
         if (expense > budget) {
@@ -236,9 +243,13 @@ public class ReportActivity extends AppCompatActivity {
             );
 
             txtBudgetStatus.setText(
-                    "Budget: " + formatAmount(budget) +
-                            "\nSpent: " + formatAmount(expense) +
-                            "\nOver Budget: " + formatAmount(Math.abs(remaining))
+                    buildBudgetUsageText(
+                            budget,
+                            expense,
+                            Math.abs(remaining),
+                            percentage,
+                            true
+                    )
             );
         } else {
             int color;
@@ -254,11 +265,112 @@ public class ReportActivity extends AppCompatActivity {
             );
 
             txtBudgetStatus.setText(
-                    "Budget: " + formatAmount(budget) +
-                            "\nSpent: " + formatAmount(expense) +
-                            "\nRemaining: " + formatAmount(remaining)
+                    buildBudgetUsageText(
+                            budget,
+                            expense,
+                            remaining,
+                            percentage,
+                            false
+                    )
             );
         }
+    }
+
+    private CharSequence buildBudgetUsageText(
+            double budget,
+            double expense,
+            double remainingOrOver,
+            int usagePercent,
+            boolean isOverBudget
+    ) {
+        SpannableStringBuilder builder = new SpannableStringBuilder();
+
+        appendColoredLine(
+                builder,
+                "Budget",
+                formatAmount(budget),
+                Color.parseColor("#7C3AED")
+        );
+
+        appendColoredLine(
+                builder,
+                "Spent",
+                formatAmount(expense),
+                Color.parseColor("#DC2626")
+        );
+
+        if (isOverBudget) {
+            appendColoredLine(
+                    builder,
+                    "Over Budget",
+                    formatAmount(remainingOrOver),
+                    Color.parseColor("#DC2626")
+            );
+        } else {
+            appendColoredLine(
+                    builder,
+                    "Remaining",
+                    formatAmount(remainingOrOver),
+                    Color.parseColor("#16A34A")
+            );
+        }
+
+        int usageColor;
+        if (usagePercent >= 100) {
+            usageColor = Color.parseColor("#DC2626");
+        } else if (usagePercent >= 80) {
+            usageColor = Color.parseColor("#EA580C");
+        } else {
+            usageColor = Color.parseColor("#2563EB");
+        }
+
+        appendColoredLine(
+                builder,
+                "Usage",
+                usagePercent + "%",
+                usageColor
+        );
+
+        return builder;
+    }
+
+    private void appendColoredLine(
+            SpannableStringBuilder builder,
+            String label,
+            String value,
+            int color
+    ) {
+        if (builder.length() > 0) {
+            builder.append("\n");
+        }
+
+        String line = label + " " + value;
+        int start = builder.length();
+        builder.append(line);
+
+        int end = builder.length();
+        int valueStart = start + label.length() + 1;
+
+        builder.setSpan(
+                new ForegroundColorSpan(color),
+                start,
+                end,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+
+        builder.setSpan(
+                new StyleSpan(Typeface.BOLD),
+                start,
+                start + label.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+
+        builder.setSpan(
+                new StyleSpan(Typeface.BOLD),
+                valueStart,
+                end,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
     }
 
     private void loadMonthlyCategoryChart() {
@@ -283,31 +395,62 @@ public class ReportActivity extends AppCompatActivity {
                 formatDate(end),
                 (income, expense) -> {
                     double balance = income - expense;
-
-                    String reportText =
-                            "Income: " + formatAmount(income) +
-                                    "\nExpense: " + formatAmount(expense) +
-                                    "\nNet Balance: " + formatAmount(balance);
-
-                    reportView.setText(reportText);
+                    reportView.setText(
+                            buildPeriodSummaryText(income, expense, balance)
+                    );
                 }
         );
+    }
+
+    private CharSequence buildPeriodSummaryText(
+            double income,
+            double expense,
+            double balance
+    ) {
+        SpannableStringBuilder builder = new SpannableStringBuilder();
+
+        appendColoredLine(
+                builder,
+                "Income:",
+                formatAmount(income),
+                Color.parseColor("#16A34A")
+        );
+
+        appendColoredLine(
+                builder,
+                "Expense:",
+                formatAmount(expense),
+                Color.parseColor("#DC2626")
+        );
+
+        int balanceColor = balance >= 0
+                ? Color.parseColor("#2563EB")
+                : Color.parseColor("#DC2626");
+
+        appendColoredLine(
+                builder,
+                "Net Balance:",
+                formatAmount(balance),
+                balanceColor
+        );
+
+        return builder;
     }
 
     private void showCategoryChart(List<CategoryTotal> categoryTotals) {
         categoryChartContainer.removeAllViews();
 
-        if (categoryTotals.isEmpty()) {
-            txtEmptyCategoryChart.setVisibility(View.VISIBLE);
+        if (categoryTotals == null || categoryTotals.isEmpty()) {
+            txtEmptyCategoryChart.setVisibility(TextView.VISIBLE);
             return;
         }
 
-        txtEmptyCategoryChart.setVisibility(View.GONE);
+        txtEmptyCategoryChart.setVisibility(TextView.GONE);
 
         double highestTotal = 0;
 
         for (CategoryTotal item : categoryTotals) {
-            if (item.total > highestTotal) {
+            if (item != null && item.total > highestTotal) {
                 highestTotal = item.total;
             }
         }
@@ -317,7 +460,9 @@ public class ReportActivity extends AppCompatActivity {
         }
 
         for (CategoryTotal item : categoryTotals) {
-            addCategoryBar(item, highestTotal);
+            if (item != null) {
+                addCategoryBar(item, highestTotal);
+            }
         }
     }
 
@@ -350,7 +495,7 @@ public class ReportActivity extends AppCompatActivity {
         TextView txtCategory = new TextView(this);
         txtCategory.setText(category);
         txtCategory.setTextSize(16);
-        txtCategory.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        txtCategory.setTypeface(Typeface.DEFAULT_BOLD);
 
         LinearLayout.LayoutParams categoryParams = new LinearLayout.LayoutParams(
                 0,
@@ -364,7 +509,7 @@ public class ReportActivity extends AppCompatActivity {
         txtAmount.setText(formatAmount(categoryTotal.total));
         txtAmount.setTextColor(Color.parseColor("#D32F2F"));
         txtAmount.setTextSize(15);
-        txtAmount.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        txtAmount.setTypeface(Typeface.DEFAULT_BOLD);
 
         header.addView(txtCategory);
         header.addView(txtAmount);
@@ -405,7 +550,6 @@ public class ReportActivity extends AppCompatActivity {
         Calendar start = Calendar.getInstance();
         start.set(Calendar.DAY_OF_MONTH, 1);
         setStartOfDay(start);
-
         return start;
     }
 
@@ -414,7 +558,6 @@ public class ReportActivity extends AppCompatActivity {
         end.add(Calendar.MONTH, 1);
         end.add(Calendar.DAY_OF_MONTH, -1);
         setEndOfDay(end);
-
         return end;
     }
 

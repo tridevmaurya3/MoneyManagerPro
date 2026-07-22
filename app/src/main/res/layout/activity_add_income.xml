@@ -1,79 +1,153 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F4F7FC"
-    android:fillViewport="true">
+    android:background="@color/app_background"
+    android:clipToPadding="false"
+    android:fillViewport="true"
+    android:overScrollMode="never">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="18dp">
+        android:paddingStart="16dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="36dp">
+
+        <!-- BACK BUTTON -->
 
         <TextView
             android:id="@+id/btnBack"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:padding="6dp"
-            android:text="← Back"
-            android:textColor="#2E7D32"
-            android:textSize="16sp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:minWidth="72dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="12dp"
+            android:text="←  Back"
+            android:textColor="@color/success"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
-        <com.google.android.material.card.MaterialCardView
+        <!-- PAGE TITLE -->
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:cardBackgroundColor="#2E7D32"
-            app:cardCornerRadius="28dp"
-            app:cardElevation="10dp">
+            android:layout_marginTop="8dp"
+            android:text="Add Income"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:padding="22dp">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:lineSpacingExtra="2dp"
+            android:text="Record money received in one of your accounts."
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="INCOME ENTRY"
-                    android:textColor="#DFF7E2"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Add Income"
-                    android:textColor="#FFFFFF"
-                    android:textSize="27sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="Record money you received"
-                    android:textColor="#DFF7E2"
-                    android:textSize="15sp" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
+        <!-- INCOME OVERVIEW CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            app:cardBackgroundColor="#FFFFFF"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="6dp">
+            app:cardBackgroundColor="@color/success_surface"
+            app:cardCornerRadius="22dp"
+            app:cardElevation="1dp"
+            app:strokeColor="@color/success_outline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="18dp">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    app:cardBackgroundColor="@color/income_light"
+                    app:cardCornerRadius="15dp"
+                    app:cardElevation="0dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="+₹"
+                        android:textColor="@color/success"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Income Entry"
+                        android:textColor="@color/income_dark"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="Add salary, business income, interest or any other received money."
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="12sp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- FORM HEADING -->
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Income Details"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="Enter the amount and select where the money was received"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
+
+        <!-- FORM CARD -->
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="13dp"
+            app:cardBackgroundColor="@color/app_surface"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="1dp"
+            app:strokeColor="@color/app_outline_soft"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -81,70 +155,74 @@
                 android:orientation="vertical"
                 android:padding="18dp">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="Income Details"
-                    android:textColor="#172033"
-                    android:textSize="19sp"
-                    android:textStyle="bold" />
+                <!-- AMOUNT -->
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:gravity="center"
                     android:text="Income Amount"
-                    android:textColor="#2E7D32"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputAmount"
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32">
+                    android:layout_marginTop="3dp"
+                    android:text="Enter the total amount you received"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputAmount"
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="Income amount"
+                    app:boxStrokeColor="@color/success"
+                    app:prefixText="₹  ">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etAmount"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:hint="₹ 0.00"
+                        android:gravity="start|center_vertical"
                         android:inputType="numberDecimal"
-                        android:textAlignment="center"
-                        android:textSize="21sp"
+                        android:maxLines="1"
+                        android:minHeight="58dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="20sp"
                         android:textStyle="bold" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <!-- CATEGORY -->
+
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
+                    android:layout_marginTop="20dp"
                     android:text="Income Category"
-                    android:textColor="#2E7D32"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32"
+                    android:layout_marginTop="3dp"
+                    android:text="Select the source of this income"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="Select income category"
+                    app:boxStrokeColor="@color/success"
                     app:endIconMode="dropdown_menu">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -153,33 +231,41 @@
                         android:layout_height="wrap_content"
                         android:clickable="true"
                         android:focusable="false"
-                        android:gravity="center"
+                        android:gravity="start|center_vertical"
                         android:inputType="none"
-                        android:textAlignment="center"
-                        android:textSize="16sp" />
+                        android:minHeight="56dp"
+                        android:paddingStart="16dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="15sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- ACCOUNT -->
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
+                    android:layout_marginTop="20dp"
                     android:text="Deposit Account"
-                    android:textColor="#2E7D32"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32"
+                    android:layout_marginTop="3dp"
+                    android:text="Choose the account where this money was received"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="Select deposit account"
+                    app:boxStrokeColor="@color/success"
                     app:endIconMode="dropdown_menu">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -188,77 +274,100 @@
                         android:layout_height="wrap_content"
                         android:clickable="true"
                         android:focusable="false"
-                        android:gravity="center"
+                        android:gravity="start|center_vertical"
                         android:inputType="none"
-                        android:textAlignment="center"
-                        android:textSize="16sp" />
+                        android:minHeight="56dp"
+                        android:paddingStart="16dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="15sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- DATE -->
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
+                    android:layout_marginTop="20dp"
                     android:text="Income Date"
-                    android:textColor="#2E7D32"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32">
+                    android:layout_marginTop="3dp"
+                    android:text="Tap the field to choose a different date"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="Income date"
+                    app:boxStrokeColor="@color/success">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etDate"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:clickable="true"
+                        android:cursorVisible="false"
                         android:focusable="false"
-                        android:gravity="center"
+                        android:gravity="start|center_vertical"
                         android:inputType="none"
-                        android:textAlignment="center"
-                        android:textSize="16sp" />
+                        android:minHeight="56dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
 
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- NOTE -->
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
-                    android:text="Note (Optional)"
-                    android:textColor="#2E7D32"
+                    android:layout_marginTop="20dp"
+                    android:text="Note"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxCornerRadiusBottomEnd="18dp"
-                    app:boxCornerRadiusBottomStart="18dp"
-                    app:boxCornerRadiusTopEnd="18dp"
-                    app:boxCornerRadiusTopStart="18dp"
-                    app:boxStrokeColor="#2E7D32">
+                    android:layout_marginTop="3dp"
+                    android:text="Optional information about this income"
+                    android:textColor="@color/app_text_secondary"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="Write an optional note"
+                    app:boxStrokeColor="@color/success"
+                    app:counterEnabled="true"
+                    app:counterMaxLength="250">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etNote"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:hint="Write a note if needed"
+                        android:gravity="start|top"
+                        android:inputType="textCapSentences|textMultiLine"
+                        android:maxLength="250"
+                        android:maxLines="5"
+                        android:minHeight="104dp"
                         android:minLines="3"
-                        android:textAlignment="center"
-                        android:textSize="15sp" />
+                        android:paddingTop="14dp"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="14sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
@@ -266,36 +375,61 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- INFORMATION CARD -->
+
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            app:cardBackgroundColor="#E8F5E9"
-            app:cardCornerRadius="20dp">
+            android:layout_marginTop="13dp"
+            app:cardBackgroundColor="@color/success_surface"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/success_outline"
+            app:strokeWidth="1dp">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:padding="15dp"
-                android:text="Tip: Select the account where you received this income."
-                android:textColor="#1B5E20"
-                android:textSize="14sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:background="@color/income_light"
+                    android:gravity="center"
+                    android:text="i"
+                    android:textColor="@color/success"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:lineSpacingExtra="2dp"
+                    android:text="The selected account balance will increase after this income is saved."
+                    android:textColor="@color/income_dark"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- SAVE BUTTON -->
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSaveIncome"
+            style="@style/Widget.MoneyManagerPro.Button.Secondary"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="12dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="18dp"
             android:text="Save Income"
-            android:textColor="#FFFFFF"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            app:backgroundTint="#2E7D32"
-            app:cornerRadius="28dp" />
+            android:textColor="@color/white"
+            app:backgroundTint="@color/success"
+            app:cornerRadius="18dp" />
 
     </LinearLayout>
 
