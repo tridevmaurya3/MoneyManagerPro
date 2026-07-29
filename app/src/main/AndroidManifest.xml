@@ -8,6 +8,10 @@
     <!-- Android 13+ bill and subscription notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Optional, user-enabled bank transaction SMS sync -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+
     <!-- Fingerprint and Face Unlock -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
@@ -32,6 +36,10 @@
 
         <activity
             android:name=".activities.AuthenticationActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.SmsTransactionActivity"
             android:exported="false" />
 
         <!-- HELP -->
@@ -175,6 +183,17 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/finance_widget_info" />
+
+        </receiver>
+
+        <receiver
+            android:name=".receiver.SmsTransactionReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
 
         </receiver>
 

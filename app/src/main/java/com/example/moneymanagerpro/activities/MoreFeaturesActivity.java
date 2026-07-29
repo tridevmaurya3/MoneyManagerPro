@@ -199,7 +199,15 @@ public class MoreFeaturesActivity extends AppCompatActivity {
                         R.color.app_surface_soft,
                         R.color.app_outline
                 ),
-                null
+                new FeatureItem(
+                        "SMS Transaction Sync",
+                        "Detect bank debit and credit alerts",
+                        "SMS",
+                        SmsTransactionActivity.class,
+                        R.color.teal,
+                        R.color.teal_surface,
+                        R.color.teal_outline
+                )
         );
 
         addSectionHeader(
