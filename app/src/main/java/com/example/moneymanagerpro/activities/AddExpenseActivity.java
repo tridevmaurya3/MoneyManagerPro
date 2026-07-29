@@ -1,6 +1,7 @@
 package com.example.moneymanagerpro.activities;
 
 import android.app.DatePickerDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -28,6 +29,7 @@ import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.ReceiptStore;
 import com.example.moneymanagerpro.utils.TransactionScreenshotParser;
+import com.example.moneymanagerpro.utils.UpiPaymentResultParser;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
@@ -67,11 +69,21 @@ public class AddExpenseActivity extends AppCompatActivity {
             "screenshot_note";
     private static final String STATE_SELECTED_DATE =
             "selected_expense_date";
+    private static final String STATE_UPI_RESULT =
+            "upi_payment_result";
+    private static final String STATE_UPI_NOTE =
+            "upi_payment_note";
+    private static final String STATE_UPI_REQUEST_REF =
+            "upi_request_reference";
 
     private TextInputLayout inputAmount;
     private TextInputEditText etAmount;
     private TextInputEditText etDate;
     private TextInputEditText etNote;
+    private TextInputEditText etUpiPayeeId;
+    private TextInputEditText etUpiPayeeName;
+    private TextInputLayout inputUpiPayeeId;
+    private TextInputLayout inputUpiPayeeName;
 
     private MaterialAutoCompleteTextView dropdownCategory;
     private MaterialAutoCompleteTextView dropdownAccount;
@@ -82,6 +94,8 @@ public class AddExpenseActivity extends AppCompatActivity {
     private MaterialButton btnMoreItem;
     private MaterialButton btnReadTransactionScreenshot;
     private MaterialButton btnClearScreenshotResult;
+    private MaterialButton btnPayWithUpi;
+    private MaterialButton btnClearUpiPaymentResult;
 
     private ImageView imgReceiptPreview;
     private FrameLayout receiptPreviewContainer;
@@ -96,6 +110,8 @@ public class AddExpenseActivity extends AppCompatActivity {
     private TextView txtDetectedReference;
     private TextView txtDetectedDate;
     private TextView txtDetectedPaymentApp;
+    private View upiPaymentResultCard;
+    private TextView txtUpiPaymentStatus;
 
     private Calendar selectedCalendar;
     private String selectedDate;
@@ -108,6 +124,10 @@ public class AddExpenseActivity extends AppCompatActivity {
     private String lastScreenshotStatusBase = "";
     private boolean lastScreenshotCanAutoFill;
     private boolean accountOptionsReady;
+    private UpiPaymentResultParser.Result
+            lastUpiPaymentResult;
+    private String lastUpiNoteBlock = "";
+    private String currentUpiRequestReference = "";
 
     private final List<View> itemRows = new ArrayList<>();
     private final List<String> availableAccountNames =
@@ -156,6 +176,17 @@ public class AddExpenseActivity extends AppCompatActivity {
                     }
             );
 
+    private final ActivityResultLauncher<Intent>
+            upiPaymentLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts
+                            .StartActivityForResult(),
+                    result -> handleUpiPaymentResult(
+                            result.getResultCode(),
+                            result.getData()
+                    )
+            );
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -165,6 +196,14 @@ public class AddExpenseActivity extends AppCompatActivity {
         etAmount = findViewById(R.id.etAmount);
         etDate = findViewById(R.id.etDate);
         etNote = findViewById(R.id.etNote);
+        etUpiPayeeId =
+                findViewById(R.id.etUpiPayeeId);
+        etUpiPayeeName =
+                findViewById(R.id.etUpiPayeeName);
+        inputUpiPayeeId =
+                findViewById(R.id.inputUpiPayeeId);
+        inputUpiPayeeName =
+                findViewById(R.id.inputUpiPayeeName);
 
         dropdownCategory = findViewById(R.id.dropdownCategory);
         dropdownAccount = findViewById(R.id.dropdownAccount);
@@ -180,6 +219,12 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnClearScreenshotResult =
                 findViewById(
                         R.id.btnClearScreenshotResult
+                );
+        btnPayWithUpi =
+                findViewById(R.id.btnPayWithUpi);
+        btnClearUpiPaymentResult =
+                findViewById(
+                        R.id.btnClearUpiPaymentResult
                 );
 
         imgReceiptPreview = findViewById(R.id.imgReceiptPreview);
@@ -208,6 +253,14 @@ public class AddExpenseActivity extends AppCompatActivity {
                 findViewById(R.id.txtDetectedDate);
         txtDetectedPaymentApp =
                 findViewById(R.id.txtDetectedPaymentApp);
+        upiPaymentResultCard =
+                findViewById(
+                        R.id.upiPaymentResultCard
+                );
+        txtUpiPaymentStatus =
+                findViewById(
+                        R.id.txtUpiPaymentStatus
+                );
 
         TextView btnBack = findViewById(R.id.btnBack);
 
@@ -253,12 +306,22 @@ public class AddExpenseActivity extends AppCompatActivity {
                 view -> clearScreenshotResult()
         );
 
+        btnPayWithUpi.setOnClickListener(
+                view -> launchUpiPayment()
+        );
+
+        btnClearUpiPaymentResult
+                .setOnClickListener(
+                        view -> clearUpiPaymentResult()
+                );
+
         btnSaveExpense.setOnClickListener(v -> saveExpense());
 
         if (!restoreItemRows(savedInstanceState)) {
             addItemRow();
         }
         restoreScreenshotState(savedInstanceState);
+        restoreUpiState(savedInstanceState);
         loadFormOptions();
     }
 
@@ -333,7 +396,54 @@ public class AddExpenseActivity extends AppCompatActivity {
                 lastScreenshotNoteBlock
         );
 
+        if (lastUpiPaymentResult != null) {
+            outState.putSerializable(
+                    STATE_UPI_RESULT,
+                    lastUpiPaymentResult
+            );
+        }
+        outState.putString(
+                STATE_UPI_NOTE,
+                lastUpiNoteBlock
+        );
+        outState.putString(
+                STATE_UPI_REQUEST_REF,
+                currentUpiRequestReference
+        );
+
         super.onSaveInstanceState(outState);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void restoreUpiState(
+            Bundle savedInstanceState
+    ) {
+        if (savedInstanceState == null) {
+            return;
+        }
+
+        lastUpiPaymentResult =
+                (UpiPaymentResultParser.Result)
+                        savedInstanceState
+                                .getSerializable(
+                                        STATE_UPI_RESULT
+                                );
+        lastUpiNoteBlock =
+                savedInstanceState.getString(
+                        STATE_UPI_NOTE,
+                        ""
+                );
+        currentUpiRequestReference =
+                savedInstanceState.getString(
+                        STATE_UPI_REQUEST_REF,
+                        ""
+                );
+
+        if (lastUpiPaymentResult != null) {
+            showUpiPaymentResult(
+                    lastUpiPaymentResult
+            );
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -1303,6 +1413,287 @@ public class AddExpenseActivity extends AppCompatActivity {
                 : value.trim();
     }
 
+    private void launchUpiPayment() {
+        inputUpiPayeeId.setError(null);
+        inputUpiPayeeName.setError(null);
+
+        String payeeId =
+                textOf(etUpiPayeeId);
+        String payeeName =
+                textOf(etUpiPayeeName);
+        String amountText =
+                textOf(etAmount);
+
+        if (!payeeId.matches(
+                "^[A-Za-z0-9._-]{2,}@[A-Za-z0-9.-]{2,}$"
+        )) {
+            inputUpiPayeeId.setError(
+                    "Enter a valid UPI ID"
+            );
+            etUpiPayeeId.requestFocus();
+            return;
+        }
+
+        if (payeeName.length() < 2) {
+            inputUpiPayeeName.setError(
+                    "Enter receiver name"
+            );
+            etUpiPayeeName.requestFocus();
+            return;
+        }
+
+        BigDecimal amount =
+                parsePositiveDecimal(amountText);
+
+        if (amount == null) {
+            inputAmount.setError(
+                    "Enter expense amount before payment"
+            );
+            etAmount.requestFocus();
+            return;
+        }
+
+        currentUpiRequestReference =
+                "MMP" + System.currentTimeMillis();
+
+        String transactionNote =
+                textOf(etNote);
+
+        if (transactionNote.isEmpty()) {
+            transactionNote = "Money Manager Pro expense";
+        }
+
+        Uri paymentUri =
+                new Uri.Builder()
+                        .scheme("upi")
+                        .authority("pay")
+                        .appendQueryParameter(
+                                "pa",
+                                payeeId
+                        )
+                        .appendQueryParameter(
+                                "pn",
+                                payeeName
+                        )
+                        .appendQueryParameter(
+                                "tr",
+                                currentUpiRequestReference
+                        )
+                        .appendQueryParameter(
+                                "tn",
+                                transactionNote
+                        )
+                        .appendQueryParameter(
+                                "am",
+                                formatMoney(amount)
+                        )
+                        .appendQueryParameter(
+                                "cu",
+                                "INR"
+                        )
+                        .build();
+
+        Intent paymentIntent =
+                new Intent(
+                        Intent.ACTION_VIEW,
+                        paymentUri
+                );
+        Intent chooser = Intent.createChooser(
+                paymentIntent,
+                "Choose UPI / Payment App"
+        );
+
+        try {
+            upiPaymentLauncher.launch(chooser);
+        } catch (ActivityNotFoundException exception) {
+            Toast.makeText(
+                    this,
+                    "No UPI payment app is available",
+                    Toast.LENGTH_LONG
+            ).show();
+        }
+    }
+
+    private void handleUpiPaymentResult(
+            int resultCode,
+            Intent data
+    ) {
+        String response =
+                collectUpiResponse(data);
+        lastUpiPaymentResult =
+                UpiPaymentResultParser.parse(response);
+        showUpiPaymentResult(
+                lastUpiPaymentResult
+        );
+
+        if (lastUpiPaymentResult.getStatus()
+                == UpiPaymentResultParser
+                .Status.SUCCESS) {
+            appendUpiResultToNote(
+                    lastUpiPaymentResult
+            );
+        } else {
+            removeLastUpiNoteBlock();
+        }
+    }
+
+    private String collectUpiResponse(Intent data) {
+        if (data == null) {
+            return "";
+        }
+
+        StringBuilder response =
+                new StringBuilder();
+
+        if (data.getDataString() != null) {
+            response.append(
+                    data.getDataString()
+            );
+        }
+
+        if (data.getExtras() != null) {
+            for (String key :
+                    data.getExtras().keySet()) {
+                Object value =
+                        data.getExtras().get(key);
+
+                if (value == null) {
+                    continue;
+                }
+
+                if (response.length() > 0) {
+                    response.append('&');
+                }
+
+                response.append(key)
+                        .append('=')
+                        .append(value);
+            }
+        }
+
+        return response.toString();
+    }
+
+    private void showUpiPaymentResult(
+            UpiPaymentResultParser.Result result
+    ) {
+        String reference =
+                result.getTransactionReference()
+                        .isEmpty()
+                        ? currentUpiRequestReference
+                        : result.getTransactionReference();
+        String message;
+        int color;
+
+        switch (result.getStatus()) {
+            case SUCCESS:
+                message =
+                        "Payment app reported SUCCESS."
+                                + "\nReference: "
+                                + valueOrNotDetected(
+                                reference
+                        )
+                                + "\nReview the amount and account, then tap Save Expense.";
+                color = getColor(R.color.success);
+                break;
+            case FAILED:
+                message =
+                        "Payment app reported FAILED."
+                                + "\nNo successful UPI payment will be recorded.";
+                color = getColor(R.color.error);
+                break;
+            case PENDING:
+                message =
+                        "Payment is PENDING or SUBMITTED."
+                                + "\nWait for final confirmation before saving.";
+                color = getColor(R.color.warning);
+                break;
+            case UNKNOWN:
+            default:
+                message =
+                        "The payment app did not return a verifiable status."
+                                + "\nCheck the payment app or bank before saving.";
+                color = getColor(R.color.warning);
+                break;
+        }
+
+        txtUpiPaymentStatus.setText(message);
+        txtUpiPaymentStatus.setTextColor(color);
+        upiPaymentResultCard.setVisibility(
+                View.VISIBLE
+        );
+    }
+
+    private void appendUpiResultToNote(
+            UpiPaymentResultParser.Result result
+    ) {
+        removeLastUpiNoteBlock();
+
+        String reference =
+                result.getTransactionReference()
+                        .isEmpty()
+                        ? currentUpiRequestReference
+                        : result.getTransactionReference();
+        String block =
+                "UPI • App-reported success"
+                        + (reference.isEmpty()
+                        ? ""
+                        : " • Ref: " + reference);
+        String current = textOf(etNote);
+        String separator =
+                current.isEmpty() ? "" : "\n\n";
+        int available =
+                250 - current.length()
+                        - separator.length();
+
+        if (available <= 0) {
+            return;
+        }
+
+        if (block.length() > available) {
+            block = block.substring(0, available);
+        }
+
+        etNote.setText(
+                current + separator + block
+        );
+        lastUpiNoteBlock = block;
+    }
+
+    private void removeLastUpiNoteBlock() {
+        if (lastUpiNoteBlock.isEmpty()) {
+            return;
+        }
+
+        String current = textOf(etNote);
+        String withSeparator =
+                "\n\n" + lastUpiNoteBlock;
+
+        if (current.endsWith(withSeparator)) {
+            current = current.substring(
+                    0,
+                    current.length()
+                            - withSeparator.length()
+            );
+        } else if (current.equals(
+                lastUpiNoteBlock
+        )) {
+            current = "";
+        }
+
+        etNote.setText(current);
+        lastUpiNoteBlock = "";
+    }
+
+    private void clearUpiPaymentResult() {
+        removeLastUpiNoteBlock();
+        lastUpiPaymentResult = null;
+        currentUpiRequestReference = "";
+        upiPaymentResultCard.setVisibility(
+                View.GONE
+        );
+    }
+
     private void showReceiptPreview(Uri uri) {
         selectedReceiptUri = uri;
 
@@ -1438,6 +1829,19 @@ public class AddExpenseActivity extends AppCompatActivity {
     }
 
     private void saveExpense() {
+        if (lastUpiPaymentResult != null
+                && lastUpiPaymentResult.getStatus()
+                != UpiPaymentResultParser
+                .Status.SUCCESS) {
+            Toast.makeText(
+                    this,
+                    "UPI payment is not successful. "
+                            + "Verify it or clear the payment result.",
+                    Toast.LENGTH_LONG
+            ).show();
+            return;
+        }
+
         List<ExpenseItem> expenseItems =
                 collectExpenseItems();
 
