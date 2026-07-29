@@ -17,6 +17,8 @@ public final class AuthNavigator {
 
     private static final String KEY_PIN = "app_pin";
     private static final String KEY_PIN_ENABLED = "pin_enabled";
+    private static final String KEY_SETUP_COMPLETE =
+            "pin_setup_complete";
 
     private AuthNavigator() {
     }
@@ -33,11 +35,17 @@ public final class AuthNavigator {
                 KEY_PIN_ENABLED,
                 false
         );
+        boolean setupComplete = preferences.getBoolean(
+                KEY_SETUP_COMPLETE,
+                false
+        );
+        boolean validPin =
+                pin != null
+                        && pin.matches("\\d{4}");
 
         Class<?> destination =
-                pinEnabled
-                        && pin != null
-                        && pin.matches("\\d{4}")
+                !setupComplete
+                        || (pinEnabled && validPin)
                         ? PinActivity.class
                         : DashboardActivity.class;
 
