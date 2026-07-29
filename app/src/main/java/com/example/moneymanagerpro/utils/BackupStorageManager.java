@@ -9,7 +9,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -261,20 +260,14 @@ public final class BackupStorageManager {
             break;
         }
 
-        if (!readPermissionFound
-                || !writePermissionFound) {
-            return false;
-        }
-
-        try {
-            Uri rootDocumentUri =
-                    buildRootDocumentUri(savedTreeUri);
-
-            return documentExists(rootDocumentUri);
-
-        } catch (Exception exception) {
-            return false;
-        }
+        /*
+         * Provider query को permission check का हिस्सा न बनाएं।
+         * USB/cloud/offline document providers कभी-कभी temporary query
+         * failure देते हैं। ऐसी स्थिति में persisted location हटाना गलत
+         * है; actual backup/restore operation उपयोगी error देगा।
+         */
+        return readPermissionFound
+                && writePermissionFound;
     }
 
     /**
@@ -657,30 +650,65 @@ public final class BackupStorageManager {
             );
         }
 
-        OutputStream outputStream;
+        Exception firstFailure = null;
+
+        /*
+         * "rwt" local Android Documents provider पर सबसे सुरक्षित है,
+         * लेकिन सभी OEM/cloud providers इसे implement नहीं करते।
+         * क्रमशः कम strict modes पर fallback करने से वही selected folder
+         * दोबारा पूछे बिना इस्तेमाल किया जा सकता है।
+         */
+        String[] supportedModes = {
+                "rwt",
+                "wt",
+                "w"
+        };
+
+        for (String mode : supportedModes) {
+            try {
+                OutputStream outputStream =
+                        contentResolver.openOutputStream(
+                                backupUri,
+                                mode
+                        );
+
+                if (outputStream != null) {
+                    return outputStream;
+                }
+
+            } catch (Exception exception) {
+                if (firstFailure == null) {
+                    firstFailure = exception;
+                }
+            }
+        }
 
         try {
-            outputStream =
+            OutputStream outputStream =
                     contentResolver.openOutputStream(
-                            backupUri,
-                            "rwt"
+                            backupUri
                     );
 
-        } catch (FileNotFoundException exception) {
-            outputStream =
-                    contentResolver.openOutputStream(
-                            backupUri,
-                            "wt"
-                    );
+            if (outputStream != null) {
+                return outputStream;
+            }
+
+        } catch (Exception exception) {
+            if (firstFailure == null) {
+                firstFailure = exception;
+            }
         }
 
-        if (outputStream == null) {
-            throw new IOException(
-                    "Backup file could not be opened for writing."
-            );
+        IOException writeFailure =
+                new IOException(
+                        "Selected folder provider did not allow the backup file to be written."
+                );
+
+        if (firstFailure != null) {
+            writeFailure.initCause(firstFailure);
         }
 
-        return outputStream;
+        throw writeFailure;
     }
 
     public long getDocumentSize(Uri documentUri) {
@@ -838,7 +866,7 @@ public final class BackupStorageManager {
         long folderFlags = queryLongValue(
                 rootDocumentUri,
                 DocumentsContract.Document.COLUMN_FLAGS,
-                0L
+                -1L
         );
 
         boolean supportsCreatingFiles =
@@ -847,7 +875,12 @@ public final class BackupStorageManager {
                                 & DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE
                 ) != 0;
 
-        if (!supportsCreatingFiles) {
+        /*
+         * कुछ valid providers COLUMN_FLAGS return नहीं करते। उस स्थिति
+         * में actual MoneyManagerPro folder creation निर्णायक check है।
+         */
+        if (folderFlags >= 0L
+                && !supportsCreatingFiles) {
             throw new IOException(
                     "Selected folder does not allow creating backup files."
             );

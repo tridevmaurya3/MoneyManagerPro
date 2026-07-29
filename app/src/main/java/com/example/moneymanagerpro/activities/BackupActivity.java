@@ -349,33 +349,54 @@ public class BackupActivity extends AppCompatActivity {
         );
 
         new Thread(() -> {
+            String currentStage =
+                    "डेटाबेस data तैयार करना";
+
             try {
                 JSONObject backupData =
                         buildBackupJson();
 
+                currentStage =
+                        "temporary backup file बनाना";
+
                 Uri temporaryBackupUri =
                         backupStorageManager
                                 .createTemporaryBackupUri();
+
+                currentStage =
+                        "backup file लिखना";
 
                 writeBackupJson(
                         temporaryBackupUri,
                         backupData
                 );
 
+                currentStage =
+                        "लिखे हुए backup को पढ़ना";
+
                 JSONObject verificationData =
                         readBackupJson(
                                 temporaryBackupUri
                         );
 
+                currentStage =
+                        "backup integrity verify करना";
+
                 validateBackupFile(
                         verificationData
                 );
+
+                currentStage =
+                        "latest backup सुरक्षित रूप से replace करना";
 
                 Uri latestBackupUri =
                         backupStorageManager
                                 .commitTemporaryBackup(
                                         temporaryBackupUri
                                 );
+
+                currentStage =
+                        "final backup की जानकारी पढ़ना";
 
                 long backupSize =
                         backupStorageManager
@@ -418,25 +439,70 @@ public class BackupActivity extends AppCompatActivity {
                         exception
                 );
 
+                String failedStage =
+                        currentStage;
+
+                String failureReason =
+                        getUsefulErrorMessage(
+                                exception
+                        );
+
                 runOnUiThread(() -> {
                     setBackupButtonsEnabled(true);
 
                     txtBackupStatus.setText(
-                            "Backup नहीं बन सका। फिर से कोशिश करें।"
+                            "Backup नहीं बन सका\n" +
+                                    "रुका: " +
+                                    failedStage
                     );
 
                     new AlertDialog.Builder(this)
                             .setTitle("Backup Failed")
                             .setMessage(
-                                    "Backup बनाते समय समस्या आई।\n\n" +
-                                            "कृपया storage उपलब्ध होने और " +
-                                            "folder permission सही होने की जाँच करें।"
+                                    "Backup इस चरण पर रुका:\n" +
+                                            failedStage +
+                                            "\n\nकारण:\n" +
+                                            failureReason +
+                                            "\n\nSaved location हटाई नहीं गई है। " +
+                                            "पहले Retry करें। अगर folder को " +
+                                            "Android ने हटाया या access बंद किया है, " +
+                                            "तभी Change Folder चुनें।"
                             )
-                            .setPositiveButton("OK", null)
+                            .setPositiveButton(
+                                    "Retry",
+                                    (dialog, which) ->
+                                            createBackup()
+                            )
+                            .setNegativeButton("Cancel", null)
                             .show();
                 });
             }
         }).start();
+    }
+
+    private String getUsefulErrorMessage(
+            Throwable throwable
+    ) {
+        Throwable current = throwable;
+        String usefulMessage = "";
+
+        while (current != null) {
+            String message =
+                    current.getMessage();
+
+            if (message != null
+                    && !message.trim().isEmpty()) {
+                usefulMessage = message.trim();
+            }
+
+            current = current.getCause();
+        }
+
+        if (usefulMessage.isEmpty()) {
+            return "Storage provider ने operation पूरा नहीं किया।";
+        }
+
+        return usefulMessage;
     }
 
     private void checkBackupAndConfirmRestore() {
