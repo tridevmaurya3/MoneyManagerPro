@@ -41,6 +41,7 @@ dependencies {
     implementation("androidx.drawerlayout:drawerlayout:1.2.0")
     implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
     implementation(libs.room.runtime)
     annotationProcessor(libs.room.compiler)

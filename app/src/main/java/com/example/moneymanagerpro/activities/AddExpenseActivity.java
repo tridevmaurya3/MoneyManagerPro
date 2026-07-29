@@ -29,10 +29,15 @@ import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.ReceiptStore;
 import com.example.moneymanagerpro.utils.UpiPaymentResultParser;
+import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
+import com.google.android.gms.codescanner.GmsBarcodeScanner;
+import com.google.android.gms.codescanner.GmsBarcodeScannerOptions;
+import com.google.android.gms.codescanner.GmsBarcodeScanning;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.mlkit.vision.barcode.common.Barcode;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -65,6 +70,7 @@ public class AddExpenseActivity extends AppCompatActivity {
 
     private MaterialAutoCompleteTextView dropdownCategory;
     private MaterialAutoCompleteTextView dropdownAccount;
+    private MaterialAutoCompleteTextView dropdownUpiEntryMode;
 
     private MaterialButton btnAttachReceipt;
     private MaterialButton btnRemoveReceipt;
@@ -87,6 +93,7 @@ public class AddExpenseActivity extends AppCompatActivity {
             lastUpiPaymentResult;
     private String lastUpiNoteBlock = "";
     private String currentUpiRequestReference = "";
+    private GmsBarcodeScanner upiQrScanner;
 
     private final List<View> itemRows = new ArrayList<>();
 
@@ -141,6 +148,10 @@ public class AddExpenseActivity extends AppCompatActivity {
 
         dropdownCategory = findViewById(R.id.dropdownCategory);
         dropdownAccount = findViewById(R.id.dropdownAccount);
+        dropdownUpiEntryMode =
+                findViewById(
+                        R.id.dropdownUpiEntryMode
+                );
 
         btnAttachReceipt = findViewById(R.id.btnAttachReceipt);
         btnRemoveReceipt = findViewById(R.id.btnRemoveReceipt);
@@ -174,6 +185,7 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         etDate.setOnClickListener(v -> showDatePicker());
+        setupUpiEntryMode();
 
         btnAttachReceipt.setOnClickListener(v ->
                 receiptPicker.launch(new String[]{"image/*"})
@@ -199,6 +211,135 @@ public class AddExpenseActivity extends AppCompatActivity {
         }
         restoreUpiState(savedInstanceState);
         loadFormOptions();
+    }
+
+    private void setupUpiEntryMode() {
+        String[] modes = {
+                "Enter UPI ID",
+                "Scan UPI QR Code"
+        };
+
+        dropdownUpiEntryMode.setAdapter(
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout
+                                .simple_dropdown_item_1line,
+                        modes
+                )
+        );
+        dropdownUpiEntryMode.setText(
+                modes[0],
+                false
+        );
+
+        GmsBarcodeScannerOptions options =
+                new GmsBarcodeScannerOptions.Builder()
+                        .setBarcodeFormats(
+                                Barcode.FORMAT_QR_CODE
+                        )
+                        .enableAutoZoom()
+                        .build();
+        upiQrScanner =
+                GmsBarcodeScanning.getClient(
+                        this,
+                        options
+                );
+
+        dropdownUpiEntryMode
+                .setOnItemClickListener(
+                        (parent, view, position, id) -> {
+                            if (position == 1) {
+                                startUpiQrScan();
+                            }
+                        }
+                );
+    }
+
+    private void startUpiQrScan() {
+        if (upiQrScanner == null) {
+            Toast.makeText(
+                    this,
+                    "QR scanner is not available",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        upiQrScanner.startScan()
+                .addOnSuccessListener(
+                        barcode -> applyUpiQrPayload(
+                                barcode.getRawValue()
+                        )
+                )
+                .addOnCanceledListener(
+                        () -> dropdownUpiEntryMode
+                                .setText(
+                                        "Enter UPI ID",
+                                        false
+                                )
+                )
+                .addOnFailureListener(
+                        exception -> {
+                            dropdownUpiEntryMode.setText(
+                                    "Enter UPI ID",
+                                    false
+                            );
+                            Toast.makeText(
+                                    this,
+                                    "QR scanner could not start. "
+                                            + "Check Google Play services and try again.",
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        }
+                );
+    }
+
+    private void applyUpiQrPayload(
+            String rawValue
+    ) {
+        UpiQrPayloadParser.Result result =
+                UpiQrPayloadParser.parse(rawValue);
+
+        if (!result.isValid()) {
+            dropdownUpiEntryMode.setText(
+                    "Enter UPI ID",
+                    false
+            );
+            Toast.makeText(
+                    this,
+                    "This QR code does not contain a valid UPI payment ID",
+                    Toast.LENGTH_LONG
+            ).show();
+            return;
+        }
+
+        etUpiPayeeId.setText(
+                result.getPayeeId()
+        );
+        etUpiPayeeName.setText(
+                result.getPayeeName()
+        );
+        inputUpiPayeeId.setError(null);
+        inputUpiPayeeName.setError(null);
+
+        if (textOf(etAmount).isEmpty()
+                && parsePositiveDecimal(
+                result.getAmount()
+        ) != null) {
+            etAmount.setText(result.getAmount());
+            inputAmount.setError(null);
+        }
+
+        dropdownUpiEntryMode.setText(
+                "UPI QR Scanned",
+                false
+        );
+
+        Toast.makeText(
+                this,
+                "UPI ID and receiver name filled from QR code",
+                Toast.LENGTH_SHORT
+        ).show();
     }
 
     @Override
