@@ -1911,23 +1911,30 @@ public class TransactionsActivity extends AppCompatActivity {
                 new StringBuilder("Items");
 
         for (ExpenseItem item : items) {
+            String quantity =
+                    formatItemQuantity(
+                            item.getQuantity()
+                    );
+            String unit = safeText(item.getUnit());
+
             details.append("\n• ")
                     .append(item.getItemName())
-                    .append(" — ")
-                    .append(
-                            formatItemQuantity(
-                                    item.getQuantity()
-                            )
-                    )
-                    .append(' ')
-                    .append(item.getUnit())
-                    .append(" × ₹")
+                    .append(" — Qty ")
+                    .append(quantity);
+
+            if (!unit.isEmpty()
+                    && !unit.equalsIgnoreCase(quantity)) {
+                details.append(' ').append(unit);
+            }
+
+            details.append(" • ")
                     .append(
                             formatAmount(
                                     item.getPrice()
                             )
                     )
-                    .append(" = ₹")
+                    .append(" each")
+                    .append(" • Total ")
                     .append(
                             formatAmount(
                                     item.getTotal()
