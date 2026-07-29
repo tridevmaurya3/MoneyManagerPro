@@ -12,13 +12,13 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.ColorRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.example.moneymanagerpro.R;
@@ -236,11 +236,16 @@ public class DashboardActivity extends AppCompatActivity {
     private void showMoreToolsMenu() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
 
-        ScrollView scrollView = new ScrollView(this);
+        NestedScrollView scrollView = new NestedScrollView(this);
         scrollView.setFillViewport(true);
         scrollView.setClipToPadding(false);
         scrollView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scrollView.setBackgroundColor(Color.TRANSPARENT);
+        scrollView.setNestedScrollingEnabled(true);
+        scrollView.setSmoothScrollingEnabled(true);
+        scrollView.setDescendantFocusability(
+                ViewGroup.FOCUS_AFTER_DESCENDANTS
+        );
 
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
@@ -265,7 +270,7 @@ public class DashboardActivity extends AppCompatActivity {
 
         scrollView.addView(
                 mainLayout,
-                new ScrollView.LayoutParams(
+                new NestedScrollView.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 )
@@ -529,7 +534,13 @@ public class DashboardActivity extends AppCompatActivity {
                     BottomSheetBehavior.from(bottomSheet);
 
             behavior.setSkipCollapsed(true);
+            behavior.setFitToContents(true);
+            behavior.setDraggable(false);
             behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+
+            scrollView.post(() ->
+                    scrollView.scrollTo(0, 0)
+            );
         });
 
         dialog.show();
