@@ -1284,7 +1284,7 @@ public class CreditCardActivity extends AppCompatActivity {
                                 .materialButtonOutlinedStyle
                 );
         button.setText(text);
-        button.setTextAllCaps(false);
+        button.setAllCaps(false);
         button.setTextSize(12);
         button.setCornerRadius(dp(12));
         return button;
