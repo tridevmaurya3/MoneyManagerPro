@@ -14,6 +14,9 @@ public interface LoanPaymentDao {
     @Insert
     long insert(LoanPayment payment);
 
+    @Query("SELECT * FROM loan_payments ORDER BY id ASC")
+    List<LoanPayment> getAllLoanPayments();
+
     @Query("SELECT * FROM loan_payments WHERE loanId = :loanId ORDER BY paymentDate DESC, id DESC")
     List<LoanPayment> getPaymentsForLoan(int loanId);
 

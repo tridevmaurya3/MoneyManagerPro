@@ -222,7 +222,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:lineSpacingExtra="2dp"
-                    android:text="Transactions, Accounts, Categories, Goals, Loans, Budgets और Recurring Transactions का नया backup बनाया जाएगा।"
+                    android:text="सभी transactions, accounts, categories, goals, loans, loan payments, budgets, subscriptions और recurring records का verified backup बनाया जाएगा।"
                     android:textColor="#526B58"
                     android:textSize="13sp" />
 
@@ -353,6 +353,19 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnChangeBackupFolder"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="14dp"
+            android:text="Choose or Change Backup Folder"
+            android:textAllCaps="false"
+            android:textColor="#0F6CBD"
+            android:textStyle="bold"
+            app:cornerRadius="14dp"
+            app:strokeColor="#9FC5E5" />
+
         <!-- INFORMATION CARD -->
 
         <com.google.android.material.card.MaterialCardView
@@ -384,7 +397,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:lineSpacingExtra="3dp"
-                    android:text="• Backup चुने हुए Documents folder में रहता है।&#10;• नया backup पुराने backup को replace करता है।&#10;• App uninstall होने पर भी backup file सुरक्षित रहती है।&#10;• Restore करते समय app उसी file को अपने आप खोजता है।"
+                    android:text="• Backup चुने हुए Documents folder में रहता है।&#10;• SHA-256 verification से file corruption जाँची जाती है।&#10;• नया backup verify होने के बाद ही पुराने backup को replace करता है।&#10;• App uninstall होने पर भी backup file सुरक्षित रहती है।&#10;• पुराने Backup Format v1 को भी restore किया जा सकता है।"
                     android:textColor="#606A76"
                     android:textSize="13sp" />
 

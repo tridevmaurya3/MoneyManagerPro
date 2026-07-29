@@ -13,6 +13,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.backup.BackupIntegrity;
 import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
@@ -20,33 +21,41 @@ import com.example.moneymanagerpro.model.Budget;
 import com.example.moneymanagerpro.model.Category;
 import com.example.moneymanagerpro.model.Goal;
 import com.example.moneymanagerpro.model.Loan;
+import com.example.moneymanagerpro.model.LoanPayment;
 import com.example.moneymanagerpro.model.RecurringTransaction;
+import com.example.moneymanagerpro.model.Subscription;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.BackupStorageManager;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class BackupActivity extends AppCompatActivity {
 
     private static final String TAG = "BackupActivity";
 
     private static final int REQUEST_PICK_BACKUP_FOLDER = 401;
+    private static final int BACKUP_VERSION_LEGACY = 1;
+    private static final int BACKUP_VERSION_CURRENT = 2;
+    private static final int DATABASE_VERSION = 9;
+    private static final int MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 
     private static final int PENDING_ACTION_NONE = 0;
     private static final int PENDING_ACTION_CREATE_BACKUP = 1;
     private static final int PENDING_ACTION_RESTORE_BACKUP = 2;
+    private static final int PENDING_ACTION_CHANGE_FOLDER = 3;
 
     private static final String STATE_PENDING_ACTION =
             "backup_pending_action";
@@ -54,6 +63,7 @@ public class BackupActivity extends AppCompatActivity {
     private TextView txtBackupStatus;
     private Button btnCreateBackup;
     private Button btnRestoreBackup;
+    private Button btnChangeBackupFolder;
 
     private BackupStorageManager backupStorageManager;
 
@@ -67,6 +77,8 @@ public class BackupActivity extends AppCompatActivity {
         txtBackupStatus = findViewById(R.id.txtBackupStatus);
         btnCreateBackup = findViewById(R.id.btnCreateBackup);
         btnRestoreBackup = findViewById(R.id.btnRestoreBackup);
+        btnChangeBackupFolder =
+                findViewById(R.id.btnChangeBackupFolder);
 
         backupStorageManager =
                 new BackupStorageManager(getApplicationContext());
@@ -84,6 +96,12 @@ public class BackupActivity extends AppCompatActivity {
 
         btnRestoreBackup.setOnClickListener(
                 view -> startRestoreBackupFlow()
+        );
+
+        btnChangeBackupFolder.setOnClickListener(
+                view -> requestBackupFolder(
+                        PENDING_ACTION_CHANGE_FOLDER
+                )
         );
 
         updateBackupStatus();
@@ -153,6 +171,17 @@ public class BackupActivity extends AppCompatActivity {
                             "• पहले से मौजूद MoneyManagerPro folder\n\n" +
                             "Backup नाम वाला अंदर का subfolder सीधे न चुनें।\n\n" +
                             "यह चयन केवल एक बार करना होगा।";
+
+        } else if (requestedAction ==
+                PENDING_ACTION_CHANGE_FOLDER) {
+
+            title = "Backup Folder बदलें";
+
+            message =
+                    "नया parent folder चुनें। App उसके अंदर " +
+                            "MoneyManagerPro/Backup folder खोजेगा या बनाएगा।\n\n" +
+                            "पुरानी backup file delete नहीं होगी। " +
+                            "केवल app की saved location बदलेगी।";
 
         } else {
             title = "Backup Folder चुनें";
@@ -357,6 +386,7 @@ public class BackupActivity extends AppCompatActivity {
 
                 String status =
                         "Latest backup सफलतापूर्वक बन गया\n" +
+                                "SHA-256 verification सफल\n" +
                                 createdAt +
                                 "\n" +
                                 formatFileSize(backupSize) +
@@ -527,8 +557,17 @@ public class BackupActivity extends AppCompatActivity {
                         "Loans: " +
                         summary.loanCount +
                         "\n" +
+                        "Loan Payments: " +
+                        summary.loanPaymentCount +
+                        "\n" +
+                        "Subscriptions: " +
+                        summary.subscriptionCount +
+                        "\n" +
                         "Recurring Transactions: " +
                         summary.recurringCount +
+                        "\n\n" +
+                        "Integrity: " +
+                        summary.integrityStatus +
                         "\n\n" +
                         "Restore करने पर वर्तमान app data हट जाएगा " +
                         "और इस backup का data वापस आ जाएगा।";
@@ -640,6 +679,22 @@ public class BackupActivity extends AppCompatActivity {
                                 .insert(loan);
                     }
 
+                    for (Subscription subscription :
+                            backupContent.subscriptions) {
+
+                        database
+                                .subscriptionDao()
+                                .insert(subscription);
+                    }
+
+                    for (LoanPayment loanPayment :
+                            backupContent.loanPayments) {
+
+                        database
+                                .loanPaymentDao()
+                                .insert(loanPayment);
+                    }
+
                     for (Transaction transaction :
                             backupContent.transactions) {
 
@@ -647,6 +702,11 @@ public class BackupActivity extends AppCompatActivity {
                                 .transactionDao()
                                 .insert(transaction);
                     }
+
+                    verifyRestoredData(
+                            database,
+                            backupContent
+                    );
                 });
 
                 String restoredDate =
@@ -667,6 +727,7 @@ public class BackupActivity extends AppCompatActivity {
                             .setTitle("Restore Complete")
                             .setMessage(
                                     "Backup का data सफलतापूर्वक restore हो गया है।\n\n" +
+                                            "Restore verification भी सफल रही।\n\n" +
                                             "Dashboard पर वापस जाने के बाद नया data दिखाई देगा।"
                             )
                             .setPositiveButton(
@@ -766,8 +827,22 @@ public class BackupActivity extends AppCompatActivity {
                                             latestBackupUri
                                     );
 
+                    int backupVersion =
+                            root.optInt(
+                                    "backupVersion",
+                                    BACKUP_VERSION_LEGACY
+                            );
+
+                    String verificationLabel =
+                            backupVersion
+                                    == BACKUP_VERSION_CURRENT
+                                    ? "SHA-256 integrity verified"
+                                    : "Legacy v1 structure verified";
+
                     statusText =
                             "Latest backup उपलब्ध है\n" +
+                                    verificationLabel +
+                                    "\n" +
                                     createdAt +
                                     "\n" +
                                     formatFileSize(size) +
@@ -827,26 +902,33 @@ public class BackupActivity extends AppCompatActivity {
                                 .openBackupInputStream(
                                         backupUri
                                 );
-
-                BufferedReader reader =
-                        new BufferedReader(
-                                new InputStreamReader(
-                                        inputStream,
-                                        StandardCharsets.UTF_8
-                                )
-                        )
+                ByteArrayOutputStream outputStream =
+                        new ByteArrayOutputStream()
         ) {
-            StringBuilder textBuilder =
-                    new StringBuilder();
+            byte[] buffer = new byte[8192];
+            int totalBytes = 0;
+            int bytesRead;
 
-            String line;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                totalBytes += bytesRead;
 
-            while ((line = reader.readLine()) != null) {
-                textBuilder.append(line);
+                if (totalBytes > MAX_BACKUP_BYTES) {
+                    throw new Exception(
+                            "Backup file exceeds the supported size."
+                    );
+                }
+
+                outputStream.write(
+                        buffer,
+                        0,
+                        bytesRead
+                );
             }
 
             return new JSONObject(
-                    textBuilder.toString()
+                    outputStream.toString(
+                            StandardCharsets.UTF_8.name()
+                    )
             );
         }
     }
@@ -873,10 +955,17 @@ public class BackupActivity extends AppCompatActivity {
                         0
                 );
 
-        if (backupVersion != 1) {
+        if (backupVersion != BACKUP_VERSION_LEGACY
+                && backupVersion != BACKUP_VERSION_CURRENT) {
             throw new Exception(
                     "Unsupported backup version"
             );
+        }
+
+        if (backupVersion == BACKUP_VERSION_CURRENT) {
+            validateCurrentBackup(root);
+        } else {
+            validateLegacyBackup(root);
         }
     }
 
@@ -962,7 +1051,236 @@ public class BackupActivity extends AppCompatActivity {
                         )
                 );
 
+        summary.loanPaymentCount =
+                getArrayLength(
+                        root.optJSONArray(
+                                "loanPayments"
+                        )
+                );
+
+        summary.subscriptionCount =
+                getArrayLength(
+                        root.optJSONArray(
+                                "subscriptions"
+                        )
+                );
+
+        summary.integrityStatus =
+                summary.backupVersion
+                        == BACKUP_VERSION_CURRENT
+                        ? "SHA-256 Verified"
+                        : "Legacy v1 structure verified";
+
         return summary;
+    }
+
+    private void validateCurrentBackup(
+            JSONObject root
+    ) throws Exception {
+        int databaseVersion =
+                root.optInt(
+                        "databaseVersion",
+                        0
+                );
+
+        if (databaseVersion <= 0
+                || databaseVersion > DATABASE_VERSION) {
+            throw new Exception(
+                    "Unsupported backup database version."
+            );
+        }
+
+        String[] requiredArrays = {
+                "transactions",
+                "categories",
+                "accounts",
+                "goals",
+                "recurringTransactions",
+                "budgets",
+                "loans",
+                "loanPayments",
+                "subscriptions"
+        };
+
+        for (String arrayName : requiredArrays) {
+            if (root.optJSONArray(arrayName) == null) {
+                throw new Exception(
+                        "Backup section is missing: " + arrayName
+                );
+            }
+        }
+
+        JSONObject recordCounts =
+                root.optJSONObject("recordCounts");
+
+        if (recordCounts == null) {
+            throw new Exception(
+                    "Backup record counts are missing."
+            );
+        }
+
+        for (String arrayName : requiredArrays) {
+            int expectedCount =
+                    recordCounts.optInt(
+                            arrayName,
+                            -1
+                    );
+
+            int actualCount =
+                    root.getJSONArray(
+                            arrayName
+                    ).length();
+
+            if (expectedCount != actualCount) {
+                throw new Exception(
+                        "Backup record count mismatch: " + arrayName
+                );
+            }
+        }
+
+        validateUniquePositiveIds(
+                root,
+                requiredArrays
+        );
+        validateLoanPaymentReferences(root);
+
+        String storedChecksum =
+                root.optString(
+                        "integritySha256",
+                        ""
+                ).trim().toLowerCase(Locale.US);
+
+        if (!BackupIntegrity.verify(
+                root,
+                storedChecksum
+        )) {
+            throw new Exception(
+                    "Backup integrity verification failed."
+            );
+        }
+    }
+
+    private void validateLegacyBackup(
+            JSONObject root
+    ) throws Exception {
+        String[] requiredArrays = {
+                "transactions",
+                "categories",
+                "accounts",
+                "goals",
+                "recurringTransactions",
+                "budgets",
+                "loans"
+        };
+
+        for (String arrayName : requiredArrays) {
+            if (root.optJSONArray(arrayName) == null) {
+                throw new Exception(
+                        "Legacy backup section is missing: "
+                                + arrayName
+                );
+            }
+        }
+
+        JSONObject recordCounts =
+                root.optJSONObject("recordCounts");
+
+        if (recordCounts == null) {
+            return;
+        }
+
+        for (String arrayName : requiredArrays) {
+            int expectedCount =
+                    recordCounts.optInt(
+                            arrayName,
+                            -1
+                    );
+
+            int actualCount =
+                    root.getJSONArray(
+                            arrayName
+                    ).length();
+
+            if (expectedCount != actualCount) {
+                throw new Exception(
+                        "Legacy backup count mismatch: "
+                                + arrayName
+                );
+            }
+        }
+    }
+
+    private void validateUniquePositiveIds(
+            JSONObject root,
+            String[] arrayNames
+    ) throws Exception {
+        for (String arrayName : arrayNames) {
+            JSONArray array =
+                    root.getJSONArray(arrayName);
+
+            Set<Integer> ids =
+                    new HashSet<>();
+
+            for (int index = 0;
+                 index < array.length();
+                 index++) {
+
+                JSONObject item =
+                        array.optJSONObject(index);
+
+                if (item == null) {
+                    throw new Exception(
+                            "Invalid record in " + arrayName
+                    );
+                }
+
+                int id = item.optInt("id", 0);
+
+                if (id <= 0 || !ids.add(id)) {
+                    throw new Exception(
+                            "Invalid or duplicate ID in " + arrayName
+                    );
+                }
+            }
+        }
+    }
+
+    private void validateLoanPaymentReferences(
+            JSONObject root
+    ) throws Exception {
+        Set<Integer> loanIds =
+                new HashSet<>();
+
+        JSONArray loans =
+                root.getJSONArray("loans");
+
+        for (int index = 0;
+             index < loans.length();
+             index++) {
+
+            loanIds.add(
+                    loans.getJSONObject(index)
+                            .getInt("id")
+            );
+        }
+
+        JSONArray payments =
+                root.getJSONArray("loanPayments");
+
+        for (int index = 0;
+             index < payments.length();
+             index++) {
+
+            int loanId =
+                    payments.getJSONObject(index)
+                            .optInt("loanId", 0);
+
+            if (!loanIds.contains(loanId)) {
+                throw new Exception(
+                        "Loan payment references a missing loan."
+                );
+            }
+        }
     }
 
     private int getArrayLength(
@@ -1027,7 +1345,12 @@ public class BackupActivity extends AppCompatActivity {
 
         root.put(
                 "backupVersion",
-                1
+                BACKUP_VERSION_CURRENT
+        );
+
+        root.put(
+                "databaseVersion",
+                DATABASE_VERSION
         );
 
         root.put(
@@ -1052,74 +1375,82 @@ public class BackupActivity extends AppCompatActivity {
                         )
                         .getAppDatabase();
 
-        List<Transaction> transactions =
-                database
-                        .transactionDao()
-                        .getAllTransactions();
+        BackupSnapshot snapshot =
+                new BackupSnapshot();
 
-        List<Category> categories =
-                database
-                        .categoryDao()
-                        .getAllCategories();
-
-        List<Account> accounts =
-                database
-                        .accountDao()
-                        .getAllAccounts();
-
-        List<Goal> goals =
-                database
-                        .goalDao()
-                        .getAllGoals();
-
-        List<RecurringTransaction> recurringTransactions =
-                database
-                        .recurringTransactionDao()
-                        .getAllRecurringTransactions();
-
-        List<Budget> budgets =
-                database
-                        .budgetDao()
-                        .getAllBudgets();
-
-        List<Loan> loans =
-                database
-                        .loanDao()
-                        .getAllLoans();
+        database.runInTransaction(() -> {
+            snapshot.transactions =
+                    database.transactionDao()
+                            .getAllTransactions();
+            snapshot.categories =
+                    database.categoryDao()
+                            .getAllCategories();
+            snapshot.accounts =
+                    database.accountDao()
+                            .getAllAccounts();
+            snapshot.goals =
+                    database.goalDao()
+                            .getAllGoals();
+            snapshot.recurringTransactions =
+                    database.recurringTransactionDao()
+                            .getAllRecurringTransactions();
+            snapshot.budgets =
+                    database.budgetDao()
+                            .getAllBudgets();
+            snapshot.loans =
+                    database.loanDao()
+                            .getAllLoans();
+            snapshot.loanPayments =
+                    database.loanPaymentDao()
+                            .getAllLoanPayments();
+            snapshot.subscriptions =
+                    database.subscriptionDao()
+                            .getAllSubscriptions();
+        });
 
         JSONArray transactionArray =
                 createTransactionArray(
-                        transactions
+                        snapshot.transactions
                 );
 
         JSONArray categoryArray =
                 createCategoryArray(
-                        categories
+                        snapshot.categories
                 );
 
         JSONArray accountArray =
                 createAccountArray(
-                        accounts
+                        snapshot.accounts
                 );
 
         JSONArray goalArray =
                 createGoalArray(
-                        goals
+                        snapshot.goals
                 );
 
         JSONArray recurringArray =
                 createRecurringArray(
-                        recurringTransactions
+                        snapshot.recurringTransactions
                 );
 
         JSONArray budgetArray =
                 createBudgetArray(
-                        budgets
+                        snapshot.budgets
                 );
 
         JSONArray loanArray =
                 createLoanArray(
-                        loans
+                        snapshot.loans
+                );
+
+        JSONArray loanPaymentArray =
+                createLoanPaymentArray(
+                        snapshot.loanPayments
+                );
+
+        JSONArray subscriptionArray =
+                createSubscriptionArray(
+                        snapshot.subscriptions
                 );
 
         root.put(
@@ -1155,6 +1486,16 @@ public class BackupActivity extends AppCompatActivity {
         root.put(
                 "loans",
                 loanArray
+        );
+
+        root.put(
+                "loanPayments",
+                loanPaymentArray
+        );
+
+        root.put(
+                "subscriptions",
+                subscriptionArray
         );
 
         JSONObject recordCounts =
@@ -1195,9 +1536,29 @@ public class BackupActivity extends AppCompatActivity {
                 loanArray.length()
         );
 
+        recordCounts.put(
+                "loanPayments",
+                loanPaymentArray.length()
+        );
+
+        recordCounts.put(
+                "subscriptions",
+                subscriptionArray.length()
+        );
+
         root.put(
                 "recordCounts",
                 recordCounts
+        );
+
+        root.put(
+                "integrityAlgorithm",
+                "SHA-256"
+        );
+
+        root.put(
+                "integritySha256",
+                BackupIntegrity.calculateSha256(root)
         );
 
         return root;
@@ -1261,6 +1622,28 @@ public class BackupActivity extends AppCompatActivity {
                         )
                 );
 
+        content.loanPayments =
+                parseLoanPayments(
+                        root.optJSONArray(
+                                "loanPayments"
+                        ),
+                        root.optInt(
+                                "backupVersion",
+                                BACKUP_VERSION_LEGACY
+                        )
+                );
+
+        content.subscriptions =
+                parseSubscriptions(
+                        root.optJSONArray(
+                                "subscriptions"
+                        ),
+                        root.optInt(
+                                "backupVersion",
+                                BACKUP_VERSION_LEGACY
+                        )
+                );
+
         return content;
     }
 
@@ -1276,6 +1659,11 @@ public class BackupActivity extends AppCompatActivity {
 
             JSONObject object =
                     new JSONObject();
+
+            object.put(
+                    "id",
+                    transaction.getId()
+            );
 
             object.put(
                     "type",
@@ -1327,6 +1715,11 @@ public class BackupActivity extends AppCompatActivity {
                     new JSONObject();
 
             object.put(
+                    "id",
+                    category.getId()
+            );
+
+            object.put(
                     "name",
                     category.getName()
             );
@@ -1359,6 +1752,11 @@ public class BackupActivity extends AppCompatActivity {
 
             JSONObject object =
                     new JSONObject();
+
+            object.put(
+                    "id",
+                    account.getId()
+            );
 
             object.put(
                     "name",
@@ -1398,6 +1796,11 @@ public class BackupActivity extends AppCompatActivity {
 
             JSONObject object =
                     new JSONObject();
+
+            object.put(
+                    "id",
+                    goal.getId()
+            );
 
             object.put(
                     "name",
@@ -1442,6 +1845,11 @@ public class BackupActivity extends AppCompatActivity {
 
             JSONObject object =
                     new JSONObject();
+
+            object.put(
+                    "id",
+                    recurring.getId()
+            );
 
             object.put(
                     "type",
@@ -1508,6 +1916,11 @@ public class BackupActivity extends AppCompatActivity {
                     new JSONObject();
 
             object.put(
+                    "id",
+                    budget.getId()
+            );
+
+            object.put(
                     "category",
                     budget.getCategory()
             );
@@ -1540,6 +1953,11 @@ public class BackupActivity extends AppCompatActivity {
 
             JSONObject object =
                     new JSONObject();
+
+            object.put(
+                    "id",
+                    loan.getId()
+            );
 
             object.put(
                     "personName",
@@ -1586,6 +2004,82 @@ public class BackupActivity extends AppCompatActivity {
                     loan.isActive()
             );
 
+            object.put(
+                    "startDate",
+                    loan.getStartDate()
+            );
+
+            object.put(
+                    "tenureMonths",
+                    loan.getTenureMonths()
+            );
+
+            object.put(
+                    "historicalPaidAmount",
+                    loan.getHistoricalPaidAmount()
+            );
+
+            object.put(
+                    "historicalInstallments",
+                    loan.getHistoricalInstallments()
+            );
+
+            array.put(object);
+        }
+
+        return array;
+    }
+
+    private JSONArray createLoanPaymentArray(
+            List<LoanPayment> loanPayments
+    ) throws Exception {
+        JSONArray array = new JSONArray();
+
+        for (LoanPayment payment : loanPayments) {
+            JSONObject object = new JSONObject();
+
+            object.put("id", payment.getId());
+            object.put("loanId", payment.getLoanId());
+            object.put("amount", payment.getAmount());
+            object.put("paymentType", payment.getPaymentType());
+            object.put("account", payment.getAccount());
+            object.put("paymentDate", payment.getPaymentDate());
+            object.put("note", payment.getNote());
+
+            array.put(object);
+        }
+
+        return array;
+    }
+
+    private JSONArray createSubscriptionArray(
+            List<Subscription> subscriptions
+    ) throws Exception {
+        JSONArray array = new JSONArray();
+
+        for (Subscription subscription : subscriptions) {
+            JSONObject object = new JSONObject();
+
+            object.put("id", subscription.getId());
+            object.put("name", subscription.getName());
+            object.put("amount", subscription.getAmount());
+            object.put(
+                    "billingCycle",
+                    subscription.getBillingCycle()
+            );
+            object.put(
+                    "nextDueDate",
+                    subscription.getNextDueDate()
+            );
+            object.put("account", subscription.getAccount());
+            object.put("category", subscription.getCategory());
+            object.put(
+                    "remindDays",
+                    subscription.getRemindDays()
+            );
+            object.put("note", subscription.getNote());
+            object.put("active", subscription.isActive());
+
             array.put(object);
         }
 
@@ -1615,6 +2109,13 @@ public class BackupActivity extends AppCompatActivity {
 
             Transaction transaction =
                     new Transaction();
+
+            transaction.setId(
+                    object.optInt(
+                            "id",
+                            0
+                    )
+            );
 
             transaction.setType(
                     object.optString(
@@ -1690,6 +2191,13 @@ public class BackupActivity extends AppCompatActivity {
             Category category =
                     new Category();
 
+            category.setId(
+                    object.optInt(
+                            "id",
+                            0
+                    )
+            );
+
             category.setName(
                     object.optString(
                             "name",
@@ -1740,6 +2248,13 @@ public class BackupActivity extends AppCompatActivity {
 
             Account account =
                     new Account();
+
+            account.setId(
+                    object.optInt(
+                            "id",
+                            0
+                    )
+            );
 
             account.setName(
                     object.optString(
@@ -1798,6 +2313,13 @@ public class BackupActivity extends AppCompatActivity {
 
             Goal goal =
                     new Goal();
+
+            goal.setId(
+                    object.optInt(
+                            "id",
+                            0
+                    )
+            );
 
             goal.setName(
                     object.optString(
@@ -1865,6 +2387,13 @@ public class BackupActivity extends AppCompatActivity {
 
             RecurringTransaction recurring =
                     new RecurringTransaction();
+
+            recurring.setId(
+                    object.optInt(
+                            "id",
+                            0
+                    )
+            );
 
             recurring.setType(
                     object.optString(
@@ -1961,6 +2490,13 @@ public class BackupActivity extends AppCompatActivity {
             Budget budget =
                     new Budget();
 
+            budget.setId(
+                    object.optInt(
+                            "id",
+                            0
+                    )
+            );
+
             budget.setCategory(
                     object.optString(
                             "category",
@@ -2011,6 +2547,13 @@ public class BackupActivity extends AppCompatActivity {
 
             Loan loan =
                     new Loan();
+
+            loan.setId(
+                    object.optInt(
+                            "id",
+                            0
+                    )
+            );
 
             loan.setPersonName(
                     object.optString(
@@ -2075,10 +2618,254 @@ public class BackupActivity extends AppCompatActivity {
                     )
             );
 
+            loan.setStartDate(
+                    object.optString(
+                            "startDate",
+                            ""
+                    )
+            );
+
+            loan.setTenureMonths(
+                    object.optInt(
+                            "tenureMonths",
+                            0
+                    )
+            );
+
+            loan.setHistoricalPaidAmount(
+                    object.optDouble(
+                            "historicalPaidAmount",
+                            0
+                    )
+            );
+
+            loan.setHistoricalInstallments(
+                    object.optInt(
+                            "historicalInstallments",
+                            0
+                    )
+            );
+
             loans.add(loan);
         }
 
         return loans;
+    }
+
+    private List<LoanPayment> parseLoanPayments(
+            JSONArray array,
+            int backupVersion
+    ) {
+        List<LoanPayment> payments =
+                new ArrayList<>();
+
+        if (array == null
+                && backupVersion == BACKUP_VERSION_LEGACY) {
+            return payments;
+        }
+
+        if (array == null) {
+            return payments;
+        }
+
+        for (int index = 0;
+             index < array.length();
+             index++) {
+
+            JSONObject object =
+                    array.optJSONObject(index);
+
+            if (object == null) {
+                continue;
+            }
+
+            LoanPayment payment =
+                    new LoanPayment();
+
+            payment.setId(object.optInt("id", 0));
+            payment.setLoanId(object.optInt("loanId", 0));
+            payment.setAmount(object.optDouble("amount", 0));
+            payment.setPaymentType(
+                    object.optString(
+                            "paymentType",
+                            "EMI"
+                    )
+            );
+            payment.setAccount(
+                    object.optString(
+                            "account",
+                            "Cash"
+                    )
+            );
+            payment.setPaymentDate(
+                    object.optString(
+                            "paymentDate",
+                            ""
+                    )
+            );
+            payment.setNote(
+                    object.optString(
+                            "note",
+                            ""
+                    )
+            );
+
+            payments.add(payment);
+        }
+
+        return payments;
+    }
+
+    private List<Subscription> parseSubscriptions(
+            JSONArray array,
+            int backupVersion
+    ) {
+        List<Subscription> subscriptions =
+                new ArrayList<>();
+
+        if (array == null
+                && backupVersion == BACKUP_VERSION_LEGACY) {
+            return subscriptions;
+        }
+
+        if (array == null) {
+            return subscriptions;
+        }
+
+        for (int index = 0;
+             index < array.length();
+             index++) {
+
+            JSONObject object =
+                    array.optJSONObject(index);
+
+            if (object == null) {
+                continue;
+            }
+
+            Subscription subscription =
+                    new Subscription();
+
+            subscription.setId(object.optInt("id", 0));
+            subscription.setName(
+                    object.optString("name", "")
+            );
+            subscription.setAmount(
+                    object.optDouble("amount", 0)
+            );
+            subscription.setBillingCycle(
+                    object.optString(
+                            "billingCycle",
+                            "Monthly"
+                    )
+            );
+            subscription.setNextDueDate(
+                    object.optString(
+                            "nextDueDate",
+                            ""
+                    )
+            );
+            subscription.setAccount(
+                    object.optString(
+                            "account",
+                            "Cash"
+                    )
+            );
+            subscription.setCategory(
+                    object.optString(
+                            "category",
+                            ""
+                    )
+            );
+            subscription.setRemindDays(
+                    object.optInt("remindDays", 0)
+            );
+            subscription.setNote(
+                    object.optString("note", "")
+            );
+            subscription.setActive(
+                    object.optBoolean("active", true)
+            );
+
+            subscriptions.add(subscription);
+        }
+
+        return subscriptions;
+    }
+
+    private void verifyRestoredData(
+            AppDatabase database,
+            BackupContent content
+    ) {
+        verifyCount(
+                "transactions",
+                content.transactions.size(),
+                database.transactionDao()
+                        .getAllTransactions().size()
+        );
+        verifyCount(
+                "categories",
+                content.categories.size(),
+                database.categoryDao()
+                        .getAllCategories().size()
+        );
+        verifyCount(
+                "accounts",
+                content.accounts.isEmpty()
+                        ? 1
+                        : content.accounts.size(),
+                database.accountDao()
+                        .getAllAccounts().size()
+        );
+        verifyCount(
+                "goals",
+                content.goals.size(),
+                database.goalDao()
+                        .getAllGoals().size()
+        );
+        verifyCount(
+                "recurring transactions",
+                content.recurringTransactions.size(),
+                database.recurringTransactionDao()
+                        .getAllRecurringTransactions().size()
+        );
+        verifyCount(
+                "budgets",
+                content.budgets.size(),
+                database.budgetDao()
+                        .getAllBudgets().size()
+        );
+        verifyCount(
+                "loans",
+                content.loans.size(),
+                database.loanDao()
+                        .getAllLoans().size()
+        );
+        verifyCount(
+                "loan payments",
+                content.loanPayments.size(),
+                database.loanPaymentDao()
+                        .getAllLoanPayments().size()
+        );
+        verifyCount(
+                "subscriptions",
+                content.subscriptions.size(),
+                database.subscriptionDao()
+                        .getAllSubscriptions().size()
+        );
+    }
+
+    private void verifyCount(
+            String section,
+            int expected,
+            int actual
+    ) {
+        if (expected != actual) {
+            throw new IllegalStateException(
+                    "Restore verification failed for "
+                            + section
+            );
+        }
     }
 
     private void setBackupButtonsEnabled(
@@ -2086,6 +2873,7 @@ public class BackupActivity extends AppCompatActivity {
     ) {
         btnCreateBackup.setEnabled(enabled);
         btnRestoreBackup.setEnabled(enabled);
+        btnChangeBackupFolder.setEnabled(enabled);
     }
 
     private String getCurrentDateTime() {
@@ -2162,6 +2950,20 @@ public class BackupActivity extends AppCompatActivity {
 
         List<Budget> budgets;
         List<Loan> loans;
+        List<LoanPayment> loanPayments;
+        List<Subscription> subscriptions;
+    }
+
+    private static class BackupSnapshot {
+        List<Transaction> transactions;
+        List<Category> categories;
+        List<Account> accounts;
+        List<Goal> goals;
+        List<RecurringTransaction> recurringTransactions;
+        List<Budget> budgets;
+        List<Loan> loans;
+        List<LoanPayment> loanPayments;
+        List<Subscription> subscriptions;
     }
 
     private static class BackupSummary {
@@ -2177,5 +2979,8 @@ public class BackupActivity extends AppCompatActivity {
         int recurringCount;
         int budgetCount;
         int loanCount;
+        int loanPaymentCount;
+        int subscriptionCount;
+        String integrityStatus;
     }
 }

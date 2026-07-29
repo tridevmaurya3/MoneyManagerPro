@@ -494,10 +494,25 @@ public final class BackupStorageManager {
         );
 
         /*
-         * Provider rename support नहीं करता तो existing file overwrite होगी।
+         * Provider rename support नहीं करता तो पहले पुराने latest की
+         * safety copy बनाई जाती है। नया data लिखने में failure होने पर
+         * उसी copy से latest file rollback की जाती है।
          */
         if (previousBackupUri == null) {
+            Uri safetyCopyUri = null;
+
             try {
+                safetyCopyUri = createFile(
+                        backupFolderUri,
+                        PREVIOUS_BACKUP_FILE_NAME,
+                        BACKUP_MIME_TYPE
+                );
+
+                copyDocument(
+                        existingLatestUri,
+                        safetyCopyUri
+                );
+
                 copyDocument(
                         temporaryBackupUri,
                         existingLatestUri
@@ -507,11 +522,33 @@ public final class BackupStorageManager {
                         temporaryBackupUri
                 );
 
+                deleteDocumentQuietly(
+                        safetyCopyUri
+                );
+
                 return existingLatestUri;
 
             } catch (Exception exception) {
+                if (safetyCopyUri != null) {
+                    try {
+                        copyDocument(
+                                safetyCopyUri,
+                                existingLatestUri
+                        );
+
+                        deleteDocumentQuietly(
+                                safetyCopyUri
+                        );
+
+                    } catch (Exception rollbackException) {
+                        exception.addSuppressed(
+                                rollbackException
+                        );
+                    }
+                }
+
                 throw new IOException(
-                        "Existing backup could not be replaced.",
+                        "Existing backup could not be safely replaced.",
                         exception
                 );
             }
