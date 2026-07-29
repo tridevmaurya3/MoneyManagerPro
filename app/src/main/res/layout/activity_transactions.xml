@@ -119,28 +119,88 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="Search &amp; Filters"
+            android:text="Search Transactions"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="Narrow results by type, account, date, category or amount"
+            android:text="Search instantly, then use Filter or Sort when needed"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnToggleTransactionFilters"
-            style="@style/Widget.MoneyManagerPro.Button.Outlined"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:gravity="center_vertical"
-            android:text="Open Search &amp; Filter Menu"
-            android:textColor="@color/secondary"
-            app:backgroundTint="@color/app_surface"
-            app:cornerRadius="16dp"
-            app:strokeColor="@color/app_outline" />
+            android:orientation="horizontal">
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Search"
+                app:startIconDrawable="@drawable/ic_search_24">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etSearchTransactions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:minHeight="52dp"
+                    android:textColor="@color/app_text_primary"
+                    android:textSize="14sp" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnShowTransactionFilters"
+                style="@style/Widget.MoneyManagerPro.Button.Outlined"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="8dp"
+                android:contentDescription="Filter transactions"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:backgroundTint="@color/app_surface"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/ic_filter_alt_24"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="@color/secondary"
+                app:strokeColor="@color/app_outline" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSortTransactions"
+                style="@style/Widget.MoneyManagerPro.Button.Outlined"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="6dp"
+                android:contentDescription="Sort transactions"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:backgroundTint="@color/app_surface"
+                app:cornerRadius="16dp"
+                app:icon="@drawable/ic_sort_24"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="@color/secondary"
+                app:strokeColor="@color/app_outline" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/txtActiveFilterSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/app_text_secondary"
+            android:textSize="11sp"
+            android:visibility="gone" />
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/transactionFilterPanel"
@@ -158,12 +218,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="15dp">
+                android:padding="13dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Search Transactions"
+                    android:text="Filter Transactions"
                     android:textColor="@color/app_text_primary"
                     android:textSize="13sp"
                     android:textStyle="bold" />
@@ -172,210 +232,137 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="Search by amount, category, account, note or date"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="10sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:hint="Search transaction">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etSearchTransactions"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="text"
-                        android:maxLines="1"
-                        android:minHeight="52dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="14sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="13dp"
-                    android:text="Transaction Type"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Show all records or one transaction type"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="10sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:hint="Select transaction type"
-                    app:endIconMode="dropdown_menu">
-
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/dropdownTransactionType"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:clickable="true"
-                        android:focusable="false"
-                        android:gravity="start|center_vertical"
-                        android:inputType="none"
-                        android:minHeight="52dp"
-                        android:paddingStart="14dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="14sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="13dp"
-                    android:text="Category"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Filter records using a saved category"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="10sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:hint="Select category"
-                    app:endIconMode="dropdown_menu">
-
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/dropdownTransactionCategory"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:clickable="true"
-                        android:focusable="false"
-                        android:gravity="start|center_vertical"
-                        android:inputType="none"
-                        android:minHeight="52dp"
-                        android:paddingStart="14dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="14sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="13dp"
-                    android:text="Account"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Show transactions from a specific account"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="10sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:hint="Select account"
-                    app:endIconMode="dropdown_menu">
-
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/dropdownTransactionAccount"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:clickable="true"
-                        android:focusable="false"
-                        android:gravity="start|center_vertical"
-                        android:inputType="none"
-                        android:minHeight="52dp"
-                        android:paddingStart="14dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="14sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="13dp"
-                    android:text="Quick Period"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Choose a commonly used date period"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="10sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:hint="Select time period"
-                    app:endIconMode="dropdown_menu">
-
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/dropdownTransactionPeriod"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:clickable="true"
-                        android:focusable="false"
-                        android:gravity="start|center_vertical"
-                        android:inputType="none"
-                        android:minHeight="52dp"
-                        android:paddingStart="14dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="14sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="13dp"
-                    android:text="Amount Range"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Both values are optional"
+                    android:text="Choose only the criteria you need"
                     android:textColor="@color/app_text_secondary"
                     android:textSize="10sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
+                    android:layout_marginTop="9dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="5dp"
+                        android:layout_weight="1"
+                        android:hint="Type"
+                        app:endIconMode="dropdown_menu">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownTransactionType"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="false"
+                            android:gravity="start|center_vertical"
+                            android:inputType="none"
+                            android:minHeight="50dp"
+                            android:paddingStart="12dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="12sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="5dp"
+                        android:layout_weight="1"
+                        android:hint="Category"
+                        app:endIconMode="dropdown_menu">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownTransactionCategory"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="false"
+                            android:gravity="start|center_vertical"
+                            android:inputType="none"
+                            android:minHeight="50dp"
+                            android:paddingStart="12dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="12sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="9dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="5dp"
+                        android:layout_weight="1"
+                        android:hint="Account"
+                        app:endIconMode="dropdown_menu">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownTransactionAccount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="false"
+                            android:gravity="start|center_vertical"
+                            android:inputType="none"
+                            android:minHeight="50dp"
+                            android:paddingStart="12dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="12sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="5dp"
+                        android:layout_weight="1"
+                        android:hint="Period"
+                        app:endIconMode="dropdown_menu">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownTransactionPeriod"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="false"
+                            android:gravity="start|center_vertical"
+                            android:inputType="none"
+                            android:minHeight="50dp"
+                            android:paddingStart="12dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="12sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Amount range"
+                    android:textColor="@color/app_text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
                     android:baselineAligned="false"
                     android:orientation="horizontal">
 
@@ -395,7 +382,7 @@
                             android:layout_height="wrap_content"
                             android:inputType="numberDecimal"
                             android:maxLines="1"
-                            android:minHeight="52dp"
+                            android:minHeight="50dp"
                             android:textColor="@color/app_text_primary"
                             android:textSize="13sp" />
 
@@ -417,7 +404,7 @@
                             android:layout_height="wrap_content"
                             android:inputType="numberDecimal"
                             android:maxLines="1"
-                            android:minHeight="52dp"
+                            android:minHeight="50dp"
                             android:textColor="@color/app_text_primary"
                             android:textSize="13sp" />
 
@@ -428,24 +415,16 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="13dp"
-                    android:text="Custom Date Range"
+                    android:layout_marginTop="12dp"
+                    android:text="Custom date range"
                     android:textColor="@color/app_text_primary"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Tap a field to select a starting or ending date"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="10sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
+                    android:layout_marginTop="6dp"
                     android:baselineAligned="false"
                     android:orientation="horizontal">
 
@@ -466,7 +445,7 @@
                             android:focusable="false"
                             android:gravity="start|center_vertical"
                             android:inputType="none"
-                            android:minHeight="52dp"
+                            android:minHeight="50dp"
                             android:textColor="@color/app_text_primary"
                             android:textSize="12sp" />
 
@@ -489,7 +468,7 @@
                             android:focusable="false"
                             android:gravity="start|center_vertical"
                             android:inputType="none"
-                            android:minHeight="52dp"
+                            android:minHeight="50dp"
                             android:textColor="@color/app_text_primary"
                             android:textSize="12sp" />
 
@@ -500,7 +479,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="15dp"
                     android:orientation="horizontal">
 
                     <com.google.android.material.button.MaterialButton
@@ -510,7 +489,7 @@
                         android:layout_height="match_parent"
                         android:layout_marginEnd="5dp"
                         android:layout_weight="1"
-                        android:text="Apply &amp; Close"
+                        android:text="Apply Filters"
                         android:textColor="@color/white"
                         app:backgroundTint="@color/secondary"
                         app:cornerRadius="15dp" />
@@ -533,6 +512,7 @@
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
+
 
         <TextView
             android:layout_width="match_parent"

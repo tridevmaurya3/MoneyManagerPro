@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,6 +39,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,6 +49,15 @@ import java.util.Map;
 import java.util.Set;
 
 public class TransactionsActivity extends AppCompatActivity {
+
+    private static final String SORT_NEWEST =
+            "Newest first";
+    private static final String SORT_OLDEST =
+            "Oldest first";
+    private static final String SORT_AMOUNT_HIGH =
+            "Amount: High to low";
+    private static final String SORT_AMOUNT_LOW =
+            "Amount: Low to high";
 
     private EditText etSearchTransactions;
     private EditText etMinAmount;
@@ -64,11 +75,13 @@ public class TransactionsActivity extends AppCompatActivity {
 
     private MaterialButton btnApplyFilters;
     private MaterialButton btnResetFilters;
-    private MaterialButton btnToggleFilters;
+    private MaterialButton btnShowFilters;
+    private MaterialButton btnSortTransactions;
     private View transactionFilterPanel;
 
     private TextView txtEmptyTransactions;
     private TextView txtResultCount;
+    private TextView txtActiveFilterSummary;
 
     private LinearLayout transactionContainer;
 
@@ -82,6 +95,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
     private Calendar filterStartDate;
     private Calendar filterEndDate;
+    private String selectedSort = SORT_NEWEST;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -157,9 +171,14 @@ public class TransactionsActivity extends AppCompatActivity {
         btnResetFilters =
                 findViewById(R.id.btnResetFilters);
 
-        btnToggleFilters =
+        btnShowFilters =
                 findViewById(
-                        R.id.btnToggleTransactionFilters
+                        R.id.btnShowTransactionFilters
+                );
+
+        btnSortTransactions =
+                findViewById(
+                        R.id.btnSortTransactions
                 );
 
         transactionFilterPanel =
@@ -174,6 +193,11 @@ public class TransactionsActivity extends AppCompatActivity {
 
         txtResultCount =
                 findViewById(R.id.txtResultCount);
+
+        txtActiveFilterSummary =
+                findViewById(
+                        R.id.txtActiveFilterSummary
+                );
 
         transactionContainer =
                 findViewById(
@@ -299,14 +323,21 @@ public class TransactionsActivity extends AppCompatActivity {
 
         BubbleTouchAnimator.apply(btnApplyFilters);
         BubbleTouchAnimator.apply(btnResetFilters);
-        BubbleTouchAnimator.apply(btnToggleFilters);
+        BubbleTouchAnimator.apply(btnShowFilters);
+        BubbleTouchAnimator.apply(
+                btnSortTransactions
+        );
 
-        btnToggleFilters.setOnClickListener(
+        btnShowFilters.setOnClickListener(
                 view -> setFilterPanelExpanded(
                         transactionFilterPanel
                                 .getVisibility()
                                 != View.VISIBLE
                 )
+        );
+
+        btnSortTransactions.setOnClickListener(
+                this::showSortMenu
         );
     }
 
@@ -317,19 +348,15 @@ public class TransactionsActivity extends AppCompatActivity {
                         : View.GONE
         );
 
-        btnToggleFilters.setText(
+        btnShowFilters.setContentDescription(
                 expanded
-                        ? "Close Search & Filter Menu"
-                        : getCompactFilterSummary()
+                        ? "Close transaction filters"
+                        : "Filter transactions"
         );
     }
 
-    private String getCompactFilterSummary() {
+    private int getActiveFilterCount() {
         int activeFilters = 0;
-
-        if (!getText(etSearchTransactions).isEmpty()) {
-            activeFilters++;
-        }
 
         if (!"All Transactions".equals(
                 getSelectedText(
@@ -377,9 +404,85 @@ public class TransactionsActivity extends AppCompatActivity {
             activeFilters++;
         }
 
-        return activeFilters == 0
-                ? "Open Search & Filter Menu"
-                : "Filters Applied (" + activeFilters + ")";
+        return activeFilters;
+    }
+
+    private void updateFilterSummary() {
+        int activeFilters =
+                getActiveFilterCount();
+
+        boolean hasCustomSort =
+                !SORT_NEWEST.equals(selectedSort);
+
+        if (activeFilters == 0
+                && !hasCustomSort) {
+            txtActiveFilterSummary.setVisibility(
+                    View.GONE
+            );
+            return;
+        }
+
+        StringBuilder summary =
+                new StringBuilder();
+
+        if (activeFilters > 0) {
+            summary.append(activeFilters)
+                    .append(
+                            activeFilters == 1
+                                    ? " filter applied"
+                                    : " filters applied"
+                    );
+        }
+
+        if (hasCustomSort) {
+            if (summary.length() > 0) {
+                summary.append("  •  ");
+            }
+
+            summary.append(selectedSort);
+        }
+
+        txtActiveFilterSummary.setText(
+                summary.toString()
+        );
+        txtActiveFilterSummary.setVisibility(
+                View.VISIBLE
+        );
+    }
+
+    private void showSortMenu(View anchor) {
+        PopupMenu sortMenu =
+                new PopupMenu(this, anchor);
+
+        String[] options = {
+                SORT_NEWEST,
+                SORT_OLDEST,
+                SORT_AMOUNT_HIGH,
+                SORT_AMOUNT_LOW
+        };
+
+        for (int index = 0;
+             index < options.length;
+             index++) {
+            sortMenu.getMenu().add(
+                    0,
+                    index,
+                    index,
+                    options[index]
+            );
+        }
+
+        sortMenu.setOnMenuItemClickListener(
+                item -> {
+                    selectedSort =
+                            item.getTitle()
+                                    .toString();
+                    filterTransactions();
+                    return true;
+                }
+        );
+
+        sortMenu.show();
     }
 
     private void setDropdownItems(
@@ -668,6 +771,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
         inputMinAmount.setError(null);
         inputMaxAmount.setError(null);
+        selectedSort = SORT_NEWEST;
 
         filterTransactions();
     }
@@ -756,7 +860,8 @@ public class TransactionsActivity extends AppCompatActivity {
                         "All Time"
                 );
 
-        int visibleCount = 0;
+        List<Transaction> visibleTransactions =
+                new ArrayList<>();
 
         for (Transaction transaction :
                 allTransactions) {
@@ -792,13 +897,21 @@ public class TransactionsActivity extends AppCompatActivity {
                     );
 
             if (visible) {
-                addTransactionCard(
+                visibleTransactions.add(
                         transaction
                 );
-
-                visibleCount++;
             }
         }
+
+        sortTransactions(visibleTransactions);
+
+        for (Transaction transaction :
+                visibleTransactions) {
+            addTransactionCard(transaction);
+        }
+
+        int visibleCount =
+                visibleTransactions.size();
 
         String resultText =
                 visibleCount == 1
@@ -807,18 +920,72 @@ public class TransactionsActivity extends AppCompatActivity {
                           + " transactions found";
 
         txtResultCount.setText(resultText);
-        if (transactionFilterPanel.getVisibility()
-                != View.VISIBLE) {
-            btnToggleFilters.setText(
-                    getCompactFilterSummary()
-            );
-        }
+        updateFilterSummary();
 
         txtEmptyTransactions.setVisibility(
                 visibleCount == 0
                         ? View.VISIBLE
                         : View.GONE
         );
+    }
+
+    private void sortTransactions(
+            List<Transaction> transactions
+    ) {
+        Collections.sort(
+                transactions,
+                (first, second) -> {
+                    if (SORT_AMOUNT_HIGH.equals(
+                            selectedSort
+                    )) {
+                        return Double.compare(
+                                second.getAmount(),
+                                first.getAmount()
+                        );
+                    }
+
+                    if (SORT_AMOUNT_LOW.equals(
+                            selectedSort
+                    )) {
+                        return Double.compare(
+                                first.getAmount(),
+                                second.getAmount()
+                        );
+                    }
+
+                    long firstTime =
+                            getTransactionTime(first);
+                    long secondTime =
+                            getTransactionTime(second);
+
+                    if (SORT_OLDEST.equals(
+                            selectedSort
+                    )) {
+                        return Long.compare(
+                                firstTime,
+                                secondTime
+                        );
+                    }
+
+                    return Long.compare(
+                            secondTime,
+                            firstTime
+                    );
+                }
+        );
+    }
+
+    private long getTransactionTime(
+            Transaction transaction
+    ) {
+        Calendar calendar =
+                parseTransactionDate(
+                        transaction.getDate()
+                );
+
+        return calendar == null
+                ? 0L
+                : calendar.getTimeInMillis();
     }
 
     private Double getOptionalAmount(
