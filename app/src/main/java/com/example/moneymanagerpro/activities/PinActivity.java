@@ -56,6 +56,7 @@ public class PinActivity extends AppCompatActivity {
 
     private MaterialButton btnPinAction;
     private MaterialButton btnBiometricUnlock;
+    private MaterialButton btnEmailUnlock;
     private MaterialButton btnSkipPinSetup;
 
     private SharedPreferences preferences;
@@ -66,8 +67,6 @@ public class PinActivity extends AppCompatActivity {
     private boolean actionInProgress = false;
     private boolean dashboardOpened = false;
     private boolean biometricPromptVisible = false;
-    private boolean automaticBiometricAttempted = false;
-
     private BiometricPrompt biometricPrompt;
     private BiometricPrompt.PromptInfo biometricPromptInfo;
 
@@ -122,6 +121,9 @@ public class PinActivity extends AppCompatActivity {
 
         btnBiometricUnlock =
                 findViewById(R.id.btnBiometricUnlock);
+
+        btnEmailUnlock =
+                findViewById(R.id.btnEmailUnlock);
 
         btnSkipPinSetup =
                 findViewById(R.id.btnSkipPinSetup);
@@ -291,6 +293,9 @@ public class PinActivity extends AppCompatActivity {
             btnBiometricUnlock.setVisibility(
                     View.GONE
             );
+            btnEmailUnlock.setVisibility(
+                    View.GONE
+            );
 
             btnPinAction.setText(
                     "Save PIN"
@@ -334,19 +339,11 @@ public class PinActivity extends AppCompatActivity {
                             ? View.VISIBLE
                             : View.GONE
             );
+            btnEmailUnlock.setVisibility(
+                    View.VISIBLE
+            );
 
             etPin.requestFocus();
-
-            if (biometricAvailable
-                    && !automaticBiometricAttempted) {
-
-                automaticBiometricAttempted = true;
-
-                btnBiometricUnlock.postDelayed(
-                        this::showBiometricPrompt,
-                        450
-                );
-            }
         }
     }
 
@@ -359,6 +356,15 @@ public class PinActivity extends AppCompatActivity {
                 view -> showBiometricPrompt()
         );
 
+        btnEmailUnlock.setOnClickListener(
+                view -> startActivity(
+                        AuthenticationActivity
+                                .createReauthenticationIntent(
+                                        this
+                                )
+                )
+        );
+
         btnSkipPinSetup.setOnClickListener(
                 view -> confirmSkipPinSetup()
         );
@@ -369,6 +375,10 @@ public class PinActivity extends AppCompatActivity {
 
         BubbleTouchAnimator.apply(
                 btnBiometricUnlock
+        );
+
+        BubbleTouchAnimator.apply(
+                btnEmailUnlock
         );
 
         BubbleTouchAnimator.apply(
@@ -806,6 +816,9 @@ public class PinActivity extends AppCompatActivity {
         btnBiometricUnlock.setEnabled(
                 !inProgress
         );
+        btnEmailUnlock.setEnabled(
+                !inProgress
+        );
 
         float alpha =
                 inProgress
@@ -815,6 +828,7 @@ public class PinActivity extends AppCompatActivity {
         btnPinAction.setAlpha(alpha);
         btnSkipPinSetup.setAlpha(alpha);
         btnBiometricUnlock.setAlpha(alpha);
+        btnEmailUnlock.setAlpha(alpha);
 
         btnPinAction.setText(
                 buttonText

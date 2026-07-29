@@ -30,6 +30,7 @@ public class AuthenticationActivity extends AppCompatActivity {
     public static final String MODE_SIGN_UP = "sign_up";
     public static final String MODE_FORGOT_PASSWORD = "forgot_password";
     public static final String MODE_CHANGE_PASSWORD = "change_password";
+    public static final String MODE_REAUTHENTICATE = "reauthenticate";
 
     private static final String EXTRA_MODE = "auth_mode";
 
@@ -59,6 +60,10 @@ public class AuthenticationActivity extends AppCompatActivity {
 
     public static Intent createLoginIntent(Context context) {
         return createIntent(context, MODE_LOGIN);
+    }
+
+    public static Intent createReauthenticationIntent(Context context) {
+        return createIntent(context, MODE_REAUTHENTICATE);
     }
 
     public static Intent createIntent(Context context, String mode) {
@@ -162,6 +167,33 @@ public class AuthenticationActivity extends AppCompatActivity {
                 btnTopBack.setVisibility(View.VISIBLE);
                 break;
 
+            case MODE_REAUTHENTICATE:
+                txtTitle.setText("Unlock with email");
+                txtSubtitle.setText(
+                        "Confirm your Firebase password to open Money Manager Pro"
+                );
+                inputEmail.setVisibility(View.VISIBLE);
+                inputPassword.setVisibility(View.VISIBLE);
+                inputPassword.setHint("Password");
+                btnPrimaryAction.setText("Unlock with Email");
+                btnSecondaryAction.setText("Use PIN or Fingerprint");
+                btnSecondaryAction.setVisibility(View.VISIBLE);
+                btnTopBack.setVisibility(View.VISIBLE);
+
+                FirebaseUser currentUser =
+                        firebaseAuth.getCurrentUser();
+
+                if (currentUser != null
+                        && !TextUtils.isEmpty(
+                        currentUser.getEmail()
+                )) {
+                    etEmail.setText(
+                            currentUser.getEmail()
+                    );
+                    etEmail.setEnabled(false);
+                }
+                break;
+
             case MODE_LOGIN:
             default:
                 mode = MODE_LOGIN;
@@ -200,6 +232,8 @@ public class AuthenticationActivity extends AppCompatActivity {
         btnSecondaryAction.setOnClickListener(view -> {
             if (MODE_LOGIN.equals(mode)) {
                 startActivity(createIntent(this, MODE_SIGN_UP));
+            } else if (MODE_REAUTHENTICATE.equals(mode)) {
+                finish();
             } else {
                 startActivity(createLoginIntent(this));
                 finish();
@@ -234,6 +268,9 @@ public class AuthenticationActivity extends AppCompatActivity {
             case MODE_CHANGE_PASSWORD:
                 changePassword();
                 break;
+            case MODE_REAUTHENTICATE:
+                reauthenticateForUnlock();
+                break;
             case MODE_LOGIN:
             default:
                 login();
@@ -261,6 +298,55 @@ public class AuthenticationActivity extends AppCompatActivity {
                         showAuthError(task.getException());
                     }
                 });
+    }
+
+    private void reauthenticateForUnlock() {
+        FirebaseUser user =
+                firebaseAuth.getCurrentUser();
+
+        if (user == null
+                || TextUtils.isEmpty(user.getEmail())) {
+            AuthNavigator.logout(this);
+            return;
+        }
+
+        String password = value(etPassword);
+
+        if (!validatePassword(
+                password,
+                inputPassword
+        )) {
+            return;
+        }
+
+        setLoading(true);
+
+        user.reauthenticate(
+                EmailAuthProvider.getCredential(
+                        user.getEmail(),
+                        password
+                )
+        ).addOnCompleteListener(task -> {
+            setLoading(false);
+
+            if (task.isSuccessful()) {
+                Intent intent =
+                        new Intent(
+                                this,
+                                DashboardActivity.class
+                        );
+
+                intent.setFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK
+                                | Intent.FLAG_ACTIVITY_CLEAR_TASK
+                );
+
+                startActivity(intent);
+                finish();
+            } else {
+                showAuthError(task.getException());
+            }
+        });
     }
 
     private void createAccount() {

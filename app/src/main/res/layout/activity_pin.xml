@@ -280,6 +280,20 @@
                     app:backgroundTint="@color/success"
                     app:cornerRadius="18dp" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnEmailUnlock"
+                    style="@style/Widget.MoneyManagerPro.Button.Outlined"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="10dp"
+                    android:text="Unlock with Email Login"
+                    android:textColor="@color/secondary"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/app_surface"
+                    app:cornerRadius="17dp"
+                    app:strokeColor="@color/secondary"
+                    app:strokeWidth="1dp" />
+
                 <!-- SKIP SETUP -->
 
                 <com.google.android.material.button.MaterialButton
