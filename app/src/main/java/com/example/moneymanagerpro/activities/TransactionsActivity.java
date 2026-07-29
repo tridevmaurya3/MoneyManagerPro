@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
+import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.repository.TransactionRepository;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
@@ -41,6 +42,8 @@ import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 public class TransactionsActivity extends AppCompatActivity {
@@ -61,6 +64,8 @@ public class TransactionsActivity extends AppCompatActivity {
 
     private MaterialButton btnApplyFilters;
     private MaterialButton btnResetFilters;
+    private MaterialButton btnToggleFilters;
+    private View transactionFilterPanel;
 
     private TextView txtEmptyTransactions;
     private TextView txtResultCount;
@@ -71,6 +76,9 @@ public class TransactionsActivity extends AppCompatActivity {
 
     private final List<Transaction> allTransactions =
             new ArrayList<>();
+    private final Map<Integer, List<ExpenseItem>>
+            expenseItemsByTransaction =
+            new LinkedHashMap<>();
 
     private Calendar filterStartDate;
     private Calendar filterEndDate;
@@ -148,6 +156,16 @@ public class TransactionsActivity extends AppCompatActivity {
 
         btnResetFilters =
                 findViewById(R.id.btnResetFilters);
+
+        btnToggleFilters =
+                findViewById(
+                        R.id.btnToggleTransactionFilters
+                );
+
+        transactionFilterPanel =
+                findViewById(
+                        R.id.transactionFilterPanel
+                );
 
         txtEmptyTransactions =
                 findViewById(
@@ -269,7 +287,10 @@ public class TransactionsActivity extends AppCompatActivity {
         );
 
         btnApplyFilters.setOnClickListener(
-                view -> filterTransactions()
+                view -> {
+                    filterTransactions();
+                    setFilterPanelExpanded(false);
+                }
         );
 
         btnResetFilters.setOnClickListener(
@@ -278,6 +299,87 @@ public class TransactionsActivity extends AppCompatActivity {
 
         BubbleTouchAnimator.apply(btnApplyFilters);
         BubbleTouchAnimator.apply(btnResetFilters);
+        BubbleTouchAnimator.apply(btnToggleFilters);
+
+        btnToggleFilters.setOnClickListener(
+                view -> setFilterPanelExpanded(
+                        transactionFilterPanel
+                                .getVisibility()
+                                != View.VISIBLE
+                )
+        );
+    }
+
+    private void setFilterPanelExpanded(boolean expanded) {
+        transactionFilterPanel.setVisibility(
+                expanded
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+
+        btnToggleFilters.setText(
+                expanded
+                        ? "Close Search & Filter Menu"
+                        : getCompactFilterSummary()
+        );
+    }
+
+    private String getCompactFilterSummary() {
+        int activeFilters = 0;
+
+        if (!getText(etSearchTransactions).isEmpty()) {
+            activeFilters++;
+        }
+
+        if (!"All Transactions".equals(
+                getSelectedText(
+                        dropdownTransactionType,
+                        "All Transactions"
+                )
+        )) {
+            activeFilters++;
+        }
+
+        if (!"All Categories".equals(
+                getSelectedText(
+                        dropdownTransactionCategory,
+                        "All Categories"
+                )
+        )) {
+            activeFilters++;
+        }
+
+        if (!"All Accounts".equals(
+                getSelectedText(
+                        dropdownTransactionAccount,
+                        "All Accounts"
+                )
+        )) {
+            activeFilters++;
+        }
+
+        if (!"All Time".equals(
+                getSelectedText(
+                        dropdownTransactionPeriod,
+                        "All Time"
+                )
+        )) {
+            activeFilters++;
+        }
+
+        if (!getText(etMinAmount).isEmpty()
+                || !getText(etMaxAmount).isEmpty()) {
+            activeFilters++;
+        }
+
+        if (filterStartDate != null
+                || filterEndDate != null) {
+            activeFilters++;
+        }
+
+        return activeFilters == 0
+                ? "Open Search & Filter Menu"
+                : "Filters Applied (" + activeFilters + ")";
     }
 
     private void setDropdownItems(
@@ -297,9 +399,48 @@ public class TransactionsActivity extends AppCompatActivity {
     }
 
     private void loadTransactions() {
-        transactionRepository.getAllTransactions(
-                transactions -> {
+        new Thread(() -> {
+            List<Transaction> transactions =
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
+                            .getAppDatabase()
+                            .transactionDao()
+                            .getAllTransactions();
+
+            List<ExpenseItem> expenseItems =
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
+                            .getAppDatabase()
+                            .expenseItemDao()
+                            .getAllExpenseItems();
+
+            Map<Integer, List<ExpenseItem>> groupedItems =
+                    new LinkedHashMap<>();
+
+            for (ExpenseItem item : expenseItems) {
+                List<ExpenseItem> items =
+                        groupedItems.get(
+                                item.getTransactionId()
+                        );
+
+                if (items == null) {
+                    items = new ArrayList<>();
+                    groupedItems.put(
+                            item.getTransactionId(),
+                            items
+                    );
+                }
+
+                items.add(item);
+            }
+
+            runOnUiThread(() -> {
                     allTransactions.clear();
+                    expenseItemsByTransaction.clear();
 
                     if (transactions != null) {
                         allTransactions.addAll(
@@ -307,11 +448,15 @@ public class TransactionsActivity extends AppCompatActivity {
                         );
                     }
 
+                    expenseItemsByTransaction.putAll(
+                            groupedItems
+                    );
+
                     updateCategoryFilterOptions();
                     updateAccountFilterOptions();
                     filterTransactions();
-                }
-        );
+            });
+        }).start();
     }
 
     private void updateCategoryFilterOptions() {
@@ -662,6 +807,12 @@ public class TransactionsActivity extends AppCompatActivity {
                           + " transactions found";
 
         txtResultCount.setText(resultText);
+        if (transactionFilterPanel.getVisibility()
+                != View.VISIBLE) {
+            btnToggleFilters.setText(
+                    getCompactFilterSummary()
+            );
+        }
 
         txtEmptyTransactions.setVisibility(
                 visibleCount == 0
@@ -978,6 +1129,35 @@ public class TransactionsActivity extends AppCompatActivity {
                         + safeText(
                         transaction.getDate()
                 );
+
+        List<ExpenseItem> items =
+                expenseItemsByTransaction.get(
+                        transaction.getId()
+                );
+
+        if (items != null) {
+            StringBuilder itemText =
+                    new StringBuilder(
+                            combinedText
+                    );
+
+            for (ExpenseItem item : items) {
+                itemText.append(' ')
+                        .append(
+                                safeText(
+                                        item.getItemName()
+                                )
+                        )
+                        .append(' ')
+                        .append(
+                                safeText(
+                                        item.getUnit()
+                                )
+                        );
+            }
+
+            combinedText = itemText.toString();
+        }
 
         return combinedText
                 .toLowerCase(
@@ -1330,6 +1510,20 @@ public class TransactionsActivity extends AppCompatActivity {
                     createNoteView(note);
 
             content.addView(noteView);
+        }
+
+        List<ExpenseItem> expenseItems =
+                expenseItemsByTransaction.get(
+                        transaction.getId()
+                );
+
+        if (expenseItems != null
+                && !expenseItems.isEmpty()) {
+            content.addView(
+                    createExpenseItemsView(
+                            expenseItems
+                    )
+            );
         }
 
         if (visual.isTransfer) {
@@ -1708,6 +1902,100 @@ public class TransactionsActivity extends AppCompatActivity {
         noteView.setLayoutParams(params);
 
         return noteView;
+    }
+
+    private TextView createExpenseItemsView(
+            List<ExpenseItem> items
+    ) {
+        StringBuilder details =
+                new StringBuilder("Items");
+
+        for (ExpenseItem item : items) {
+            details.append("\n• ")
+                    .append(item.getItemName())
+                    .append(" — ")
+                    .append(
+                            formatItemQuantity(
+                                    item.getQuantity()
+                            )
+                    )
+                    .append(' ')
+                    .append(item.getUnit())
+                    .append(" × ₹")
+                    .append(
+                            formatAmount(
+                                    item.getPrice()
+                            )
+                    )
+                    .append(" = ₹")
+                    .append(
+                            formatAmount(
+                                    item.getTotal()
+                            )
+                    );
+        }
+
+        TextView itemView =
+                createText(
+                        details.toString(),
+                        11,
+                        getColorValue(
+                                R.color.app_text_primary
+                        ),
+                        false
+                );
+
+        itemView.setLineSpacing(dp(2), 1f);
+        itemView.setPadding(
+                dp(12),
+                dp(10),
+                dp(12),
+                dp(10)
+        );
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setColor(
+                getColorValue(
+                        R.color.expense_surface
+                )
+        );
+        background.setStroke(
+                dp(1),
+                getColorValue(
+                        R.color.expense_outline
+                )
+        );
+        background.setCornerRadius(dp(12));
+        itemView.setBackground(background);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        params.setMargins(0, dp(11), 0, 0);
+        itemView.setLayoutParams(params);
+
+        return itemView;
+    }
+
+    private String formatItemQuantity(double quantity) {
+        if (quantity == Math.rint(quantity)) {
+            return String.format(
+                    Locale.US,
+                    "%.0f",
+                    quantity
+            );
+        }
+
+        return String.format(
+                Locale.US,
+                "%.2f",
+                quantity
+        ).replaceAll("0+$", "")
+                .replaceAll("\\.$", "");
     }
 
     private TextView createProtectedInfo() {

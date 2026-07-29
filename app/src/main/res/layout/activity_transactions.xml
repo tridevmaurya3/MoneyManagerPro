@@ -129,10 +129,25 @@
             android:text="Narrow results by type, account, date, category or amount"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnToggleTransactionFilters"
+            style="@style/Widget.MoneyManagerPro.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:text="Open Search &amp; Filter Menu"
+            android:textColor="@color/secondary"
+            app:backgroundTint="@color/app_surface"
+            app:cornerRadius="16dp"
+            app:strokeColor="@color/app_outline" />
+
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/transactionFilterPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
+            android:visibility="gone"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="20dp"
             app:cardElevation="1dp"
@@ -495,7 +510,7 @@
                         android:layout_height="match_parent"
                         android:layout_marginEnd="5dp"
                         android:layout_weight="1"
-                        android:text="Apply Filters"
+                        android:text="Apply &amp; Close"
                         android:textColor="@color/white"
                         app:backgroundTint="@color/secondary"
                         app:cornerRadius="15dp" />
