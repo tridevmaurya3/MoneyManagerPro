@@ -33,7 +33,6 @@ import com.example.moneymanagerpro.activities.LoanActivity;
 import com.example.moneymanagerpro.activities.ReceiptGalleryActivity;
 import com.example.moneymanagerpro.activities.RecurringActivity;
 import com.example.moneymanagerpro.activities.SettingsActivity;
-import com.example.moneymanagerpro.activities.SmsTransactionActivity;
 import com.example.moneymanagerpro.activities.SubscriptionActivity;
 import com.example.moneymanagerpro.activities.TransferActivity;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
@@ -86,8 +85,6 @@ public final class DashboardDrawerController {
                 SubscriptionActivity.class, R.color.purple);
         addMenuItem("Bill Photos", "Saved receipt images", "▣",
                 ReceiptGalleryActivity.class, R.color.expense);
-        addMenuItem("SMS Transaction Sync", "Detect debit and credit alerts", "SMS",
-                SmsTransactionActivity.class, R.color.teal);
 
         addSection("Data & App");
         addMenuItem("Export", "Create reports and files", "⇩",
