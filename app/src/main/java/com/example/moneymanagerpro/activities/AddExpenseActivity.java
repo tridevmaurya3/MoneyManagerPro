@@ -30,14 +30,14 @@ import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.ReceiptStore;
 import com.example.moneymanagerpro.utils.UpiPaymentResultParser;
 import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
-import com.google.android.gms.codescanner.GmsBarcodeScanner;
-import com.google.android.gms.codescanner.GmsBarcodeScannerOptions;
-import com.google.android.gms.codescanner.GmsBarcodeScanning;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
