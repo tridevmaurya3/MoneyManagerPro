@@ -19,6 +19,8 @@ import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.Budget;
 import com.example.moneymanagerpro.model.Category;
+import com.example.moneymanagerpro.model.CreditCard;
+import com.example.moneymanagerpro.model.CreditCardPayment;
 import com.example.moneymanagerpro.model.Goal;
 import com.example.moneymanagerpro.model.Loan;
 import com.example.moneymanagerpro.model.LoanPayment;
@@ -48,8 +50,9 @@ public class BackupActivity extends AppCompatActivity {
 
     private static final int REQUEST_PICK_BACKUP_FOLDER = 401;
     private static final int BACKUP_VERSION_LEGACY = 1;
-    private static final int BACKUP_VERSION_CURRENT = 2;
-    private static final int DATABASE_VERSION = 9;
+    private static final int BACKUP_VERSION_FULL_DATA = 2;
+    private static final int BACKUP_VERSION_CURRENT = 3;
+    private static final int DATABASE_VERSION = 10;
     private static final int MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 
     private static final int PENDING_ACTION_NONE = 0;
@@ -563,6 +566,12 @@ public class BackupActivity extends AppCompatActivity {
                         "Subscriptions: " +
                         summary.subscriptionCount +
                         "\n" +
+                        "Credit Cards: " +
+                        summary.creditCardCount +
+                        "\n" +
+                        "Card Payments: " +
+                        summary.creditCardPaymentCount +
+                        "\n" +
                         "Recurring Transactions: " +
                         summary.recurringCount +
                         "\n\n" +
@@ -687,12 +696,28 @@ public class BackupActivity extends AppCompatActivity {
                                 .insert(subscription);
                     }
 
+                    for (CreditCard creditCard :
+                            backupContent.creditCards) {
+
+                        database
+                                .creditCardDao()
+                                .insert(creditCard);
+                    }
+
                     for (LoanPayment loanPayment :
                             backupContent.loanPayments) {
 
                         database
                                 .loanPaymentDao()
                                 .insert(loanPayment);
+                    }
+
+                    for (CreditCardPayment payment :
+                            backupContent.creditCardPayments) {
+
+                        database
+                                .creditCardPaymentDao()
+                                .insert(payment);
                     }
 
                     for (Transaction transaction :
@@ -835,7 +860,7 @@ public class BackupActivity extends AppCompatActivity {
 
                     String verificationLabel =
                             backupVersion
-                                    == BACKUP_VERSION_CURRENT
+                                    >= BACKUP_VERSION_FULL_DATA
                                     ? "SHA-256 integrity verified"
                                     : "Legacy v1 structure verified";
 
@@ -956,14 +981,19 @@ public class BackupActivity extends AppCompatActivity {
                 );
 
         if (backupVersion != BACKUP_VERSION_LEGACY
+                && backupVersion != BACKUP_VERSION_FULL_DATA
                 && backupVersion != BACKUP_VERSION_CURRENT) {
             throw new Exception(
                     "Unsupported backup version"
             );
         }
 
-        if (backupVersion == BACKUP_VERSION_CURRENT) {
-            validateCurrentBackup(root);
+        if (backupVersion >= BACKUP_VERSION_FULL_DATA) {
+            validateCurrentBackup(
+                    root,
+                    backupVersion
+                            >= BACKUP_VERSION_CURRENT
+            );
         } else {
             validateLegacyBackup(root);
         }
@@ -1065,9 +1095,23 @@ public class BackupActivity extends AppCompatActivity {
                         )
                 );
 
+        summary.creditCardCount =
+                getArrayLength(
+                        root.optJSONArray(
+                                "creditCards"
+                        )
+                );
+
+        summary.creditCardPaymentCount =
+                getArrayLength(
+                        root.optJSONArray(
+                                "creditCardPayments"
+                        )
+                );
+
         summary.integrityStatus =
                 summary.backupVersion
-                        == BACKUP_VERSION_CURRENT
+                        >= BACKUP_VERSION_FULL_DATA
                         ? "SHA-256 Verified"
                         : "Legacy v1 structure verified";
 
@@ -1075,7 +1119,8 @@ public class BackupActivity extends AppCompatActivity {
     }
 
     private void validateCurrentBackup(
-            JSONObject root
+            JSONObject root,
+            boolean includesCreditCards
     ) throws Exception {
         int databaseVersion =
                 root.optInt(
@@ -1090,7 +1135,10 @@ public class BackupActivity extends AppCompatActivity {
             );
         }
 
-        String[] requiredArrays = {
+        List<String> requiredArrayList =
+                new ArrayList<>();
+
+        String[] baseArrays = {
                 "transactions",
                 "categories",
                 "accounts",
@@ -1101,6 +1149,22 @@ public class BackupActivity extends AppCompatActivity {
                 "loanPayments",
                 "subscriptions"
         };
+
+        for (String arrayName : baseArrays) {
+            requiredArrayList.add(arrayName);
+        }
+
+        if (includesCreditCards) {
+            requiredArrayList.add("creditCards");
+            requiredArrayList.add(
+                    "creditCardPayments"
+            );
+        }
+
+        String[] requiredArrays =
+                requiredArrayList.toArray(
+                        new String[0]
+                );
 
         for (String arrayName : requiredArrays) {
             if (root.optJSONArray(arrayName) == null) {
@@ -1143,6 +1207,13 @@ public class BackupActivity extends AppCompatActivity {
                 requiredArrays
         );
         validateLoanPaymentReferences(root);
+
+        if (includesCreditCards) {
+            validateCreditCardAccounts(root);
+            validateCreditCardPaymentReferences(
+                    root
+            );
+        }
 
         String storedChecksum =
                 root.optString(
@@ -1283,6 +1354,90 @@ public class BackupActivity extends AppCompatActivity {
         }
     }
 
+    private void validateCreditCardPaymentReferences(
+            JSONObject root
+    ) throws Exception {
+        Set<Integer> cardIds =
+                new HashSet<>();
+
+        JSONArray cards =
+                root.getJSONArray("creditCards");
+
+        for (int index = 0;
+             index < cards.length();
+             index++) {
+
+            cardIds.add(
+                    cards.getJSONObject(index)
+                            .getInt("id")
+            );
+        }
+
+        JSONArray payments =
+                root.getJSONArray(
+                        "creditCardPayments"
+                );
+
+        for (int index = 0;
+             index < payments.length();
+             index++) {
+
+            int cardId =
+                    payments.getJSONObject(index)
+                            .optInt(
+                                    "creditCardId",
+                                    0
+                            );
+
+            if (!cardIds.contains(cardId)) {
+                throw new Exception(
+                        "Card payment references a missing credit card."
+                );
+            }
+        }
+    }
+
+    private void validateCreditCardAccounts(
+            JSONObject root
+    ) throws Exception {
+        Set<String> accountNames =
+                new HashSet<>();
+
+        JSONArray accounts =
+                root.getJSONArray("accounts");
+
+        for (int index = 0;
+             index < accounts.length();
+             index++) {
+
+            accountNames.add(
+                    accounts.getJSONObject(index)
+                            .optString("name", "")
+            );
+        }
+
+        JSONArray cards =
+                root.getJSONArray("creditCards");
+
+        for (int index = 0;
+             index < cards.length();
+             index++) {
+
+            String cardAccount =
+                    cards.getJSONObject(index)
+                            .optString(
+                                    "accountName",
+                                    ""
+                            );
+
+            if (!accountNames.contains(cardAccount)) {
+                throw new Exception(
+                        "Credit card account is missing from backup."
+                );
+            }
+        }
+    }
+
     private int getArrayLength(
             JSONArray array
     ) {
@@ -1406,6 +1561,12 @@ public class BackupActivity extends AppCompatActivity {
             snapshot.subscriptions =
                     database.subscriptionDao()
                             .getAllSubscriptions();
+            snapshot.creditCards =
+                    database.creditCardDao()
+                            .getAllCreditCards();
+            snapshot.creditCardPayments =
+                    database.creditCardPaymentDao()
+                            .getAllPayments();
         });
 
         JSONArray transactionArray =
@@ -1453,6 +1614,16 @@ public class BackupActivity extends AppCompatActivity {
                         snapshot.subscriptions
                 );
 
+        JSONArray creditCardArray =
+                createCreditCardArray(
+                        snapshot.creditCards
+                );
+
+        JSONArray creditCardPaymentArray =
+                createCreditCardPaymentArray(
+                        snapshot.creditCardPayments
+                );
+
         root.put(
                 "transactions",
                 transactionArray
@@ -1496,6 +1667,16 @@ public class BackupActivity extends AppCompatActivity {
         root.put(
                 "subscriptions",
                 subscriptionArray
+        );
+
+        root.put(
+                "creditCards",
+                creditCardArray
+        );
+
+        root.put(
+                "creditCardPayments",
+                creditCardPaymentArray
         );
 
         JSONObject recordCounts =
@@ -1544,6 +1725,16 @@ public class BackupActivity extends AppCompatActivity {
         recordCounts.put(
                 "subscriptions",
                 subscriptionArray.length()
+        );
+
+        recordCounts.put(
+                "creditCards",
+                creditCardArray.length()
+        );
+
+        recordCounts.put(
+                "creditCardPayments",
+                creditCardPaymentArray.length()
         );
 
         root.put(
@@ -1642,6 +1833,28 @@ public class BackupActivity extends AppCompatActivity {
                                 "backupVersion",
                                 BACKUP_VERSION_LEGACY
                         )
+                );
+
+        int backupVersion =
+                root.optInt(
+                        "backupVersion",
+                        BACKUP_VERSION_LEGACY
+                );
+
+        content.creditCards =
+                parseCreditCards(
+                        root.optJSONArray(
+                                "creditCards"
+                        ),
+                        backupVersion
+                );
+
+        content.creditCardPayments =
+                parseCreditCardPayments(
+                        root.optJSONArray(
+                                "creditCardPayments"
+                        ),
+                        backupVersion
                 );
 
         return content;
@@ -2079,6 +2292,80 @@ public class BackupActivity extends AppCompatActivity {
             );
             object.put("note", subscription.getNote());
             object.put("active", subscription.isActive());
+
+            array.put(object);
+        }
+
+        return array;
+    }
+
+    private JSONArray createCreditCardArray(
+            List<CreditCard> creditCards
+    ) throws Exception {
+        JSONArray array = new JSONArray();
+
+        for (CreditCard card : creditCards) {
+            JSONObject object = new JSONObject();
+
+            object.put("id", card.getId());
+            object.put("name", card.getName());
+            object.put("lastFour", card.getLastFour());
+            object.put(
+                    "accountName",
+                    card.getAccountName()
+            );
+            object.put(
+                    "creditLimit",
+                    card.getCreditLimit()
+            );
+            object.put(
+                    "billingDay",
+                    card.getBillingDay()
+            );
+            object.put("dueDay", card.getDueDay());
+            object.put(
+                    "paymentAccount",
+                    card.getPaymentAccount()
+            );
+            object.put(
+                    "reminderDays",
+                    card.getReminderDays()
+            );
+            object.put("active", card.isActive());
+
+            array.put(object);
+        }
+
+        return array;
+    }
+
+    private JSONArray createCreditCardPaymentArray(
+            List<CreditCardPayment> payments
+    ) throws Exception {
+        JSONArray array = new JSONArray();
+
+        for (CreditCardPayment payment : payments) {
+            JSONObject object = new JSONObject();
+
+            object.put("id", payment.getId());
+            object.put(
+                    "creditCardId",
+                    payment.getCreditCardId()
+            );
+            object.put(
+                    "statementEndDate",
+                    payment.getStatementEndDate()
+            );
+            object.put("amount", payment.getAmount());
+            object.put(
+                    "paymentDate",
+                    payment.getPaymentDate()
+            );
+            object.put(
+                    "sourceAccount",
+                    payment.getSourceAccount()
+            );
+            object.put("note", payment.getNote());
 
             array.put(object);
         }
@@ -2793,6 +3080,171 @@ public class BackupActivity extends AppCompatActivity {
         return subscriptions;
     }
 
+    private List<CreditCard> parseCreditCards(
+            JSONArray array,
+            int backupVersion
+    ) {
+        List<CreditCard> creditCards =
+                new ArrayList<>();
+
+        if (array == null
+                && backupVersion
+                < BACKUP_VERSION_CURRENT) {
+            return creditCards;
+        }
+
+        if (array == null) {
+            return creditCards;
+        }
+
+        for (int index = 0;
+             index < array.length();
+             index++) {
+
+            JSONObject object =
+                    array.optJSONObject(index);
+
+            if (object == null) {
+                continue;
+            }
+
+            CreditCard card =
+                    new CreditCard();
+
+            card.setId(object.optInt("id", 0));
+            card.setName(
+                    object.optString("name", "")
+            );
+            card.setLastFour(
+                    object.optString(
+                            "lastFour",
+                            ""
+                    )
+            );
+            card.setAccountName(
+                    object.optString(
+                            "accountName",
+                            ""
+                    )
+            );
+            card.setCreditLimit(
+                    object.optDouble(
+                            "creditLimit",
+                            0
+                    )
+            );
+            card.setBillingDay(
+                    object.optInt(
+                            "billingDay",
+                            1
+                    )
+            );
+            card.setDueDay(
+                    object.optInt("dueDay", 1)
+            );
+            card.setPaymentAccount(
+                    object.optString(
+                            "paymentAccount",
+                            "Cash"
+                    )
+            );
+            card.setReminderDays(
+                    object.optInt(
+                            "reminderDays",
+                            3
+                    )
+            );
+            card.setActive(
+                    object.optBoolean(
+                            "active",
+                            true
+                    )
+            );
+
+            creditCards.add(card);
+        }
+
+        return creditCards;
+    }
+
+    private List<CreditCardPayment>
+    parseCreditCardPayments(
+            JSONArray array,
+            int backupVersion
+    ) {
+        List<CreditCardPayment> payments =
+                new ArrayList<>();
+
+        if (array == null
+                && backupVersion
+                < BACKUP_VERSION_CURRENT) {
+            return payments;
+        }
+
+        if (array == null) {
+            return payments;
+        }
+
+        for (int index = 0;
+             index < array.length();
+             index++) {
+
+            JSONObject object =
+                    array.optJSONObject(index);
+
+            if (object == null) {
+                continue;
+            }
+
+            CreditCardPayment payment =
+                    new CreditCardPayment();
+
+            payment.setId(
+                    object.optInt("id", 0)
+            );
+            payment.setCreditCardId(
+                    object.optInt(
+                            "creditCardId",
+                            0
+                    )
+            );
+            payment.setStatementEndDate(
+                    object.optString(
+                            "statementEndDate",
+                            ""
+                    )
+            );
+            payment.setAmount(
+                    object.optDouble(
+                            "amount",
+                            0
+                    )
+            );
+            payment.setPaymentDate(
+                    object.optString(
+                            "paymentDate",
+                            ""
+                    )
+            );
+            payment.setSourceAccount(
+                    object.optString(
+                            "sourceAccount",
+                            "Cash"
+                    )
+            );
+            payment.setNote(
+                    object.optString(
+                            "note",
+                            ""
+                    )
+            );
+
+            payments.add(payment);
+        }
+
+        return payments;
+    }
+
     private void verifyRestoredData(
             AppDatabase database,
             BackupContent content
@@ -2852,6 +3304,18 @@ public class BackupActivity extends AppCompatActivity {
                 content.subscriptions.size(),
                 database.subscriptionDao()
                         .getAllSubscriptions().size()
+        );
+        verifyCount(
+                "credit cards",
+                content.creditCards.size(),
+                database.creditCardDao()
+                        .getAllCreditCards().size()
+        );
+        verifyCount(
+                "credit card payments",
+                content.creditCardPayments.size(),
+                database.creditCardPaymentDao()
+                        .getAllPayments().size()
         );
     }
 
@@ -2952,6 +3416,8 @@ public class BackupActivity extends AppCompatActivity {
         List<Loan> loans;
         List<LoanPayment> loanPayments;
         List<Subscription> subscriptions;
+        List<CreditCard> creditCards;
+        List<CreditCardPayment> creditCardPayments;
     }
 
     private static class BackupSnapshot {
@@ -2964,6 +3430,8 @@ public class BackupActivity extends AppCompatActivity {
         List<Loan> loans;
         List<LoanPayment> loanPayments;
         List<Subscription> subscriptions;
+        List<CreditCard> creditCards;
+        List<CreditCardPayment> creditCardPayments;
     }
 
     private static class BackupSummary {
@@ -2981,6 +3449,8 @@ public class BackupActivity extends AppCompatActivity {
         int loanCount;
         int loanPaymentCount;
         int subscriptionCount;
+        int creditCardCount;
+        int creditCardPaymentCount;
         String integrityStatus;
     }
 }

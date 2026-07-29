@@ -29,6 +29,9 @@ public interface AccountDao {
     @Query("SELECT COUNT(*) FROM accounts")
     int getAccountCount();
 
+    @Query("SELECT * FROM accounts WHERE name = :accountName LIMIT 1")
+    Account findByName(String accountName);
+
     @Query("SELECT " +
             "a.id AS id, " +
             "a.name AS name, " +

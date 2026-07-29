@@ -9,6 +9,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 import com.example.moneymanagerpro.dao.AccountDao;
 import com.example.moneymanagerpro.dao.BudgetDao;
 import com.example.moneymanagerpro.dao.CategoryDao;
+import com.example.moneymanagerpro.dao.CreditCardDao;
+import com.example.moneymanagerpro.dao.CreditCardPaymentDao;
 import com.example.moneymanagerpro.dao.GoalDao;
 import com.example.moneymanagerpro.dao.LoanDao;
 import com.example.moneymanagerpro.dao.LoanPaymentDao;
@@ -18,6 +20,8 @@ import com.example.moneymanagerpro.dao.TransactionDao;
 import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.Budget;
 import com.example.moneymanagerpro.model.Category;
+import com.example.moneymanagerpro.model.CreditCard;
+import com.example.moneymanagerpro.model.CreditCardPayment;
 import com.example.moneymanagerpro.model.Goal;
 import com.example.moneymanagerpro.model.Loan;
 import com.example.moneymanagerpro.model.LoanPayment;
@@ -35,9 +39,11 @@ import com.example.moneymanagerpro.model.Transaction;
                 Budget.class,
                 Loan.class,
                 Subscription.class,
-                LoanPayment.class
+                LoanPayment.class,
+                CreditCard.class,
+                CreditCardPayment.class
         },
-        version = 9,
+        version = 10,
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -59,6 +65,10 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract LoanPaymentDao loanPaymentDao();
 
     public abstract SubscriptionDao subscriptionDao();
+
+    public abstract CreditCardDao creditCardDao();
+
+    public abstract CreditCardPaymentDao creditCardPaymentDao();
 
     public static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -221,6 +231,36 @@ public abstract class AppDatabase extends RoomDatabase {
                             "`paymentType` TEXT NOT NULL, " +
                             "`account` TEXT NOT NULL, " +
                             "`paymentDate` TEXT NOT NULL, " +
+                            "`note` TEXT NOT NULL)"
+            );
+        }
+    };
+
+    public static final Migration MIGRATION_9_10 = new Migration(9, 10) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `credit_cards` (" +
+                            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`name` TEXT NOT NULL, " +
+                            "`lastFour` TEXT NOT NULL, " +
+                            "`accountName` TEXT NOT NULL, " +
+                            "`creditLimit` REAL NOT NULL, " +
+                            "`billingDay` INTEGER NOT NULL, " +
+                            "`dueDay` INTEGER NOT NULL, " +
+                            "`paymentAccount` TEXT NOT NULL, " +
+                            "`reminderDays` INTEGER NOT NULL, " +
+                            "`active` INTEGER NOT NULL)"
+            );
+
+            database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `credit_card_payments` (" +
+                            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`creditCardId` INTEGER NOT NULL, " +
+                            "`statementEndDate` TEXT NOT NULL, " +
+                            "`amount` REAL NOT NULL, " +
+                            "`paymentDate` TEXT NOT NULL, " +
+                            "`sourceAccount` TEXT NOT NULL, " +
                             "`note` TEXT NOT NULL)"
             );
         }

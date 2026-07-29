@@ -9,8 +9,12 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.credit.CreditCardCycleCalculator;
+import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
+import com.example.moneymanagerpro.model.CreditCard;
+import com.example.moneymanagerpro.model.CreditCardPayment;
 import com.example.moneymanagerpro.model.Transaction;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -239,19 +243,63 @@ public class TransferActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                DatabaseClient.getInstance(getApplicationContext())
-                        .getAppDatabase()
-                        .runInTransaction(() -> {
-                            DatabaseClient.getInstance(getApplicationContext())
-                                    .getAppDatabase()
-                                    .transactionDao()
-                                    .insert(transferOut);
+                AppDatabase database =
+                        DatabaseClient
+                                .getInstance(
+                                        getApplicationContext()
+                                )
+                                .getAppDatabase();
 
-                            DatabaseClient.getInstance(getApplicationContext())
-                                    .getAppDatabase()
-                                    .transactionDao()
-                                    .insert(transferIn);
-                        });
+                CreditCard destinationCard =
+                        database.creditCardDao()
+                                .findByAccountName(
+                                        toAccount
+                                );
+
+                CreditCardPayment cardPayment =
+                        null;
+
+                if (destinationCard != null) {
+                    CreditCardCycleCalculator.Cycle cycle =
+                            CreditCardCycleCalculator.calculate(
+                                    destinationCard,
+                                    selectedCalendar
+                            );
+
+                    cardPayment =
+                            new CreditCardPayment();
+                    cardPayment.setCreditCardId(
+                            destinationCard.getId()
+                    );
+                    cardPayment.setStatementEndDate(
+                            cycle.closedEnd
+                    );
+                    cardPayment.setAmount(amount);
+                    cardPayment.setPaymentDate(
+                            selectedDate
+                    );
+                    cardPayment.setSourceAccount(
+                            fromAccount
+                    );
+                    cardPayment.setNote(note);
+                }
+
+                CreditCardPayment finalCardPayment =
+                        cardPayment;
+
+                database.runInTransaction(() -> {
+                    database.transactionDao()
+                            .insert(transferOut);
+                    database.transactionDao()
+                            .insert(transferIn);
+
+                    if (finalCardPayment != null) {
+                        database.creditCardPaymentDao()
+                                .insert(
+                                        finalCardPayment
+                                );
+                    }
+                });
 
                 runOnUiThread(() -> {
                     Toast.makeText(

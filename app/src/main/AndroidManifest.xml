@@ -71,6 +71,10 @@
         <!-- PLANNING AND TRACKING -->
 
         <activity
+            android:name=".activities.CreditCardActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".activities.SubscriptionActivity"
             android:exported="false" />
 

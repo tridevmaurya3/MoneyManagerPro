@@ -23,6 +23,7 @@ import com.example.moneymanagerpro.activities.BudgetActivity;
 import com.example.moneymanagerpro.activities.CalendarActivity;
 import com.example.moneymanagerpro.activities.ChartsActivity;
 import com.example.moneymanagerpro.activities.CsvImportActivity;
+import com.example.moneymanagerpro.activities.CreditCardActivity;
 import com.example.moneymanagerpro.activities.ExportActivity;
 import com.example.moneymanagerpro.activities.FinanceAdvisorActivity;
 import com.example.moneymanagerpro.activities.GoalActivity;
@@ -66,6 +67,8 @@ public final class DashboardDrawerController {
                 BudgetActivity.class, R.color.expense);
         addMenuItem("Loans", "Track lending and EMI", "₹",
                 LoanActivity.class, R.color.pink);
+        addMenuItem("Credit Cards", "Billing cycles and statements", "CC",
+                CreditCardActivity.class, R.color.purple);
         addMenuItem("Investments", "Manage saved investments", "↗",
                 InvestmentActivity.class, R.color.purple);
 

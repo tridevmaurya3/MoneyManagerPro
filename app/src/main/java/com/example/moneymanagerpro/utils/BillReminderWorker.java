@@ -7,6 +7,9 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.example.moneymanagerpro.database.DatabaseClient;
+import com.example.moneymanagerpro.activities.CreditCardActivity;
+import com.example.moneymanagerpro.credit.CreditCardCycleCalculator;
+import com.example.moneymanagerpro.model.CreditCard;
 import com.example.moneymanagerpro.model.Subscription;
 
 import java.text.SimpleDateFormat;
@@ -73,6 +76,112 @@ public class BillReminderWorker extends Worker {
                             message
                     );
                 }
+            }
+
+            List<CreditCard> creditCards =
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
+                            .getAppDatabase()
+                            .creditCardDao()
+                            .getActiveCreditCards();
+
+            for (CreditCard creditCard : creditCards) {
+                CreditCardCycleCalculator.Cycle cycle =
+                        CreditCardCycleCalculator.calculate(
+                                creditCard,
+                                Calendar.getInstance()
+                        );
+
+                double statementAmount =
+                        DatabaseClient
+                                .getInstance(
+                                        getApplicationContext()
+                                )
+                                .getAppDatabase()
+                                .transactionDao()
+                                .getNetCardSpendForPeriod(
+                                        creditCard.getAccountName(),
+                                        cycle.closedStart
+                                                + " 00:00",
+                                        cycle.closedEnd
+                                                + " 23:59"
+                                );
+
+                double paidAmount =
+                        DatabaseClient
+                                .getInstance(
+                                        getApplicationContext()
+                                )
+                                .getAppDatabase()
+                                .creditCardPaymentDao()
+                                .getPaidForStatement(
+                                        creditCard.getId(),
+                                        cycle.closedEnd
+                                );
+
+                double outstanding =
+                        Math.max(
+                                0,
+                                statementAmount
+                                        - paidAmount
+                        );
+
+                if (outstanding <= 0.005) {
+                    continue;
+                }
+
+                boolean isOverdue =
+                        cycle.daysUntilDue < 0;
+                boolean isDueToday =
+                        cycle.daysUntilDue == 0;
+                boolean isReminderDay =
+                        cycle.daysUntilDue > 0
+                                && cycle.daysUntilDue
+                                <= creditCard
+                                .getReminderDays();
+
+                if (!isOverdue
+                        && !isDueToday
+                        && !isReminderDay) {
+                    continue;
+                }
+
+                String message;
+
+                if (isOverdue) {
+                    message =
+                            creditCard.getName()
+                                    + " statement is overdue by "
+                                    + Math.abs(
+                                    cycle.daysUntilDue
+                            )
+                                    + " day(s). Outstanding: ₹"
+                                    + outstanding;
+
+                } else if (isDueToday) {
+                    message =
+                            creditCard.getName()
+                                    + " statement is due today. Outstanding: ₹"
+                                    + outstanding;
+
+                } else {
+                    message =
+                            creditCard.getName()
+                                    + " statement is due in "
+                                    + cycle.daysUntilDue
+                                    + " day(s). Outstanding: ₹"
+                                    + outstanding;
+                }
+
+                NotificationHelper.showReminder(
+                        getApplicationContext(),
+                        100000 + creditCard.getId(),
+                        "Credit Card Due",
+                        message,
+                        CreditCardActivity.class
+                );
             }
 
             return Result.success();

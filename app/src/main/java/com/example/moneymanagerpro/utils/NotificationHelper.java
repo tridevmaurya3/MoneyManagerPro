@@ -29,7 +29,7 @@ public class NotificationHelper {
             );
 
             channel.setDescription(
-                    "Due bill, subscription and budget reminder notifications"
+                    "Due bill, subscription, credit card and budget reminders"
             );
 
             NotificationManager manager = context.getSystemService(
@@ -48,6 +48,22 @@ public class NotificationHelper {
             String title,
             String message
     ) {
+        showReminder(
+                context,
+                subscriptionId,
+                title,
+                message,
+                DashboardActivity.class
+        );
+    }
+
+    public static void showReminder(
+            Context context,
+            int reminderId,
+            String title,
+            String message,
+            Class<?> destinationActivity
+    ) {
         createNotificationChannel(context);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
@@ -58,11 +74,14 @@ public class NotificationHelper {
             return;
         }
 
-        Intent intent = new Intent(context, DashboardActivity.class);
+        Intent intent = new Intent(
+                context,
+                destinationActivity
+        );
 
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 context,
-                subscriptionId,
+                reminderId,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT
                         | PendingIntent.FLAG_IMMUTABLE
@@ -81,7 +100,7 @@ public class NotificationHelper {
                 .setAutoCancel(true);
 
         NotificationManagerCompat.from(context).notify(
-                50000 + subscriptionId,
+                50000 + reminderId,
                 builder.build()
         );
     }

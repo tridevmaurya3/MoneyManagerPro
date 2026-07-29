@@ -97,6 +97,18 @@ public class MoreFeaturesActivity extends AppCompatActivity {
                         R.color.pink_outline
                 ),
                 new FeatureItem(
+                        "Credit Cards",
+                        "Billing cycles and statements",
+                        "CC",
+                        CreditCardActivity.class,
+                        R.color.purple,
+                        R.color.purple_surface,
+                        R.color.purple_outline
+                )
+        );
+
+        addFeatureRow(
+                new FeatureItem(
                         "Investments",
                         "Manage saved investments",
                         "↗",
@@ -104,7 +116,8 @@ public class MoreFeaturesActivity extends AppCompatActivity {
                         R.color.purple,
                         R.color.purple_surface,
                         R.color.purple_outline
-                )
+                ),
+                null
         );
 
         addSectionHeader(

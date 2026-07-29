@@ -957,6 +957,16 @@ public class AccountActivity extends AppCompatActivity {
                         )
                 );
 
+        boolean managedCreditCard =
+                "Credit Card".equalsIgnoreCase(
+                        account.getType()
+                );
+
+        if (managedCreditCard) {
+            btnEdit.setText("Manage");
+            btnDelete.setVisibility(View.GONE);
+        }
+
         LinearLayout.LayoutParams editParams =
                 new LinearLayout.LayoutParams(
                         dpToPx(72),
@@ -988,7 +998,18 @@ public class AccountActivity extends AppCompatActivity {
         BubbleTouchAnimator.apply(btnDelete);
 
         btnEdit.setOnClickListener(
-                view -> showEditDialog(account)
+                view -> {
+                    if (managedCreditCard) {
+                        startActivity(
+                                new Intent(
+                                        this,
+                                        CreditCardActivity.class
+                                )
+                        );
+                    } else {
+                        showEditDialog(account);
+                    }
+                }
         );
 
         btnDelete.setOnClickListener(
@@ -1007,7 +1028,18 @@ public class AccountActivity extends AppCompatActivity {
         BubbleTouchAnimator.apply(card);
 
         card.setOnClickListener(
-                view -> showEditDialog(account)
+                view -> {
+                    if (managedCreditCard) {
+                        startActivity(
+                                new Intent(
+                                        this,
+                                        CreditCardActivity.class
+                                )
+                        );
+                    } else {
+                        showEditDialog(account);
+                    }
+                }
         );
 
         accountContainer.addView(card);
@@ -1526,6 +1558,17 @@ public class AccountActivity extends AppCompatActivity {
     private void confirmDelete(
             Account account
     ) {
+        if ("Credit Card".equalsIgnoreCase(
+                account.getType()
+        )) {
+            Toast.makeText(
+                    this,
+                    "Manage this account from Credit Card Manager",
+                    Toast.LENGTH_LONG
+            ).show();
+            return;
+        }
+
         if (account
                 .getName()
                 .equalsIgnoreCase("Cash")) {
@@ -1644,6 +1687,9 @@ public class AccountActivity extends AppCompatActivity {
             case "bank":
                 return "Bank Account";
 
+            case "credit card":
+                return "Managed Credit Card";
+
             case "other":
                 return "Custom Account";
 
@@ -1673,6 +1719,9 @@ public class AccountActivity extends AppCompatActivity {
 
             case "bank":
                 return "B";
+
+            case "credit card":
+                return "CC";
 
             default:
                 return "A";

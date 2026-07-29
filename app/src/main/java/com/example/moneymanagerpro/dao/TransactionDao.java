@@ -26,6 +26,19 @@ public interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY id DESC")
     List<Transaction> getAllTransactions();
 
+    @Query("SELECT COALESCE(SUM(CASE " +
+            "WHEN type = 'EXPENSE' THEN amount " +
+            "WHEN type = 'INCOME' THEN -amount " +
+            "ELSE 0 END), 0) " +
+            "FROM transactions " +
+            "WHERE account = :account " +
+            "AND date BETWEEN :startDate AND :endDate")
+    double getNetCardSpendForPeriod(
+            String account,
+            String startDate,
+            String endDate
+    );
+
     @Query("SELECT COALESCE(SUM(amount), 0) " +
             "FROM transactions WHERE type = :type")
     double getTotalAmountByType(String type);

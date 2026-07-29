@@ -222,7 +222,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:lineSpacingExtra="2dp"
-                    android:text="सभी transactions, accounts, categories, goals, loans, loan payments, budgets, subscriptions और recurring records का verified backup बनाया जाएगा।"
+                    android:text="सभी transactions, accounts, categories, goals, loans, credit cards, card payments, budgets, subscriptions और recurring records का verified backup बनाया जाएगा।"
                     android:textColor="#526B58"
                     android:textSize="13sp" />
 
@@ -397,7 +397,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:lineSpacingExtra="3dp"
-                    android:text="• Backup चुने हुए Documents folder में रहता है।&#10;• SHA-256 verification से file corruption जाँची जाती है।&#10;• नया backup verify होने के बाद ही पुराने backup को replace करता है।&#10;• App uninstall होने पर भी backup file सुरक्षित रहती है।&#10;• पुराने Backup Format v1 को भी restore किया जा सकता है।"
+                    android:text="• Backup चुने हुए Documents folder में रहता है।&#10;• SHA-256 verification से file corruption जाँची जाती है।&#10;• नया backup verify होने के बाद ही पुराने backup को replace करता है।&#10;• App uninstall होने पर भी backup file सुरक्षित रहती है।&#10;• पुराने Backup Format v1 और v2 भी restore किए जा सकते हैं।"
                     android:textColor="#606A76"
                     android:textSize="13sp" />
 
