@@ -28,25 +28,17 @@ import com.example.moneymanagerpro.model.Category;
 import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.ReceiptStore;
-import com.example.moneymanagerpro.utils.TransactionScreenshotParser;
 import com.example.moneymanagerpro.utils.UpiPaymentResultParser;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
-import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.text.TextRecognition;
-import com.google.mlkit.vision.text.TextRecognizer;
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -55,20 +47,6 @@ public class AddExpenseActivity extends AppCompatActivity {
     private static final int MAX_ITEM_ROWS = 50;
     private static final String STATE_ITEM_ROWS =
             "expense_item_rows";
-    private static final String STATE_SELECTED_RECEIPT =
-            "selected_receipt_uri";
-    private static final String STATE_AUTO_SCREENSHOT =
-            "auto_screenshot_uri";
-    private static final String STATE_SCREENSHOT_RESULT =
-            "screenshot_result";
-    private static final String STATE_SCREENSHOT_STATUS =
-            "screenshot_status";
-    private static final String STATE_SCREENSHOT_CAN_FILL =
-            "screenshot_can_fill";
-    private static final String STATE_SCREENSHOT_NOTE =
-            "screenshot_note";
-    private static final String STATE_SELECTED_DATE =
-            "selected_expense_date";
     private static final String STATE_UPI_RESULT =
             "upi_payment_result";
     private static final String STATE_UPI_NOTE =
@@ -92,8 +70,6 @@ public class AddExpenseActivity extends AppCompatActivity {
     private MaterialButton btnRemoveReceipt;
     private MaterialButton btnSaveExpense;
     private MaterialButton btnMoreItem;
-    private MaterialButton btnReadTransactionScreenshot;
-    private MaterialButton btnClearScreenshotResult;
     private MaterialButton btnPayWithUpi;
     private MaterialButton btnClearUpiPaymentResult;
 
@@ -101,37 +77,18 @@ public class AddExpenseActivity extends AppCompatActivity {
     private FrameLayout receiptPreviewContainer;
     private LinearLayout itemDetailsContainer;
     private TextView txtItemsTotal;
-    private View screenshotReaderProgress;
-    private View screenshotResultContainer;
-    private TextView txtScreenshotStatus;
-    private TextView txtDetectedAmount;
-    private TextView txtDetectedMerchant;
-    private TextView txtDetectedBank;
-    private TextView txtDetectedReference;
-    private TextView txtDetectedDate;
-    private TextView txtDetectedPaymentApp;
     private View upiPaymentResultCard;
     private TextView txtUpiPaymentStatus;
 
     private Calendar selectedCalendar;
     private String selectedDate;
     private Uri selectedReceiptUri;
-    private Uri autoAttachedScreenshotUri;
-    private TextRecognizer screenshotTextRecognizer;
-    private TransactionScreenshotParser.Result
-            lastScreenshotResult;
-    private String lastScreenshotNoteBlock = "";
-    private String lastScreenshotStatusBase = "";
-    private boolean lastScreenshotCanAutoFill;
-    private boolean accountOptionsReady;
     private UpiPaymentResultParser.Result
             lastUpiPaymentResult;
     private String lastUpiNoteBlock = "";
     private String currentUpiRequestReference = "";
 
     private final List<View> itemRows = new ArrayList<>();
-    private final List<String> availableAccountNames =
-            new ArrayList<>();
 
     private final ActivityResultLauncher<String[]> receiptPicker =
             registerForActivityResult(
@@ -149,30 +106,7 @@ public class AddExpenseActivity extends AppCompatActivity {
                         } catch (Exception ignored) {
                         }
 
-                        autoAttachedScreenshotUri = null;
                         showReceiptPreview(uri);
-                    }
-            );
-
-    private final ActivityResultLauncher<String[]>
-            transactionScreenshotPicker =
-            registerForActivityResult(
-                    new ActivityResultContracts.OpenDocument(),
-                    uri -> {
-                        if (uri == null) {
-                            return;
-                        }
-
-                        try {
-                            getContentResolver()
-                                    .takePersistableUriPermission(
-                                            uri,
-                                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                    );
-                        } catch (Exception ignored) {
-                        }
-
-                        readTransactionScreenshot(uri);
                     }
             );
 
@@ -212,14 +146,6 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnRemoveReceipt = findViewById(R.id.btnRemoveReceipt);
         btnSaveExpense = findViewById(R.id.btnSaveExpense);
         btnMoreItem = findViewById(R.id.btnMoreItem);
-        btnReadTransactionScreenshot =
-                findViewById(
-                        R.id.btnReadTransactionScreenshot
-                );
-        btnClearScreenshotResult =
-                findViewById(
-                        R.id.btnClearScreenshotResult
-                );
         btnPayWithUpi =
                 findViewById(R.id.btnPayWithUpi);
         btnClearUpiPaymentResult =
@@ -231,28 +157,6 @@ public class AddExpenseActivity extends AppCompatActivity {
         receiptPreviewContainer = findViewById(R.id.receiptPreviewContainer);
         itemDetailsContainer = findViewById(R.id.itemDetailsContainer);
         txtItemsTotal = findViewById(R.id.txtItemsTotal);
-        screenshotReaderProgress =
-                findViewById(
-                        R.id.screenshotReaderProgress
-                );
-        screenshotResultContainer =
-                findViewById(
-                        R.id.screenshotResultContainer
-                );
-        txtScreenshotStatus =
-                findViewById(R.id.txtScreenshotStatus);
-        txtDetectedAmount =
-                findViewById(R.id.txtDetectedAmount);
-        txtDetectedMerchant =
-                findViewById(R.id.txtDetectedMerchant);
-        txtDetectedBank =
-                findViewById(R.id.txtDetectedBank);
-        txtDetectedReference =
-                findViewById(R.id.txtDetectedReference);
-        txtDetectedDate =
-                findViewById(R.id.txtDetectedDate);
-        txtDetectedPaymentApp =
-                findViewById(R.id.txtDetectedPaymentApp);
         upiPaymentResultCard =
                 findViewById(
                         R.id.upiPaymentResultCard
@@ -265,24 +169,7 @@ public class AddExpenseActivity extends AppCompatActivity {
         TextView btnBack = findViewById(R.id.btnBack);
 
         selectedCalendar = Calendar.getInstance();
-
-        if (savedInstanceState != null
-                && savedInstanceState.containsKey(
-                STATE_SELECTED_DATE
-        )) {
-            selectedCalendar.setTimeInMillis(
-                    savedInstanceState.getLong(
-                            STATE_SELECTED_DATE
-                    )
-            );
-        }
-
         updateDateField();
-        screenshotTextRecognizer =
-                TextRecognition.getClient(
-                        TextRecognizerOptions
-                                .DEFAULT_OPTIONS
-                );
 
         btnBack.setOnClickListener(v -> finish());
 
@@ -295,16 +182,6 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnRemoveReceipt.setOnClickListener(v -> clearReceiptPreview());
 
         btnMoreItem.setOnClickListener(v -> addItemRow());
-
-        btnReadTransactionScreenshot.setOnClickListener(
-                view -> transactionScreenshotPicker.launch(
-                        new String[]{"image/*"}
-                )
-        );
-
-        btnClearScreenshotResult.setOnClickListener(
-                view -> clearScreenshotResult()
-        );
 
         btnPayWithUpi.setOnClickListener(
                 view -> launchUpiPayment()
@@ -320,18 +197,8 @@ public class AddExpenseActivity extends AppCompatActivity {
         if (!restoreItemRows(savedInstanceState)) {
             addItemRow();
         }
-        restoreScreenshotState(savedInstanceState);
         restoreUpiState(savedInstanceState);
         loadFormOptions();
-    }
-
-    @Override
-    protected void onDestroy() {
-        if (screenshotTextRecognizer != null) {
-            screenshotTextRecognizer.close();
-        }
-
-        super.onDestroy();
     }
 
     @Override
@@ -356,44 +223,6 @@ public class AddExpenseActivity extends AppCompatActivity {
         outState.putStringArrayList(
                 STATE_ITEM_ROWS,
                 savedRows
-        );
-        outState.putLong(
-                STATE_SELECTED_DATE,
-                selectedCalendar.getTimeInMillis()
-        );
-
-        if (selectedReceiptUri != null) {
-            outState.putParcelable(
-                    STATE_SELECTED_RECEIPT,
-                    selectedReceiptUri
-            );
-        }
-
-        if (autoAttachedScreenshotUri != null) {
-            outState.putParcelable(
-                    STATE_AUTO_SCREENSHOT,
-                    autoAttachedScreenshotUri
-            );
-        }
-
-        if (lastScreenshotResult != null) {
-            outState.putSerializable(
-                    STATE_SCREENSHOT_RESULT,
-                    lastScreenshotResult
-            );
-        }
-
-        outState.putString(
-                STATE_SCREENSHOT_STATUS,
-                lastScreenshotStatusBase
-        );
-        outState.putBoolean(
-                STATE_SCREENSHOT_CAN_FILL,
-                lastScreenshotCanAutoFill
-        );
-        outState.putString(
-                STATE_SCREENSHOT_NOTE,
-                lastScreenshotNoteBlock
         );
 
         if (lastUpiPaymentResult != null) {
@@ -445,79 +274,6 @@ public class AddExpenseActivity extends AppCompatActivity {
             );
         }
     }
-
-    @SuppressWarnings("deprecation")
-    private void restoreScreenshotState(
-            Bundle savedInstanceState
-    ) {
-        if (savedInstanceState == null) {
-            return;
-        }
-
-        selectedReceiptUri =
-                savedInstanceState.getParcelable(
-                        STATE_SELECTED_RECEIPT
-                );
-        autoAttachedScreenshotUri =
-                savedInstanceState.getParcelable(
-                        STATE_AUTO_SCREENSHOT
-                );
-
-        if (selectedReceiptUri != null) {
-            showReceiptPreview(selectedReceiptUri);
-        }
-
-        lastScreenshotResult =
-                (TransactionScreenshotParser.Result)
-                        savedInstanceState.getSerializable(
-                                STATE_SCREENSHOT_RESULT
-                        );
-        lastScreenshotStatusBase =
-                savedInstanceState.getString(
-                        STATE_SCREENSHOT_STATUS,
-                        ""
-                );
-        lastScreenshotCanAutoFill =
-                savedInstanceState.getBoolean(
-                        STATE_SCREENSHOT_CAN_FILL,
-                        false
-                );
-        lastScreenshotNoteBlock =
-                savedInstanceState.getString(
-                        STATE_SCREENSHOT_NOTE,
-                        ""
-                );
-
-        if (lastScreenshotResult != null) {
-            showScreenshotResult(
-                    lastScreenshotResult
-            );
-            screenshotResultContainer.setVisibility(
-                    View.VISIBLE
-            );
-
-            if (lastScreenshotResult.getStatus()
-                    == TransactionScreenshotParser
-                    .Status.SUCCESS) {
-                txtScreenshotStatus.setTextColor(
-                        getColor(R.color.success)
-                );
-            } else if (lastScreenshotResult.getStatus()
-                    == TransactionScreenshotParser
-                    .Status.FAILED) {
-                txtScreenshotStatus.setTextColor(
-                        getColor(R.color.error)
-                );
-            } else {
-                txtScreenshotStatus.setTextColor(
-                        getColor(R.color.warning)
-                );
-            }
-
-            updateScreenshotStatusForAccount();
-        }
-    }
-
     private boolean restoreItemRows(Bundle savedInstanceState) {
         if (savedInstanceState == null) {
             return false;
@@ -844,576 +600,7 @@ public class AddExpenseActivity extends AppCompatActivity {
         );
     }
 
-    private void readTransactionScreenshot(Uri uri) {
-        setScreenshotReaderLoading(true);
-
-        new Thread(() -> {
-            try {
-                InputImage image = InputImage.fromFilePath(
-                        getApplicationContext(),
-                        uri
-                );
-
-                runOnUiThread(() -> screenshotTextRecognizer
-                        .process(image)
-                        .addOnSuccessListener(text ->
-                                handleRecognizedScreenshot(
-                                        uri,
-                                        text.getText()
-                                )
-                        )
-                        .addOnFailureListener(exception ->
-                                showScreenshotReaderError(
-                                        "Screenshot text could not be read. "
-                                                + "Try a clearer image."
-                                )
-                        )
-                );
-            } catch (IOException exception) {
-                runOnUiThread(() ->
-                        showScreenshotReaderError(
-                                "Selected screenshot could not be opened."
-                        )
-                );
-            }
-        }).start();
-    }
-
-    private void handleRecognizedScreenshot(
-            Uri screenshotUri,
-            String recognizedText
-    ) {
-        setScreenshotReaderLoading(false);
-
-        TransactionScreenshotParser.Result result =
-                TransactionScreenshotParser.parse(
-                        recognizedText
-                );
-
-        if (!result.hasUsefulData()) {
-            showScreenshotReaderError(
-                    "No transaction details were detected. "
-                            + "Choose a clear payment screenshot."
-            );
-            return;
-        }
-
-        lastScreenshotResult = result;
-        showScreenshotResult(result);
-
-        boolean incoming =
-                result.getDirection()
-                        == TransactionScreenshotParser
-                        .Direction.INCOMING;
-        boolean failed =
-                result.getStatus()
-                        == TransactionScreenshotParser
-                        .Status.FAILED;
-        boolean pending =
-                result.getStatus()
-                        == TransactionScreenshotParser
-                        .Status.PENDING;
-
-        lastScreenshotCanAutoFill =
-                !incoming && !failed && !pending;
-
-        if (incoming) {
-            lastScreenshotStatusBase =
-                    "Incoming payment detected. "
-                            + "Expense form was not auto-filled.";
-            txtScreenshotStatus.setTextColor(
-                    getColor(R.color.warning)
-            );
-        } else if (failed) {
-            lastScreenshotStatusBase =
-                    "Failed transaction detected. "
-                            + "Expense form was not auto-filled.";
-            txtScreenshotStatus.setTextColor(
-                    getColor(R.color.error)
-            );
-        } else if (pending) {
-            lastScreenshotStatusBase =
-                    "Pending transaction detected. "
-                            + "Wait for success before saving.";
-            txtScreenshotStatus.setTextColor(
-                    getColor(R.color.warning)
-            );
-        } else {
-            applyScreenshotResult(
-                    result,
-                    screenshotUri
-            );
-
-            if (result.getStatus()
-                    == TransactionScreenshotParser
-                    .Status.SUCCESS) {
-                lastScreenshotStatusBase =
-                        "Successful transaction detected "
-                                + "and available fields were filled.";
-                txtScreenshotStatus.setTextColor(
-                        getColor(R.color.success)
-                );
-            } else {
-                lastScreenshotStatusBase =
-                        "Transaction details detected. "
-                                + "Status was unclear, so review carefully.";
-                txtScreenshotStatus.setTextColor(
-                        getColor(R.color.warning)
-                );
-            }
-        }
-
-        updateScreenshotStatusForAccount();
-        screenshotResultContainer.setVisibility(
-                View.VISIBLE
-        );
-    }
-
-    private void showScreenshotResult(
-            TransactionScreenshotParser.Result result
-    ) {
-        txtDetectedAmount.setText(
-                "Amount: "
-                        + (result.getAmount() == null
-                        ? "Not detected"
-                        : "₹"
-                        + formatMoney(
-                        BigDecimal.valueOf(
-                                result.getAmount()
-                        )
-                ))
-        );
-
-        txtDetectedMerchant.setText(
-                "Merchant: "
-                        + valueOrNotDetected(
-                        result.getMerchant()
-                )
-        );
-
-        txtDetectedBank.setText(
-                "Bank: "
-                        + valueOrNotDetected(
-                        result.getBank()
-                )
-        );
-
-        txtDetectedReference.setText(
-                "Reference: "
-                        + valueOrNotDetected(
-                        result.getReference()
-                )
-        );
-
-        txtDetectedDate.setText(
-                "Date: "
-                        + valueOrNotDetected(
-                        result.getDateText()
-                )
-        );
-
-        txtDetectedPaymentApp.setText(
-                "Payment app: "
-                        + valueOrNotDetected(
-                        result.getPaymentApp()
-                )
-        );
-    }
-
-    private void applyScreenshotResult(
-            TransactionScreenshotParser.Result result,
-            Uri screenshotUri
-    ) {
-        if (result.getAmount() != null) {
-            etAmount.setText(
-                    formatMoney(
-                            BigDecimal.valueOf(
-                                    result.getAmount()
-                            )
-                    )
-            );
-            inputAmount.setError(null);
-        }
-
-        Calendar detectedDate =
-                parseDetectedDate(
-                        result.getDateText()
-                );
-
-        if (detectedDate != null) {
-            selectedCalendar = detectedDate;
-            updateDateField();
-        }
-
-        appendScreenshotDetailsToNote(result);
-
-        if (selectedReceiptUri == null) {
-            showReceiptPreview(screenshotUri);
-            autoAttachedScreenshotUri = screenshotUri;
-        }
-    }
-
-    private Calendar parseDetectedDate(String dateText) {
-        if (dateText == null
-                || dateText.trim().isEmpty()) {
-            return null;
-        }
-
-        String normalized = dateText
-                .trim()
-                .replace(" at ", ", ");
-
-        String[] dateFormats = {
-                "dd MMM yyyy, hh:mm a",
-                "dd MMMM yyyy, hh:mm a",
-                "dd MMM yyyy HH:mm",
-                "dd MMMM yyyy HH:mm",
-                "dd/MM/yyyy HH:mm",
-                "dd-MM-yyyy HH:mm",
-                "dd.MM.yyyy HH:mm",
-                "dd/MM/yy HH:mm",
-                "dd-MM-yy HH:mm",
-                "dd.MM.yy HH:mm",
-                "dd MMM yyyy",
-                "dd MMMM yyyy",
-                "dd/MM/yyyy",
-                "dd-MM-yyyy",
-                "dd.MM.yyyy",
-                "dd/MM/yy",
-                "dd-MM-yy",
-                "dd.MM.yy"
-        };
-
-        for (String format : dateFormats) {
-            try {
-                SimpleDateFormat parser =
-                        new SimpleDateFormat(
-                                format,
-                                Locale.ENGLISH
-                        );
-
-                parser.setLenient(false);
-
-                Date parsedDate =
-                        parser.parse(normalized);
-
-                if (parsedDate != null) {
-                    Calendar calendar =
-                            Calendar.getInstance();
-
-                    boolean containsTime =
-                            format.contains("HH")
-                                    || format.contains("hh");
-
-                    int currentHour =
-                            calendar.get(Calendar.HOUR_OF_DAY);
-                    int currentMinute =
-                            calendar.get(Calendar.MINUTE);
-
-                    calendar.setTime(parsedDate);
-
-                    if (!containsTime) {
-                        calendar.set(
-                                Calendar.HOUR_OF_DAY,
-                                currentHour
-                        );
-                        calendar.set(
-                                Calendar.MINUTE,
-                                currentMinute
-                        );
-                    }
-
-                    return calendar;
-                }
-            } catch (ParseException ignored) {
-            }
-        }
-
-        return null;
-    }
-
-    private void appendScreenshotDetailsToNote(
-            TransactionScreenshotParser.Result result
-    ) {
-        removeLastScreenshotNoteBlock();
-
-        List<String> details = new ArrayList<>();
-
-        if (!result.getMerchant().isEmpty()) {
-            details.add(
-                    "Merchant: " + result.getMerchant()
-            );
-        }
-
-        if (!result.getBank().isEmpty()) {
-            details.add("Bank: " + result.getBank());
-        }
-
-        if (!result.getReference().isEmpty()) {
-            details.add(
-                    "Ref: " + result.getReference()
-            );
-        }
-
-        if (!result.getPaymentApp().isEmpty()) {
-            details.add(
-                    "App: " + result.getPaymentApp()
-            );
-        }
-
-        if (details.isEmpty()) {
-            return;
-        }
-
-        String block =
-                "Screenshot • "
-                        + joinDetails(details);
-        String current = textOf(etNote);
-        String separator =
-                current.isEmpty() ? "" : "\n\n";
-        int available =
-                250 - current.length()
-                        - separator.length();
-
-        if (available <= 0) {
-            return;
-        }
-
-        if (block.length() > available) {
-            block = block.substring(0, available);
-        }
-
-        etNote.setText(
-                current + separator + block
-        );
-        lastScreenshotNoteBlock = block;
-    }
-
-    private String joinDetails(List<String> details) {
-        StringBuilder builder =
-                new StringBuilder();
-
-        for (String detail : details) {
-            if (builder.length() > 0) {
-                builder.append(" | ");
-            }
-
-            builder.append(detail);
-        }
-
-        return builder.toString();
-    }
-
-    private void removeLastScreenshotNoteBlock() {
-        if (lastScreenshotNoteBlock.isEmpty()) {
-            return;
-        }
-
-        String current = textOf(etNote);
-        String withSeparator =
-                "\n\n" + lastScreenshotNoteBlock;
-
-        if (current.endsWith(withSeparator)) {
-            current = current.substring(
-                    0,
-                    current.length()
-                            - withSeparator.length()
-            );
-        } else if (current.equals(
-                lastScreenshotNoteBlock
-        )) {
-            current = "";
-        }
-
-        etNote.setText(current);
-        lastScreenshotNoteBlock = "";
-    }
-
-    private void updateScreenshotStatusForAccount() {
-        if (lastScreenshotResult == null) {
-            return;
-        }
-
-        String message = lastScreenshotStatusBase;
-
-        if (lastScreenshotCanAutoFill
-                && !lastScreenshotResult
-                .getBank()
-                .isEmpty()) {
-
-            boolean matched =
-                    matchDetectedBankToAccount(
-                            lastScreenshotResult.getBank()
-                    );
-
-            if (matched) {
-                message += " Matching account selected.";
-            } else if (accountOptionsReady) {
-                message += " Select the correct payment "
-                        + "account manually.";
-            } else {
-                message += " Account list is still loading.";
-            }
-        }
-
-        txtScreenshotStatus.setText(message);
-    }
-
-    private boolean matchDetectedBankToAccount(
-            String detectedBank
-    ) {
-        if (detectedBank == null
-                || detectedBank.trim().isEmpty()) {
-            return false;
-        }
-
-        for (String accountName :
-                availableAccountNames) {
-
-            if (bankNamesMatch(
-                    detectedBank,
-                    accountName
-            )) {
-                dropdownAccount.setText(
-                        accountName,
-                        false
-                );
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private boolean bankNamesMatch(
-            String bank,
-            String account
-    ) {
-        String normalizedBank =
-                normalizeBankName(bank);
-        String normalizedAccount =
-                normalizeBankName(account);
-
-        if (normalizedBank.isEmpty()
-                || normalizedAccount.isEmpty()) {
-            return false;
-        }
-
-        if (normalizedBank.contains(
-                normalizedAccount
-        ) || normalizedAccount.contains(
-                normalizedBank
-        )) {
-            return true;
-        }
-
-        String acronym =
-                createBankAcronym(bank);
-
-        return !acronym.isEmpty()
-                && normalizedAccount.contains(acronym);
-    }
-
-    private String normalizeBankName(String value) {
-        return value == null
-                ? ""
-                : value.toLowerCase(Locale.US)
-                .replaceAll(
-                        "[^a-z0-9]",
-                        ""
-                )
-                .replace("bank", "");
-    }
-
-    private String createBankAcronym(String bank) {
-        if (bank == null) {
-            return "";
-        }
-
-        StringBuilder acronym =
-                new StringBuilder();
-
-        for (String word :
-                bank.toLowerCase(Locale.US)
-                        .split("\\s+")) {
-
-            if (word.isEmpty()
-                    || word.equals("of")
-                    || word.equals("the")
-                    || word.equals("bank")) {
-                continue;
-            }
-
-            acronym.append(word.charAt(0));
-        }
-
-        return acronym.toString();
-    }
-
-    private void clearScreenshotResult() {
-        removeLastScreenshotNoteBlock();
-
-        lastScreenshotResult = null;
-        lastScreenshotCanAutoFill = false;
-        lastScreenshotStatusBase = "";
-
-        screenshotResultContainer.setVisibility(
-                View.GONE
-        );
-
-        if (autoAttachedScreenshotUri != null
-                && autoAttachedScreenshotUri.equals(
-                selectedReceiptUri
-        )) {
-            clearReceiptPreview();
-        }
-
-        Toast.makeText(
-                this,
-                "Reader result cleared. "
-                        + "Review any filled form values.",
-                Toast.LENGTH_SHORT
-        ).show();
-    }
-
-    private void setScreenshotReaderLoading(
-            boolean loading
-    ) {
-        btnReadTransactionScreenshot.setEnabled(
-                !loading
-        );
-        btnReadTransactionScreenshot.setText(
-                loading
-                        ? "Reading Screenshot..."
-                        : "Choose Transaction Screenshot"
-        );
-        screenshotReaderProgress.setVisibility(
-                loading ? View.VISIBLE : View.GONE
-        );
-    }
-
-    private void showScreenshotReaderError(
-            String message
-    ) {
-        setScreenshotReaderLoading(false);
-
-        Toast.makeText(
-                this,
-                message,
-                Toast.LENGTH_LONG
-        ).show();
-    }
-
-    private String valueOrNotDetected(
-            String value
-    ) {
-        return value == null
-                || value.trim().isEmpty()
-                ? "Not detected"
-                : value.trim();
-    }
-
-    private void launchUpiPayment() {
+     private void launchUpiPayment() {
         inputUpiPayeeId.setError(null);
         inputUpiPayeeName.setError(null);
 
@@ -1705,7 +892,6 @@ public class AddExpenseActivity extends AppCompatActivity {
 
     private void clearReceiptPreview() {
         selectedReceiptUri = null;
-        autoAttachedScreenshotUri = null;
 
         imgReceiptPreview.setImageDrawable(null);
         receiptPreviewContainer.setVisibility(View.GONE);
@@ -1757,16 +943,6 @@ public class AddExpenseActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 setDropdownData(dropdownCategory, expenseCategories, "Food");
                 setDropdownData(dropdownAccount, accountNames, "Cash");
-
-                availableAccountNames.clear();
-                availableAccountNames.addAll(
-                        accountNames
-                );
-                accountOptionsReady = true;
-
-                if (lastScreenshotCanAutoFill) {
-                    updateScreenshotStatusForAccount();
-                }
             });
         }).start();
     }
