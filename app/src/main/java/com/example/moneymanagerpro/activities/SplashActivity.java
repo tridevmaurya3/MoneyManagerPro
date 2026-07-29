@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.utils.ThemeManager;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 
@@ -347,6 +348,20 @@ public class SplashActivity extends AppCompatActivity {
                 || isFinishing()
                 || isDestroyed()) {
 
+            return;
+        }
+
+        if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+            hasNavigated = true;
+
+            Intent loginIntent = AuthenticationActivity.createLoginIntent(this);
+            loginIntent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_CLEAR_TASK
+            );
+
+            startActivity(loginIntent);
+            finish();
             return;
         }
 

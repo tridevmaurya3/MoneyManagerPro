@@ -5,16 +5,20 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.ColorRes;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
@@ -22,6 +26,8 @@ import androidx.core.widget.NestedScrollView;
 import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.auth.AuthNavigator;
+import com.example.moneymanagerpro.auth.LocalProfilePhotoStore;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.AccountBalance;
 import com.example.moneymanagerpro.navigation.DashboardDrawerController;
@@ -29,6 +35,8 @@ import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.card.MaterialCardView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 import java.text.NumberFormat;
 import java.util.List;
@@ -54,6 +62,9 @@ public class DashboardActivity extends AppCompatActivity {
     private View btnReports;
     private View btnMoreFeatures;
     private View btnOpenDrawer;
+    private View btnUserMenu;
+    private ImageView imgDashboardProfile;
+    private TextView txtDashboardProfileInitial;
     private DrawerLayout dashboardDrawerLayout;
     private LinearLayout dashboardDrawerMenuContainer;
 
@@ -69,9 +80,19 @@ public class DashboardActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+
+        if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+            AuthNavigator.logout(this);
+        }
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         loadDashboardData();
+        loadUserProfile();
     }
 
     private void initializeViews() {
@@ -93,6 +114,11 @@ public class DashboardActivity extends AppCompatActivity {
         btnReports = findViewById(R.id.btnReports);
         btnMoreFeatures = findViewById(R.id.btnMoreFeatures);
         btnOpenDrawer = findViewById(R.id.btnOpenDrawer);
+        btnUserMenu = findViewById(R.id.btnUserMenu);
+        imgDashboardProfile =
+                findViewById(R.id.imgDashboardProfile);
+        txtDashboardProfileInitial =
+                findViewById(R.id.txtDashboardProfileInitial);
         dashboardDrawerLayout = findViewById(R.id.dashboardDrawerLayout);
         dashboardDrawerMenuContainer =
                 findViewById(R.id.dashboardDrawerMenuContainer);
@@ -127,6 +153,7 @@ public class DashboardActivity extends AppCompatActivity {
         BubbleTouchAnimator.apply(btnReports);
         BubbleTouchAnimator.apply(btnMoreFeatures);
         BubbleTouchAnimator.apply(btnOpenDrawer);
+        BubbleTouchAnimator.apply(btnUserMenu);
     }
 
     private void setupClickListeners() {
@@ -165,6 +192,8 @@ public class DashboardActivity extends AppCompatActivity {
         cardCash.setOnClickListener(view ->
                 openActivity(AccountActivity.class)
         );
+
+        btnUserMenu.setOnClickListener(this::showUserMenu);
     }
 
     private void openActivity(Class<?> activityClass) {
@@ -174,6 +203,100 @@ public class DashboardActivity extends AppCompatActivity {
                         activityClass
                 )
         );
+    }
+
+    private void loadUserProfile() {
+        FirebaseUser user =
+                FirebaseAuth.getInstance().getCurrentUser();
+
+        if (user == null) {
+            return;
+        }
+
+        String name = user.getDisplayName() == null
+                ? ""
+                : user.getDisplayName().trim();
+
+        String email = user.getEmail() == null
+                ? ""
+                : user.getEmail().trim();
+
+        String source = name.isEmpty() ? email : name;
+        txtDashboardProfileInitial.setText(
+                source.isEmpty()
+                        ? "U"
+                        : source.substring(0, 1).toUpperCase(
+                                Locale.getDefault()
+                        )
+        );
+
+        Uri photoUri = LocalProfilePhotoStore.get(this);
+
+        if (photoUri == null) {
+            imgDashboardProfile.setImageDrawable(null);
+            imgDashboardProfile.setVisibility(View.GONE);
+            txtDashboardProfileInitial.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        try {
+            imgDashboardProfile.setImageURI(null);
+            imgDashboardProfile.setImageURI(photoUri);
+            imgDashboardProfile.setVisibility(View.VISIBLE);
+            txtDashboardProfileInitial.setVisibility(View.GONE);
+        } catch (Exception exception) {
+            LocalProfilePhotoStore.clear(this);
+            imgDashboardProfile.setVisibility(View.GONE);
+            txtDashboardProfileInitial.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void showUserMenu(View anchor) {
+        PopupMenu popupMenu = new PopupMenu(this, anchor);
+        popupMenu.getMenu().add(0, 1, 0, "User Profile");
+        popupMenu.getMenu().add(0, 2, 1, "Change Password");
+        popupMenu.getMenu().add(0, 3, 2, "Logout");
+
+        popupMenu.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 1) {
+                openActivity(UserProfileActivity.class);
+                return true;
+            }
+
+            if (item.getItemId() == 2) {
+                startActivity(
+                        AuthenticationActivity.createIntent(
+                                this,
+                                AuthenticationActivity.MODE_CHANGE_PASSWORD
+                        )
+                );
+                return true;
+            }
+
+            if (item.getItemId() == 3) {
+                confirmLogout();
+                return true;
+            }
+
+            return false;
+        });
+
+        popupMenu.show();
+    }
+
+    private void confirmLogout() {
+        new AlertDialog.Builder(this)
+                .setTitle("Logout")
+                .setMessage(
+                        "Do you want to logout from Money Manager Pro?"
+                )
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(
+                        "Logout",
+                        (dialog, which) ->
+                                AuthNavigator.logout(this)
+                )
+                .show();
     }
 
     @Override

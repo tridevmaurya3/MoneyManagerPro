@@ -2,6 +2,9 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Firebase Authentication -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Android 13+ bill and subscription notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -20,6 +23,16 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MoneyManagerPro">
+
+        <!-- FIREBASE AUTHENTICATION -->
+
+        <activity
+            android:name=".activities.UserProfileActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.AuthenticationActivity"
+            android:exported="false" />
 
         <!-- HELP -->
 

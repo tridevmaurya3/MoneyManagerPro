@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "79866637823",
+    "project_id": "money-manager-pro-99d21",
+    "storage_bucket": "money-manager-pro-99d21.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:79866637823:android:52d136b425981c59b18bca",
+        "android_client_info": {
+          "package_name": "com.example.moneymanagerpro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyoNc3tAjUXF2BvgpZtP14eZItjfU8hs8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
