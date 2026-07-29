@@ -11,6 +11,7 @@ import com.example.moneymanagerpro.dao.BudgetDao;
 import com.example.moneymanagerpro.dao.CategoryDao;
 import com.example.moneymanagerpro.dao.CreditCardDao;
 import com.example.moneymanagerpro.dao.CreditCardPaymentDao;
+import com.example.moneymanagerpro.dao.ExpenseItemDao;
 import com.example.moneymanagerpro.dao.GoalDao;
 import com.example.moneymanagerpro.dao.LoanDao;
 import com.example.moneymanagerpro.dao.LoanPaymentDao;
@@ -22,6 +23,7 @@ import com.example.moneymanagerpro.model.Budget;
 import com.example.moneymanagerpro.model.Category;
 import com.example.moneymanagerpro.model.CreditCard;
 import com.example.moneymanagerpro.model.CreditCardPayment;
+import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Goal;
 import com.example.moneymanagerpro.model.Loan;
 import com.example.moneymanagerpro.model.LoanPayment;
@@ -41,9 +43,10 @@ import com.example.moneymanagerpro.model.Transaction;
                 Subscription.class,
                 LoanPayment.class,
                 CreditCard.class,
-                CreditCardPayment.class
+                CreditCardPayment.class,
+                ExpenseItem.class
         },
-        version = 10,
+        version = 11,
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -69,6 +72,8 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract CreditCardDao creditCardDao();
 
     public abstract CreditCardPaymentDao creditCardPaymentDao();
+
+    public abstract ExpenseItemDao expenseItemDao();
 
     public static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -262,6 +267,32 @@ public abstract class AppDatabase extends RoomDatabase {
                             "`paymentDate` TEXT NOT NULL, " +
                             "`sourceAccount` TEXT NOT NULL, " +
                             "`note` TEXT NOT NULL)"
+            );
+        }
+    };
+
+    public static final Migration MIGRATION_10_11 = new Migration(10, 11) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `expense_items` (" +
+                            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`transactionId` INTEGER NOT NULL, " +
+                            "`itemName` TEXT NOT NULL, " +
+                            "`quantity` REAL NOT NULL, " +
+                            "`unit` TEXT NOT NULL, " +
+                            "`price` REAL NOT NULL, " +
+                            "`total` REAL NOT NULL, " +
+                            "`sortOrder` INTEGER NOT NULL, " +
+                            "FOREIGN KEY(`transactionId`) " +
+                            "REFERENCES `transactions`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE)"
+            );
+
+            database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS " +
+                            "`index_expense_items_transactionId` " +
+                            "ON `expense_items` (`transactionId`)"
             );
         }
     };

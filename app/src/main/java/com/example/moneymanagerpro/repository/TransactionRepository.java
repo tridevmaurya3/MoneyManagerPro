@@ -16,6 +16,7 @@ import java.util.concurrent.Executors;
 
 public class TransactionRepository {
 
+    private final AppDatabase database;
     private final TransactionDao transactionDao;
     private final ExecutorService executorService;
     private final Handler mainHandler;
@@ -41,7 +42,7 @@ public class TransactionRepository {
     }
 
     public TransactionRepository(Context context) {
-        AppDatabase database = DatabaseClient.getInstance(context).getAppDatabase();
+        database = DatabaseClient.getInstance(context).getAppDatabase();
 
         transactionDao = database.transactionDao();
         executorService = Executors.newSingleThreadExecutor();
@@ -75,7 +76,18 @@ public class TransactionRepository {
 
     public void update(Transaction transaction, OperationCallback callback) {
         executorService.execute(() -> {
-            transactionDao.update(transaction);
+            database.runInTransaction(() -> {
+                transactionDao.update(transaction);
+
+                if (!"EXPENSE".equalsIgnoreCase(
+                        transaction.getType()
+                )) {
+                    database.expenseItemDao()
+                            .deleteItemsForTransaction(
+                                    transaction.getId()
+                            );
+                }
+            });
 
             if (callback != null) {
                 mainHandler.post(callback::onComplete);

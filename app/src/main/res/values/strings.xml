@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">MoneyManagerPro</string>
+    <string name="expense_item_number">Item %1$d</string>
+    <string name="expense_items_total">Items total: ₹%1$s</string>
 </resources>

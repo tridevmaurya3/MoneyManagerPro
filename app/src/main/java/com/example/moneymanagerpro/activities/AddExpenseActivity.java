@@ -4,10 +4,14 @@ import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,9 +20,11 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.Category;
+import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.ReceiptStore;
 import com.google.android.material.button.MaterialButton;
@@ -26,6 +32,8 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -33,6 +41,10 @@ import java.util.List;
 import java.util.Locale;
 
 public class AddExpenseActivity extends AppCompatActivity {
+
+    private static final int MAX_ITEM_ROWS = 50;
+    private static final String STATE_ITEM_ROWS =
+            "expense_item_rows";
 
     private TextInputLayout inputAmount;
     private TextInputEditText etAmount;
@@ -45,13 +57,18 @@ public class AddExpenseActivity extends AppCompatActivity {
     private MaterialButton btnAttachReceipt;
     private MaterialButton btnRemoveReceipt;
     private MaterialButton btnSaveExpense;
+    private MaterialButton btnMoreItem;
 
     private ImageView imgReceiptPreview;
     private FrameLayout receiptPreviewContainer;
+    private LinearLayout itemDetailsContainer;
+    private TextView txtItemsTotal;
 
     private Calendar selectedCalendar;
     private String selectedDate;
     private Uri selectedReceiptUri;
+
+    private final List<View> itemRows = new ArrayList<>();
 
     private final ActivityResultLauncher<String[]> receiptPicker =
             registerForActivityResult(
@@ -89,9 +106,12 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnAttachReceipt = findViewById(R.id.btnAttachReceipt);
         btnRemoveReceipt = findViewById(R.id.btnRemoveReceipt);
         btnSaveExpense = findViewById(R.id.btnSaveExpense);
+        btnMoreItem = findViewById(R.id.btnMoreItem);
 
         imgReceiptPreview = findViewById(R.id.imgReceiptPreview);
         receiptPreviewContainer = findViewById(R.id.receiptPreviewContainer);
+        itemDetailsContainer = findViewById(R.id.itemDetailsContainer);
+        txtItemsTotal = findViewById(R.id.txtItemsTotal);
 
         TextView btnBack = findViewById(R.id.btnBack);
 
@@ -108,9 +128,367 @@ public class AddExpenseActivity extends AppCompatActivity {
 
         btnRemoveReceipt.setOnClickListener(v -> clearReceiptPreview());
 
+        btnMoreItem.setOnClickListener(v -> addItemRow());
+
         btnSaveExpense.setOnClickListener(v -> saveExpense());
 
+        if (!restoreItemRows(savedInstanceState)) {
+            addItemRow();
+        }
         loadFormOptions();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        ArrayList<String> savedRows = new ArrayList<>();
+
+        for (View row : itemRows) {
+            savedRows.add(
+                    textOf(row.findViewById(R.id.etItemName))
+            );
+            savedRows.add(
+                    textOf(row.findViewById(R.id.etItemQuantity))
+            );
+            savedRows.add(
+                    textOf(row.findViewById(R.id.etItemUnit))
+            );
+            savedRows.add(
+                    textOf(row.findViewById(R.id.etItemPrice))
+            );
+        }
+
+        outState.putStringArrayList(
+                STATE_ITEM_ROWS,
+                savedRows
+        );
+
+        super.onSaveInstanceState(outState);
+    }
+
+    private boolean restoreItemRows(Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            return false;
+        }
+
+        ArrayList<String> savedRows =
+                savedInstanceState.getStringArrayList(
+                        STATE_ITEM_ROWS
+                );
+
+        if (savedRows == null
+                || savedRows.isEmpty()
+                || savedRows.size() % 4 != 0) {
+            return false;
+        }
+
+        int rowCount = Math.min(
+                savedRows.size() / 4,
+                MAX_ITEM_ROWS
+        );
+
+        for (int index = 0; index < rowCount; index++) {
+            addItemRow();
+
+            View row = itemRows.get(
+                    itemRows.size() - 1
+            );
+
+            setText(
+                    row.findViewById(R.id.etItemName),
+                    savedRows.get(index * 4)
+            );
+            setText(
+                    row.findViewById(R.id.etItemQuantity),
+                    savedRows.get(index * 4 + 1)
+            );
+            setText(
+                    row.findViewById(R.id.etItemUnit),
+                    savedRows.get(index * 4 + 2)
+            );
+            setText(
+                    row.findViewById(R.id.etItemPrice),
+                    savedRows.get(index * 4 + 3)
+            );
+        }
+
+        updateItemsSummary();
+        return true;
+    }
+
+    private void setText(
+            TextInputEditText editText,
+            String value
+    ) {
+        editText.setText(value == null ? "" : value);
+    }
+
+    private void addItemRow() {
+        if (itemRows.size() >= MAX_ITEM_ROWS) {
+            Toast.makeText(
+                    this,
+                    "A maximum of 50 items can be added",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        View row = LayoutInflater.from(this).inflate(
+                R.layout.item_expense_detail,
+                itemDetailsContainer,
+                false
+        );
+
+        TextInputEditText quantity =
+                row.findViewById(R.id.etItemQuantity);
+        TextInputEditText price =
+                row.findViewById(R.id.etItemPrice);
+        TextInputEditText name =
+                row.findViewById(R.id.etItemName);
+        TextInputEditText unit =
+                row.findViewById(R.id.etItemUnit);
+        TextInputEditText total =
+                row.findViewById(R.id.etItemTotal);
+        MaterialButton remove =
+                row.findViewById(R.id.btnRemoveItem);
+
+        name.setSaveEnabled(false);
+        quantity.setSaveEnabled(false);
+        unit.setSaveEnabled(false);
+        price.setSaveEnabled(false);
+        total.setSaveEnabled(false);
+
+        TextWatcher totalWatcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(
+                    CharSequence text,
+                    int start,
+                    int count,
+                    int after
+            ) {
+            }
+
+            @Override
+            public void onTextChanged(
+                    CharSequence text,
+                    int start,
+                    int before,
+                    int count
+            ) {
+                updateItemTotal(row);
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        };
+
+        quantity.addTextChangedListener(totalWatcher);
+        price.addTextChangedListener(totalWatcher);
+
+        remove.setOnClickListener(view -> {
+            itemRows.remove(row);
+            itemDetailsContainer.removeView(row);
+            renumberItemRows();
+            updateItemsSummary();
+        });
+
+        itemRows.add(row);
+        itemDetailsContainer.addView(row);
+        renumberItemRows();
+        updateItemsSummary();
+    }
+
+    private void renumberItemRows() {
+        for (int index = 0; index < itemRows.size(); index++) {
+            TextView number =
+                    itemRows.get(index)
+                            .findViewById(R.id.txtItemNumber);
+
+            number.setText(
+                    getString(
+                            R.string.expense_item_number,
+                            index + 1
+                    )
+            );
+        }
+
+        btnMoreItem.setEnabled(itemRows.size() < MAX_ITEM_ROWS);
+    }
+
+    private void updateItemTotal(View row) {
+        BigDecimal quantity = parsePositiveDecimal(
+                textOf(row.findViewById(R.id.etItemQuantity))
+        );
+        BigDecimal price = parsePositiveDecimal(
+                textOf(row.findViewById(R.id.etItemPrice))
+        );
+
+        BigDecimal total = BigDecimal.ZERO;
+
+        if (quantity != null && price != null) {
+            total = quantity
+                    .multiply(price)
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
+
+        TextInputEditText totalField =
+                row.findViewById(R.id.etItemTotal);
+
+        totalField.setText(formatMoney(total));
+        updateItemsSummary();
+    }
+
+    private void updateItemsSummary() {
+        BigDecimal itemsTotal = BigDecimal.ZERO;
+
+        for (View row : itemRows) {
+            BigDecimal quantity = parsePositiveDecimal(
+                    textOf(row.findViewById(R.id.etItemQuantity))
+            );
+            BigDecimal price = parsePositiveDecimal(
+                    textOf(row.findViewById(R.id.etItemPrice))
+            );
+
+            if (quantity != null && price != null) {
+                itemsTotal = itemsTotal.add(
+                        quantity.multiply(price)
+                );
+            }
+        }
+
+        txtItemsTotal.setText(
+                getString(
+                        R.string.expense_items_total,
+                        formatMoney(
+                                itemsTotal.setScale(
+                                        2,
+                                        RoundingMode.HALF_UP
+                                )
+                        )
+                )
+        );
+    }
+
+    private List<ExpenseItem> collectExpenseItems() {
+        List<ExpenseItem> items = new ArrayList<>();
+
+        for (int index = 0; index < itemRows.size(); index++) {
+            View row = itemRows.get(index);
+
+            TextInputLayout nameInput =
+                    row.findViewById(R.id.inputItemName);
+            TextInputLayout quantityInput =
+                    row.findViewById(R.id.inputItemQuantity);
+            TextInputLayout unitInput =
+                    row.findViewById(R.id.inputItemUnit);
+            TextInputLayout priceInput =
+                    row.findViewById(R.id.inputItemPrice);
+
+            nameInput.setError(null);
+            quantityInput.setError(null);
+            unitInput.setError(null);
+            priceInput.setError(null);
+
+            String name = textOf(
+                    row.findViewById(R.id.etItemName)
+            );
+            String quantityText = textOf(
+                    row.findViewById(R.id.etItemQuantity)
+            );
+            String unit = textOf(
+                    row.findViewById(R.id.etItemUnit)
+            );
+            String priceText = textOf(
+                    row.findViewById(R.id.etItemPrice)
+            );
+
+            if (name.isEmpty()
+                    && quantityText.isEmpty()
+                    && unit.isEmpty()
+                    && priceText.isEmpty()) {
+                continue;
+            }
+
+            if (name.isEmpty()) {
+                nameInput.setError("Enter item name");
+                nameInput.requestFocus();
+                return null;
+            }
+
+            BigDecimal quantity =
+                    parsePositiveDecimal(quantityText);
+
+            if (quantity == null) {
+                quantityInput.setError(
+                        "Enter a quantity greater than zero"
+                );
+                quantityInput.requestFocus();
+                return null;
+            }
+
+            if (unit.isEmpty()) {
+                unitInput.setError("Enter item unit");
+                unitInput.requestFocus();
+                return null;
+            }
+
+            BigDecimal price =
+                    parsePositiveDecimal(priceText);
+
+            if (price == null) {
+                priceInput.setError(
+                        "Enter a price greater than zero"
+                );
+                priceInput.requestFocus();
+                return null;
+            }
+
+            BigDecimal total = quantity
+                    .multiply(price)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            ExpenseItem item = new ExpenseItem();
+            item.setItemName(name);
+            item.setQuantity(quantity.doubleValue());
+            item.setUnit(unit);
+            item.setPrice(price.doubleValue());
+            item.setTotal(total.doubleValue());
+            item.setSortOrder(items.size());
+
+            items.add(item);
+        }
+
+        return items;
+    }
+
+    private BigDecimal parsePositiveDecimal(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            BigDecimal value = new BigDecimal(text.trim());
+
+            return value.compareTo(BigDecimal.ZERO) > 0
+                    ? value
+                    : null;
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private String textOf(TextInputEditText editText) {
+        return editText.getText() == null
+                ? ""
+                : editText.getText().toString().trim();
+    }
+
+    private String formatMoney(BigDecimal amount) {
+        return String.format(
+                Locale.US,
+                "%.2f",
+                amount.doubleValue()
+        );
     }
 
     private void showReceiptPreview(Uri uri) {
@@ -237,9 +615,29 @@ public class AddExpenseActivity extends AppCompatActivity {
     }
 
     private void saveExpense() {
+        List<ExpenseItem> expenseItems =
+                collectExpenseItems();
+
+        if (expenseItems == null) {
+            return;
+        }
+
         String amountText = etAmount.getText() == null
                 ? ""
                 : etAmount.getText().toString().trim();
+
+        if (amountText.isEmpty() && !expenseItems.isEmpty()) {
+            BigDecimal itemTotal = BigDecimal.ZERO;
+
+            for (ExpenseItem item : expenseItems) {
+                itemTotal = itemTotal.add(
+                        BigDecimal.valueOf(item.getTotal())
+                );
+            }
+
+            amountText = formatMoney(itemTotal);
+            etAmount.setText(amountText);
+        }
 
         if (amountText.isEmpty()) {
             inputAmount.setError("Please enter expense amount");
@@ -286,24 +684,63 @@ public class AddExpenseActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                long transactionId = DatabaseClient
+                AppDatabase database = DatabaseClient
                         .getInstance(getApplicationContext())
-                        .getAppDatabase()
-                        .transactionDao()
-                        .insert(transaction);
+                        .getAppDatabase();
+
+                final long[] savedTransactionId = {0L};
+
+                database.runInTransaction(() -> {
+                    long transactionId = database
+                            .transactionDao()
+                            .insert(transaction);
+
+                    if (transactionId <= 0
+                            || transactionId > Integer.MAX_VALUE) {
+                        throw new IllegalStateException(
+                                "Invalid transaction ID"
+                        );
+                    }
+
+                    for (ExpenseItem item : expenseItems) {
+                        item.setTransactionId(
+                                (int) transactionId
+                        );
+                    }
+
+                    if (!expenseItems.isEmpty()) {
+                        database.expenseItemDao()
+                                .insertAll(expenseItems);
+                    }
+
+                    savedTransactionId[0] = transactionId;
+                });
 
                 if (!receiptUri.isEmpty()) {
                     ReceiptStore.saveReceiptUri(
                             getApplicationContext(),
-                            transactionId,
+                            savedTransactionId[0],
                             receiptUri
                     );
                 }
 
                 runOnUiThread(() -> {
-                    String message = receiptUri.isEmpty()
-                            ? "Expense saved successfully"
-                            : "Expense and bill photo saved";
+                    String message;
+
+                    if (!expenseItems.isEmpty()
+                            && !receiptUri.isEmpty()) {
+                        message =
+                                "Expense, items and bill photo saved";
+                    } else if (!expenseItems.isEmpty()) {
+                        message =
+                                "Expense and item details saved";
+                    } else if (!receiptUri.isEmpty()) {
+                        message =
+                                "Expense and bill photo saved";
+                    } else {
+                        message =
+                                "Expense saved successfully";
+                    }
 
                     Toast.makeText(
                             AddExpenseActivity.this,

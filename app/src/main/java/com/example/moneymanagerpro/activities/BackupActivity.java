@@ -21,6 +21,7 @@ import com.example.moneymanagerpro.model.Budget;
 import com.example.moneymanagerpro.model.Category;
 import com.example.moneymanagerpro.model.CreditCard;
 import com.example.moneymanagerpro.model.CreditCardPayment;
+import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Goal;
 import com.example.moneymanagerpro.model.Loan;
 import com.example.moneymanagerpro.model.LoanPayment;
@@ -51,8 +52,9 @@ public class BackupActivity extends AppCompatActivity {
     private static final int REQUEST_PICK_BACKUP_FOLDER = 401;
     private static final int BACKUP_VERSION_LEGACY = 1;
     private static final int BACKUP_VERSION_FULL_DATA = 2;
-    private static final int BACKUP_VERSION_CURRENT = 3;
-    private static final int DATABASE_VERSION = 10;
+    private static final int BACKUP_VERSION_CREDIT_CARDS = 3;
+    private static final int BACKUP_VERSION_CURRENT = 4;
+    private static final int DATABASE_VERSION = 11;
     private static final int MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 
     private static final int PENDING_ACTION_NONE = 0;
@@ -545,6 +547,9 @@ public class BackupActivity extends AppCompatActivity {
                         "Transactions: " +
                         summary.transactionCount +
                         "\n" +
+                        "Expense Item Details: " +
+                        summary.expenseItemCount +
+                        "\n" +
                         "Accounts: " +
                         summary.accountCount +
                         "\n" +
@@ -726,6 +731,14 @@ public class BackupActivity extends AppCompatActivity {
                         database
                                 .transactionDao()
                                 .insert(transaction);
+                    }
+
+                    if (!backupContent.expenseItems.isEmpty()) {
+                        database
+                                .expenseItemDao()
+                                .insertAll(
+                                        backupContent.expenseItems
+                                );
                     }
 
                     verifyRestoredData(
@@ -982,6 +995,8 @@ public class BackupActivity extends AppCompatActivity {
 
         if (backupVersion != BACKUP_VERSION_LEGACY
                 && backupVersion != BACKUP_VERSION_FULL_DATA
+                && backupVersion
+                != BACKUP_VERSION_CREDIT_CARDS
                 && backupVersion != BACKUP_VERSION_CURRENT) {
             throw new Exception(
                     "Unsupported backup version"
@@ -991,6 +1006,8 @@ public class BackupActivity extends AppCompatActivity {
         if (backupVersion >= BACKUP_VERSION_FULL_DATA) {
             validateCurrentBackup(
                     root,
+                    backupVersion
+                            >= BACKUP_VERSION_CREDIT_CARDS,
                     backupVersion
                             >= BACKUP_VERSION_CURRENT
             );
@@ -1036,6 +1053,13 @@ public class BackupActivity extends AppCompatActivity {
                 getArrayLength(
                         root.optJSONArray(
                                 "transactions"
+                        )
+                );
+
+        summary.expenseItemCount =
+                getArrayLength(
+                        root.optJSONArray(
+                                "expenseItems"
                         )
                 );
 
@@ -1120,7 +1144,8 @@ public class BackupActivity extends AppCompatActivity {
 
     private void validateCurrentBackup(
             JSONObject root,
-            boolean includesCreditCards
+            boolean includesCreditCards,
+            boolean includesExpenseItems
     ) throws Exception {
         int databaseVersion =
                 root.optInt(
@@ -1159,6 +1184,10 @@ public class BackupActivity extends AppCompatActivity {
             requiredArrayList.add(
                     "creditCardPayments"
             );
+        }
+
+        if (includesExpenseItems) {
+            requiredArrayList.add("expenseItems");
         }
 
         String[] requiredArrays =
@@ -1213,6 +1242,10 @@ public class BackupActivity extends AppCompatActivity {
             validateCreditCardPaymentReferences(
                     root
             );
+        }
+
+        if (includesExpenseItems) {
+            validateExpenseItemReferences(root);
         }
 
         String storedChecksum =
@@ -1349,6 +1382,51 @@ public class BackupActivity extends AppCompatActivity {
             if (!loanIds.contains(loanId)) {
                 throw new Exception(
                         "Loan payment references a missing loan."
+                );
+            }
+        }
+    }
+
+    private void validateExpenseItemReferences(
+            JSONObject root
+    ) throws Exception {
+        Set<Integer> transactionIds =
+                new HashSet<>();
+
+        JSONArray transactions =
+                root.getJSONArray("transactions");
+
+        for (int index = 0;
+             index < transactions.length();
+             index++) {
+
+            transactionIds.add(
+                    transactions.getJSONObject(index)
+                            .getInt("id")
+            );
+        }
+
+        JSONArray expenseItems =
+                root.getJSONArray("expenseItems");
+
+        for (int index = 0;
+             index < expenseItems.length();
+             index++) {
+
+            JSONObject item =
+                    expenseItems.getJSONObject(index);
+
+            int transactionId =
+                    item.optInt(
+                            "transactionId",
+                            0
+                    );
+
+            if (!transactionIds.contains(
+                    transactionId
+            )) {
+                throw new Exception(
+                        "Expense item references a missing transaction."
                 );
             }
         }
@@ -1537,6 +1615,9 @@ public class BackupActivity extends AppCompatActivity {
             snapshot.transactions =
                     database.transactionDao()
                             .getAllTransactions();
+            snapshot.expenseItems =
+                    database.expenseItemDao()
+                            .getAllExpenseItems();
             snapshot.categories =
                     database.categoryDao()
                             .getAllCategories();
@@ -1572,6 +1653,11 @@ public class BackupActivity extends AppCompatActivity {
         JSONArray transactionArray =
                 createTransactionArray(
                         snapshot.transactions
+                );
+
+        JSONArray expenseItemArray =
+                createExpenseItemArray(
+                        snapshot.expenseItems
                 );
 
         JSONArray categoryArray =
@@ -1630,6 +1716,11 @@ public class BackupActivity extends AppCompatActivity {
         );
 
         root.put(
+                "expenseItems",
+                expenseItemArray
+        );
+
+        root.put(
                 "categories",
                 categoryArray
         );
@@ -1685,6 +1776,11 @@ public class BackupActivity extends AppCompatActivity {
         recordCounts.put(
                 "transactions",
                 transactionArray.length()
+        );
+
+        recordCounts.put(
+                "expenseItems",
+                expenseItemArray.length()
         );
 
         recordCounts.put(
@@ -1768,6 +1864,17 @@ public class BackupActivity extends AppCompatActivity {
                 parseTransactions(
                         root.optJSONArray(
                                 "transactions"
+                        )
+                );
+
+        content.expenseItems =
+                parseExpenseItems(
+                        root.optJSONArray(
+                                "expenseItems"
+                        ),
+                        root.optInt(
+                                "backupVersion",
+                                BACKUP_VERSION_LEGACY
                         )
                 );
 
@@ -1906,6 +2013,41 @@ public class BackupActivity extends AppCompatActivity {
             object.put(
                     "date",
                     transaction.getDate()
+            );
+
+            array.put(object);
+        }
+
+        return array;
+    }
+
+    private JSONArray createExpenseItemArray(
+            List<ExpenseItem> expenseItems
+    ) throws Exception {
+        JSONArray array = new JSONArray();
+
+        for (ExpenseItem item : expenseItems) {
+            JSONObject object = new JSONObject();
+
+            object.put("id", item.getId());
+            object.put(
+                    "transactionId",
+                    item.getTransactionId()
+            );
+            object.put(
+                    "itemName",
+                    item.getItemName()
+            );
+            object.put(
+                    "quantity",
+                    item.getQuantity()
+            );
+            object.put("unit", item.getUnit());
+            object.put("price", item.getPrice());
+            object.put("total", item.getTotal());
+            object.put(
+                    "sortOrder",
+                    item.getSortOrder()
             );
 
             array.put(object);
@@ -2452,6 +2594,83 @@ public class BackupActivity extends AppCompatActivity {
         }
 
         return transactions;
+    }
+
+    private List<ExpenseItem> parseExpenseItems(
+            JSONArray array,
+            int backupVersion
+    ) {
+        List<ExpenseItem> expenseItems =
+                new ArrayList<>();
+
+        if (backupVersion < BACKUP_VERSION_CURRENT
+                || array == null) {
+            return expenseItems;
+        }
+
+        for (int index = 0;
+             index < array.length();
+             index++) {
+
+            JSONObject object =
+                    array.optJSONObject(index);
+
+            if (object == null) {
+                continue;
+            }
+
+            ExpenseItem item = new ExpenseItem();
+
+            item.setId(
+                    object.optInt("id", 0)
+            );
+            item.setTransactionId(
+                    object.optInt(
+                            "transactionId",
+                            0
+                    )
+            );
+            item.setItemName(
+                    object.optString(
+                            "itemName",
+                            ""
+                    )
+            );
+            item.setQuantity(
+                    object.optDouble(
+                            "quantity",
+                            0
+                    )
+            );
+            item.setUnit(
+                    object.optString(
+                            "unit",
+                            ""
+                    )
+            );
+            item.setPrice(
+                    object.optDouble(
+                            "price",
+                            0
+                    )
+            );
+            item.setTotal(
+                    object.optDouble(
+                            "total",
+                            0
+                    )
+            );
+            item.setSortOrder(
+                    object.optInt(
+                            "sortOrder",
+                            index
+                    )
+            );
+
+            expenseItems.add(item);
+        }
+
+        return expenseItems;
     }
 
     private List<Category> parseCategories(
@@ -3089,7 +3308,7 @@ public class BackupActivity extends AppCompatActivity {
 
         if (array == null
                 && backupVersion
-                < BACKUP_VERSION_CURRENT) {
+                < BACKUP_VERSION_CREDIT_CARDS) {
             return creditCards;
         }
 
@@ -3177,7 +3396,7 @@ public class BackupActivity extends AppCompatActivity {
 
         if (array == null
                 && backupVersion
-                < BACKUP_VERSION_CURRENT) {
+                < BACKUP_VERSION_CREDIT_CARDS) {
             return payments;
         }
 
@@ -3254,6 +3473,12 @@ public class BackupActivity extends AppCompatActivity {
                 content.transactions.size(),
                 database.transactionDao()
                         .getAllTransactions().size()
+        );
+        verifyCount(
+                "expense items",
+                content.expenseItems.size(),
+                database.expenseItemDao()
+                        .getAllExpenseItems().size()
         );
         verifyCount(
                 "categories",
@@ -3405,6 +3630,7 @@ public class BackupActivity extends AppCompatActivity {
 
     private static class BackupContent {
         List<Transaction> transactions;
+        List<ExpenseItem> expenseItems;
         List<Category> categories;
         List<Account> accounts;
         List<Goal> goals;
@@ -3422,6 +3648,7 @@ public class BackupActivity extends AppCompatActivity {
 
     private static class BackupSnapshot {
         List<Transaction> transactions;
+        List<ExpenseItem> expenseItems;
         List<Category> categories;
         List<Account> accounts;
         List<Goal> goals;
@@ -3441,6 +3668,7 @@ public class BackupActivity extends AppCompatActivity {
 
         int backupVersion;
         int transactionCount;
+        int expenseItemCount;
         int categoryCount;
         int accountCount;
         int goalCount;
