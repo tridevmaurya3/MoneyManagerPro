@@ -218,6 +218,60 @@
 
                 </com.google.android.material.textfield.TextInputLayout>
 
+                <LinearLayout
+                    android:id="@+id/editExpenseItemsSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:text="Expense Item Details"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="Example: Oil — quantity 1, unit litre, price per unit ₹160"
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="11sp" />
+
+                    <LinearLayout
+                        android:id="@+id/editItemDetailsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
+                    <TextView
+                        android:id="@+id/txtEditItemsTotal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="end"
+                        android:text="Items total: ₹0.00"
+                        android:textColor="@color/expense_dark"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnEditMoreItem"
+                        style="@style/Widget.MoneyManagerPro.Button.Outlined"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:layout_marginTop="10dp"
+                        android:text="+ More Item"
+                        android:textColor="@color/expense"
+                        app:backgroundTint="@color/app_surface"
+                        app:cornerRadius="16dp"
+                        app:strokeColor="@color/expense_outline" />
+
+                </LinearLayout>
+
                 <!-- CATEGORY -->
 
                 <TextView

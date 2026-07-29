@@ -8,6 +8,7 @@ import com.example.moneymanagerpro.dao.TransactionDao;
 import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.CategoryTotal;
+import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 
 import java.util.List;
@@ -86,6 +87,35 @@ public class TransactionRepository {
                             .deleteItemsForTransaction(
                                     transaction.getId()
                             );
+                }
+            });
+
+            if (callback != null) {
+                mainHandler.post(callback::onComplete);
+            }
+        });
+    }
+
+    public void updateWithExpenseItems(
+            Transaction transaction,
+            List<ExpenseItem> expenseItems,
+            OperationCallback callback
+    ) {
+        executorService.execute(() -> {
+            database.runInTransaction(() -> {
+                transactionDao.update(transaction);
+                database.expenseItemDao()
+                        .deleteItemsForTransaction(
+                                transaction.getId()
+                        );
+
+                if ("EXPENSE".equalsIgnoreCase(
+                        transaction.getType()
+                )
+                        && expenseItems != null
+                        && !expenseItems.isEmpty()) {
+                    database.expenseItemDao()
+                            .insertAll(expenseItems);
                 }
             });
 

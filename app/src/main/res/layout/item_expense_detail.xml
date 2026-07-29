@@ -106,7 +106,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:hint="Unit"
+                android:hint="Unit (kg, litre, piece)"
                 app:boxStrokeColor="@color/expense">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -137,7 +137,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="Price"
+                android:hint="Price per unit"
                 app:boxStrokeColor="@color/expense"
                 app:prefixText="₹ ">
 

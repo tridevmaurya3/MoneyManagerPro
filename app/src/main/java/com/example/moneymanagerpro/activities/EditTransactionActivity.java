@@ -3,6 +3,9 @@ package com.example.moneymanagerpro.activities;
 import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -11,17 +14,25 @@ import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.Category;
+import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.repository.AccountRepository;
 import com.example.moneymanagerpro.repository.CategoryRepository;
 import com.example.moneymanagerpro.repository.TransactionRepository;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -31,6 +42,8 @@ import java.util.List;
 import java.util.Locale;
 
 public class EditTransactionActivity extends AppCompatActivity {
+
+    private static final int MAX_ITEM_ROWS = 50;
 
     private EditText etAmount;
     private EditText etNote;
@@ -45,6 +58,10 @@ public class EditTransactionActivity extends AppCompatActivity {
 
     private Button btnSelectDate;
     private Button btnUpdate;
+    private MaterialButton btnEditMoreItem;
+    private LinearLayout editExpenseItemsSection;
+    private LinearLayout editItemDetailsContainer;
+    private TextView txtEditItemsTotal;
 
     private TransactionRepository transactionRepository;
     private CategoryRepository categoryRepository;
@@ -66,6 +83,8 @@ public class EditTransactionActivity extends AppCompatActivity {
 
     private final List<Account> accounts =
             new ArrayList<>();
+    private final List<View> itemRows =
+            new ArrayList<>();
 
     private ArrayAdapter<String> categoryAdapter;
     private ArrayAdapter<String> accountAdapter;
@@ -82,6 +101,7 @@ public class EditTransactionActivity extends AppCompatActivity {
         setupCategorySpinner();
         setupAccountSpinner();
         setupTypeSpinner();
+        loadExistingExpenseItems();
 
         btnSelectDate.setOnClickListener(
                 view -> showDatePicker()
@@ -122,6 +142,19 @@ public class EditTransactionActivity extends AppCompatActivity {
 
         btnUpdate =
                 findViewById(R.id.btnUpdateTransaction);
+
+        btnEditMoreItem =
+                findViewById(R.id.btnEditMoreItem);
+        editExpenseItemsSection =
+                findViewById(R.id.editExpenseItemsSection);
+        editItemDetailsContainer =
+                findViewById(R.id.editItemDetailsContainer);
+        txtEditItemsTotal =
+                findViewById(R.id.txtEditItemsTotal);
+
+        btnEditMoreItem.setOnClickListener(
+                view -> addItemRow(null)
+        );
     }
 
     private void initializeRepositories() {
@@ -364,6 +397,7 @@ public class EditTransactionActivity extends AppCompatActivity {
                             long id
                     ) {
                         loadCategoriesForSelectedType();
+                        updateItemSectionVisibility();
                     }
 
                     @Override
@@ -375,6 +409,373 @@ public class EditTransactionActivity extends AppCompatActivity {
         );
 
         loadCategoriesForSelectedType();
+        updateItemSectionVisibility();
+    }
+
+    private void loadExistingExpenseItems() {
+        new Thread(() -> {
+            List<ExpenseItem> items =
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
+                            .getAppDatabase()
+                            .expenseItemDao()
+                            .getItemsForTransaction(
+                                    transactionId
+                            );
+
+            runOnUiThread(() -> {
+                itemRows.clear();
+                editItemDetailsContainer
+                        .removeAllViews();
+
+                if (items == null
+                        || items.isEmpty()) {
+                    addItemRow(null);
+                } else {
+                    for (ExpenseItem item : items) {
+                        addItemRow(item);
+                    }
+                }
+
+                updateItemsSummary();
+            });
+        }).start();
+    }
+
+    private void updateItemSectionVisibility() {
+        if (editExpenseItemsSection == null) {
+            return;
+        }
+
+        editExpenseItemsSection.setVisibility(
+                "EXPENSE".equals(
+                        getSelectedDatabaseType()
+                )
+                        ? View.VISIBLE
+                        : View.GONE
+        );
+    }
+
+    private void addItemRow(ExpenseItem existingItem) {
+        if (itemRows.size() >= MAX_ITEM_ROWS) {
+            Toast.makeText(
+                    this,
+                    "A maximum of 50 items can be added",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        View row = LayoutInflater.from(this).inflate(
+                R.layout.item_expense_detail,
+                editItemDetailsContainer,
+                false
+        );
+
+        TextInputEditText name =
+                row.findViewById(R.id.etItemName);
+        TextInputEditText quantity =
+                row.findViewById(R.id.etItemQuantity);
+        TextInputEditText unit =
+                row.findViewById(R.id.etItemUnit);
+        TextInputEditText price =
+                row.findViewById(R.id.etItemPrice);
+        TextInputEditText total =
+                row.findViewById(R.id.etItemTotal);
+        MaterialButton remove =
+                row.findViewById(R.id.btnRemoveItem);
+
+        name.setSaveEnabled(false);
+        quantity.setSaveEnabled(false);
+        unit.setSaveEnabled(false);
+        price.setSaveEnabled(false);
+        total.setSaveEnabled(false);
+
+        TextWatcher watcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(
+                    CharSequence sequence,
+                    int start,
+                    int count,
+                    int after
+            ) {
+            }
+
+            @Override
+            public void onTextChanged(
+                    CharSequence sequence,
+                    int start,
+                    int before,
+                    int count
+            ) {
+                updateItemTotal(row);
+            }
+
+            @Override
+            public void afterTextChanged(
+                    Editable editable
+            ) {
+            }
+        };
+
+        quantity.addTextChangedListener(watcher);
+        price.addTextChangedListener(watcher);
+
+        remove.setOnClickListener(view -> {
+            itemRows.remove(row);
+            editItemDetailsContainer.removeView(row);
+            renumberItemRows();
+            updateItemsSummary();
+        });
+
+        itemRows.add(row);
+        editItemDetailsContainer.addView(row);
+
+        if (existingItem != null) {
+            name.setText(existingItem.getItemName());
+            quantity.setText(
+                    formatPlainAmount(
+                            existingItem.getQuantity()
+                    )
+            );
+            unit.setText(existingItem.getUnit());
+            price.setText(
+                    formatPlainAmount(
+                            existingItem.getPrice()
+                    )
+            );
+        }
+
+        renumberItemRows();
+        updateItemTotal(row);
+    }
+
+    private void renumberItemRows() {
+        for (int index = 0;
+             index < itemRows.size();
+             index++) {
+            TextView number =
+                    itemRows.get(index)
+                            .findViewById(
+                                    R.id.txtItemNumber
+                            );
+            number.setText(
+                    getString(
+                            R.string.expense_item_number,
+                            index + 1
+                    )
+            );
+        }
+
+        btnEditMoreItem.setEnabled(
+                itemRows.size() < MAX_ITEM_ROWS
+        );
+    }
+
+    private void updateItemTotal(View row) {
+        BigDecimal quantity =
+                parsePositiveDecimal(
+                        itemText(
+                                row,
+                                R.id.etItemQuantity
+                        )
+                );
+        BigDecimal price =
+                parsePositiveDecimal(
+                        itemText(
+                                row,
+                                R.id.etItemPrice
+                        )
+                );
+        BigDecimal total =
+                quantity != null
+                        && price != null
+                        ? quantity.multiply(price)
+                        .setScale(
+                                2,
+                                RoundingMode.HALF_UP
+                        )
+                        : BigDecimal.ZERO;
+
+        TextInputEditText totalField =
+                row.findViewById(R.id.etItemTotal);
+        totalField.setText(
+                formatMoney(total)
+        );
+        updateItemsSummary();
+    }
+
+    private void updateItemsSummary() {
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (View row : itemRows) {
+            BigDecimal quantity =
+                    parsePositiveDecimal(
+                            itemText(
+                                    row,
+                                    R.id.etItemQuantity
+                            )
+                    );
+            BigDecimal price =
+                    parsePositiveDecimal(
+                            itemText(
+                                    row,
+                                    R.id.etItemPrice
+                            )
+                    );
+
+            if (quantity != null
+                    && price != null) {
+                total = total.add(
+                        quantity.multiply(price)
+                );
+            }
+        }
+
+        txtEditItemsTotal.setText(
+                getString(
+                        R.string.expense_items_total,
+                        formatMoney(
+                                total.setScale(
+                                        2,
+                                        RoundingMode.HALF_UP
+                                )
+                        )
+                )
+        );
+    }
+
+    private List<ExpenseItem> collectExpenseItems() {
+        List<ExpenseItem> items =
+                new ArrayList<>();
+
+        if (!"EXPENSE".equals(
+                getSelectedDatabaseType()
+        )) {
+            return items;
+        }
+
+        for (View row : itemRows) {
+            TextInputLayout nameInput =
+                    row.findViewById(R.id.inputItemName);
+            TextInputLayout quantityInput =
+                    row.findViewById(
+                            R.id.inputItemQuantity
+                    );
+            TextInputLayout unitInput =
+                    row.findViewById(R.id.inputItemUnit);
+            TextInputLayout priceInput =
+                    row.findViewById(R.id.inputItemPrice);
+
+            nameInput.setError(null);
+            quantityInput.setError(null);
+            unitInput.setError(null);
+            priceInput.setError(null);
+
+            String name =
+                    itemText(row, R.id.etItemName);
+            String quantityText =
+                    itemText(row, R.id.etItemQuantity);
+            String unit =
+                    itemText(row, R.id.etItemUnit);
+            String priceText =
+                    itemText(row, R.id.etItemPrice);
+
+            if (name.isEmpty()
+                    && quantityText.isEmpty()
+                    && unit.isEmpty()
+                    && priceText.isEmpty()) {
+                continue;
+            }
+
+            BigDecimal quantity =
+                    parsePositiveDecimal(quantityText);
+            BigDecimal price =
+                    parsePositiveDecimal(priceText);
+
+            if (name.isEmpty()) {
+                nameInput.setError("Enter item name");
+                return null;
+            }
+            if (quantity == null) {
+                quantityInput.setError(
+                        "Enter quantity greater than zero"
+                );
+                return null;
+            }
+            if (unit.isEmpty()) {
+                unitInput.setError(
+                        "Enter unit such as kg, litre or piece"
+                );
+                return null;
+            }
+            if (price == null) {
+                priceInput.setError(
+                        "Enter price per unit"
+                );
+                return null;
+            }
+
+            ExpenseItem item = new ExpenseItem();
+            item.setTransactionId(transactionId);
+            item.setItemName(name);
+            item.setQuantity(quantity.doubleValue());
+            item.setUnit(unit);
+            item.setPrice(price.doubleValue());
+            item.setTotal(
+                    quantity.multiply(price)
+                            .setScale(
+                                    2,
+                                    RoundingMode.HALF_UP
+                            )
+                            .doubleValue()
+            );
+            item.setSortOrder(items.size());
+            items.add(item);
+        }
+
+        return items;
+    }
+
+    private String itemText(
+            View row,
+            int fieldId
+    ) {
+        TextInputEditText field =
+                row.findViewById(fieldId);
+
+        return field.getText() == null
+                ? ""
+                : field.getText()
+                .toString()
+                .trim();
+    }
+
+    private BigDecimal parsePositiveDecimal(
+            String value
+    ) {
+        try {
+            BigDecimal decimal =
+                    new BigDecimal(value);
+
+            return decimal.compareTo(
+                    BigDecimal.ZERO
+            ) > 0
+                    ? decimal
+                    : null;
+        } catch (Exception exception) {
+            return null;
+        }
+    }
+
+    private String formatMoney(BigDecimal value) {
+        return String.format(
+                Locale.US,
+                "%.2f",
+                value.doubleValue()
+        );
     }
 
     private void loadCategoriesForSelectedType() {
@@ -768,6 +1169,13 @@ public class EditTransactionActivity extends AppCompatActivity {
     }
 
     private void updateTransaction() {
+        List<ExpenseItem> expenseItems =
+                collectExpenseItems();
+
+        if (expenseItems == null) {
+            return;
+        }
+
         String amountText =
                 etAmount.getText() == null
                         ? ""
@@ -937,8 +1345,9 @@ public class EditTransactionActivity extends AppCompatActivity {
 
         transaction.setDate(date);
 
-        transactionRepository.update(
+        transactionRepository.updateWithExpenseItems(
                 transaction,
+                expenseItems,
                 () -> {
                     Toast.makeText(
                             EditTransactionActivity.this,
