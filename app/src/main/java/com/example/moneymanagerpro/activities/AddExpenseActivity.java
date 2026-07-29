@@ -918,7 +918,7 @@ public class AddExpenseActivity extends AppCompatActivity {
                 message =
                         "Payment app reported SUCCESS."
                                 + "\nReference: "
-                                + valueOrNotDetected(
+                                + valueOrNotProvided(
                                 reference
                         )
                                 + "\nReview the amount and account, then tap Save Expense.";
@@ -950,6 +950,15 @@ public class AddExpenseActivity extends AppCompatActivity {
         upiPaymentResultCard.setVisibility(
                 View.VISIBLE
         );
+    }
+
+    private String valueOrNotProvided(
+            String value
+    ) {
+        return value == null
+                || value.trim().isEmpty()
+                ? "Not provided"
+                : value.trim();
     }
 
     private void appendUpiResultToNote(
