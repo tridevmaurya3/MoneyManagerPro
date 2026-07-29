@@ -39,6 +39,45 @@ public interface TransactionDao {
             String endDate
     );
 
+    @Query("SELECT COALESCE(SUM(CASE " +
+            "WHEN type = 'EXPENSE' THEN amount " +
+            "WHEN type = 'INCOME' THEN -amount " +
+            "ELSE 0 END), 0) " +
+            "FROM transactions " +
+            "WHERE (account IN (:accounts) " +
+            "OR LOWER(TRIM(category)) = " +
+            "LOWER(TRIM(:cardCategory))) " +
+            "AND date BETWEEN :startDate AND :endDate")
+    double getNetCardSpendForPeriodFromSources(
+            List<String> accounts,
+            String cardCategory,
+            String startDate,
+            String endDate
+    );
+
+    @Query("SELECT COALESCE(SUM(CASE " +
+            "WHEN type = 'EXPENSE' THEN amount " +
+            "WHEN type = 'INCOME' THEN -amount " +
+            "ELSE 0 END), 0) " +
+            "FROM transactions " +
+            "WHERE account NOT IN (:accounts) " +
+            "AND LOWER(TRIM(category)) = " +
+            "LOWER(TRIM(:cardCategory))")
+    double getNetCardCategorySpendOutsideAccounts(
+            List<String> accounts,
+            String cardCategory
+    );
+
+    @Query("SELECT COUNT(*) FROM transactions " +
+            "WHERE type IN ('EXPENSE', 'INCOME') " +
+            "AND (account IN (:accounts) " +
+            "OR LOWER(TRIM(category)) = " +
+            "LOWER(TRIM(:cardCategory)))")
+    int getCardTransactionCountFromSources(
+            List<String> accounts,
+            String cardCategory
+    );
+
     @Query("SELECT COALESCE(SUM(amount), 0) " +
             "FROM transactions WHERE type = :type")
     double getTotalAmountByType(String type);

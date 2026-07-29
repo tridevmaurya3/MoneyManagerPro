@@ -24,6 +24,7 @@ import androidx.core.widget.NestedScrollView;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.credit.CreditCardCycleCalculator;
+import com.example.moneymanagerpro.credit.CreditCardTransactionMatcher;
 import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
@@ -202,8 +203,14 @@ public class CreditCardActivity extends AppCompatActivity {
 
             List<String> availablePaymentAccounts =
                     new ArrayList<>();
+            List<String> availableTransactionAccounts =
+                    new ArrayList<>();
 
             for (Account account : accounts) {
+                availableTransactionAccounts.add(
+                        safe(account.getName())
+                );
+
                 if (!"Credit Card".equalsIgnoreCase(
                         safe(account.getType())
                 )) {
@@ -221,6 +228,15 @@ public class CreditCardActivity extends AppCompatActivity {
                     new ArrayList<>();
 
             for (CreditCard card : cards) {
+                List<String> transactionAccounts =
+                        CreditCardTransactionMatcher
+                                .findAccountAliases(
+                                        card.getName(),
+                                        card.getLastFour(),
+                                        card.getAccountName(),
+                                        availableTransactionAccounts
+                                );
+
                 CreditCardCycleCalculator.Cycle cycle =
                         CreditCardCycleCalculator.calculate(
                                 card,
@@ -231,6 +247,7 @@ public class CreditCardActivity extends AppCompatActivity {
                         getCardSpend(
                                 database,
                                 card,
+                                transactionAccounts,
                                 cycle.closedStart,
                                 cycle.closedEnd
                         );
@@ -254,22 +271,43 @@ public class CreditCardActivity extends AppCompatActivity {
                                 getCardSpend(
                                         database,
                                         card,
+                                        transactionAccounts,
                                         cycle.currentStart,
                                         cycle.currentEnd
                                 )
                         );
 
-                double accountBalance =
-                        balanceByAccount.getOrDefault(
-                                card.getAccountName(),
-                                0.0
-                        );
+                double accountBalance = 0;
+
+                for (String accountName :
+                        transactionAccounts) {
+                    accountBalance +=
+                            balanceByAccount.getOrDefault(
+                                    accountName,
+                                    0.0
+                            );
+                }
+
+                double categorySpendOutsideAccounts =
+                        database.transactionDao()
+                                .getNetCardCategorySpendOutsideAccounts(
+                                        transactionAccounts,
+                                        card.getName()
+                                );
 
                 double totalUsed =
                         Math.max(
                                 0,
                                 -accountBalance
+                                        + categorySpendOutsideAccounts
                         );
+
+                int syncedTransactionCount =
+                        database.transactionDao()
+                                .getCardTransactionCountFromSources(
+                                        transactionAccounts,
+                                        card.getName()
+                                );
 
                 viewData.add(
                         new CardViewData(
@@ -279,7 +317,8 @@ public class CreditCardActivity extends AppCompatActivity {
                                 paidAmount,
                                 outstanding,
                                 currentSpend,
-                                totalUsed
+                                totalUsed,
+                                syncedTransactionCount
                         )
                 );
             }
@@ -549,13 +588,14 @@ public class CreditCardActivity extends AppCompatActivity {
                 color(R.color.app_outline)
         );
         cardView.setStrokeWidth(dp(1));
+        cardView.setClipToOutline(false);
 
         LinearLayout.LayoutParams cardParams =
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-        cardParams.setMargins(0, 0, 0, dp(12));
+        cardParams.setMargins(0, 0, 0, dp(16));
         cardView.setLayoutParams(cardParams);
 
         LinearLayout content =
@@ -563,11 +603,13 @@ public class CreditCardActivity extends AppCompatActivity {
         content.setOrientation(
                 LinearLayout.VERTICAL
         );
+        content.setClipChildren(false);
+        content.setClipToPadding(false);
         content.setPadding(
                 dp(17),
                 dp(16),
                 dp(17),
-                dp(16)
+                dp(22)
         );
 
         TextView title = text(
@@ -591,6 +633,29 @@ public class CreditCardActivity extends AppCompatActivity {
                         false
                 )
         );
+
+        TextView syncStatus = text(
+                data.syncedTransactionCount > 0
+                        ? "Auto-synced "
+                        + data.syncedTransactionCount
+                        + (data.syncedTransactionCount == 1
+                        ? " existing transaction"
+                        : " existing transactions")
+                        : "Auto-sync ready for matching card account or category",
+                11,
+                data.syncedTransactionCount > 0
+                        ? R.color.success
+                        : R.color.app_text_secondary,
+                data.syncedTransactionCount > 0
+        );
+        LinearLayout.LayoutParams syncParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        syncParams.setMargins(0, dp(8), 0, 0);
+        syncStatus.setLayoutParams(syncParams);
+        content.addView(syncStatus);
 
         TextView status = text(
                 statementStatus(data),
@@ -657,6 +722,9 @@ public class CreditCardActivity extends AppCompatActivity {
                 LinearLayout.HORIZONTAL
         );
         actions.setGravity(Gravity.CENTER);
+        actions.setClipChildren(false);
+        actions.setClipToPadding(false);
+        actions.setPadding(0, 0, 0, dp(2));
 
         MaterialButton statementButton =
                 actionButton("Statements");
@@ -666,7 +734,7 @@ public class CreditCardActivity extends AppCompatActivity {
         LinearLayout.LayoutParams firstParams =
                 new LinearLayout.LayoutParams(
                         0,
-                        dp(48),
+                        dp(56),
                         1
                 );
         firstParams.setMargins(0, dp(14), dp(4), 0);
@@ -675,7 +743,7 @@ public class CreditCardActivity extends AppCompatActivity {
         LinearLayout.LayoutParams secondParams =
                 new LinearLayout.LayoutParams(
                         0,
-                        dp(48),
+                        dp(56),
                         1
                 );
         secondParams.setMargins(dp(4), dp(14), 0, 0);
@@ -753,6 +821,26 @@ public class CreditCardActivity extends AppCompatActivity {
     ) {
         new Thread(() -> {
             AppDatabase database = getDatabase();
+            List<String> transactionAccounts =
+                    new ArrayList<>();
+
+            for (Account account :
+                    database.accountDao()
+                            .getAllAccounts()) {
+                transactionAccounts.add(
+                        safe(account.getName())
+                );
+            }
+
+            transactionAccounts =
+                    CreditCardTransactionMatcher
+                            .findAccountAliases(
+                                    card.getName(),
+                                    card.getLastFour(),
+                                    card.getAccountName(),
+                                    transactionAccounts
+                            );
+
             CreditCardCycleCalculator.Cycle current =
                     CreditCardCycleCalculator.calculate(
                             card,
@@ -782,6 +870,7 @@ public class CreditCardActivity extends AppCompatActivity {
                         getCardSpend(
                                 database,
                                 card,
+                                transactionAccounts,
                                 statement.startDate,
                                 statement.endDate
                         );
@@ -1119,12 +1208,14 @@ public class CreditCardActivity extends AppCompatActivity {
     private double getCardSpend(
             AppDatabase database,
             CreditCard card,
+            List<String> transactionAccounts,
             String startDate,
             String endDate
     ) {
         return database.transactionDao()
-                .getNetCardSpendForPeriod(
-                        card.getAccountName(),
+                .getNetCardSpendForPeriodFromSources(
+                        transactionAccounts,
+                        card.getName(),
                         startDate + " 00:00",
                         endDate + " 23:59"
                 );
@@ -1373,6 +1464,7 @@ public class CreditCardActivity extends AppCompatActivity {
         final double outstanding;
         final double currentSpend;
         final double totalUsed;
+        final int syncedTransactionCount;
 
         CardViewData(
                 CreditCard card,
@@ -1381,7 +1473,8 @@ public class CreditCardActivity extends AppCompatActivity {
                 double paidAmount,
                 double outstanding,
                 double currentSpend,
-                double totalUsed
+                double totalUsed,
+                int syncedTransactionCount
         ) {
             this.card = card;
             this.cycle = cycle;
@@ -1390,6 +1483,8 @@ public class CreditCardActivity extends AppCompatActivity {
             this.outstanding = outstanding;
             this.currentSpend = currentSpend;
             this.totalUsed = totalUsed;
+            this.syncedTransactionCount =
+                    syncedTransactionCount;
         }
     }
 }
