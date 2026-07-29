@@ -18,10 +18,13 @@ import android.widget.TextView;
 import androidx.annotation.ColorRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.AccountBalance;
+import com.example.moneymanagerpro.navigation.DashboardDrawerController;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -50,6 +53,9 @@ public class DashboardActivity extends AppCompatActivity {
     private View btnTransactions;
     private View btnReports;
     private View btnMoreFeatures;
+    private View btnOpenDrawer;
+    private DrawerLayout dashboardDrawerLayout;
+    private LinearLayout dashboardDrawerMenuContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +63,7 @@ public class DashboardActivity extends AppCompatActivity {
         setContentView(R.layout.activity_dashboard);
 
         initializeViews();
+        setupNavigationDrawer();
         applyTouchAnimations();
         setupClickListeners();
     }
@@ -85,6 +92,25 @@ public class DashboardActivity extends AppCompatActivity {
         btnTransactions = findViewById(R.id.btnTransactions);
         btnReports = findViewById(R.id.btnReports);
         btnMoreFeatures = findViewById(R.id.btnMoreFeatures);
+        btnOpenDrawer = findViewById(R.id.btnOpenDrawer);
+        dashboardDrawerLayout = findViewById(R.id.dashboardDrawerLayout);
+        dashboardDrawerMenuContainer =
+                findViewById(R.id.dashboardDrawerMenuContainer);
+    }
+
+    private void setupNavigationDrawer() {
+        DashboardDrawerController drawerController =
+                new DashboardDrawerController(
+                        this,
+                        dashboardDrawerLayout,
+                        dashboardDrawerMenuContainer
+                );
+
+        drawerController.buildMenu();
+
+        btnOpenDrawer.setOnClickListener(view ->
+                dashboardDrawerLayout.openDrawer(GravityCompat.START)
+        );
     }
 
     private void applyTouchAnimations() {
@@ -100,6 +126,7 @@ public class DashboardActivity extends AppCompatActivity {
         BubbleTouchAnimator.apply(btnTransactions);
         BubbleTouchAnimator.apply(btnReports);
         BubbleTouchAnimator.apply(btnMoreFeatures);
+        BubbleTouchAnimator.apply(btnOpenDrawer);
     }
 
     private void setupClickListeners() {
@@ -147,6 +174,16 @@ public class DashboardActivity extends AppCompatActivity {
                         activityClass
                 )
         );
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (dashboardDrawerLayout.isDrawerOpen(GravityCompat.START)) {
+            dashboardDrawerLayout.closeDrawer(GravityCompat.START);
+            return;
+        }
+
+        super.onBackPressed();
     }
 
     private void loadDashboardData() {

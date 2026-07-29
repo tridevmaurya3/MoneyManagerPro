@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
 
     implementation(libs.room.runtime)
     annotationProcessor(libs.room.compiler)
