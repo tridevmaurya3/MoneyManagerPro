@@ -23,6 +23,7 @@ import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.AccountBalance;
+import com.example.moneymanagerpro.utils.AccountRenameManager;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -963,8 +964,27 @@ public class AccountActivity extends AppCompatActivity {
                 );
 
         if (managedCreditCard) {
-            btnEdit.setText("Manage");
-            btnDelete.setVisibility(View.GONE);
+            btnEdit.setText("Edit");
+            btnDelete.setText("Manage");
+            btnDelete.setTextColor(
+                    getColorValue(
+                            R.color.secondary
+                    )
+            );
+            btnDelete.setBackgroundTintList(
+                    ColorStateList.valueOf(
+                            getColorValue(
+                                    R.color.info_surface
+                            )
+                    )
+            );
+            btnDelete.setStrokeColor(
+                    ColorStateList.valueOf(
+                            getColorValue(
+                                    R.color.info_outline
+                            )
+                    )
+            );
         }
 
         LinearLayout.LayoutParams editParams =
@@ -998,6 +1018,10 @@ public class AccountActivity extends AppCompatActivity {
         BubbleTouchAnimator.apply(btnDelete);
 
         btnEdit.setOnClickListener(
+                view -> showEditDialog(account)
+        );
+
+        btnDelete.setOnClickListener(
                 view -> {
                     if (managedCreditCard) {
                         startActivity(
@@ -1007,13 +1031,9 @@ public class AccountActivity extends AppCompatActivity {
                                 )
                         );
                     } else {
-                        showEditDialog(account);
+                        confirmDelete(account);
                     }
                 }
-        );
-
-        btnDelete.setOnClickListener(
-                view -> confirmDelete(account)
         );
 
         actionRow.addView(btnEdit);
@@ -1028,18 +1048,7 @@ public class AccountActivity extends AppCompatActivity {
         BubbleTouchAnimator.apply(card);
 
         card.setOnClickListener(
-                view -> {
-                    if (managedCreditCard) {
-                        startActivity(
-                                new Intent(
-                                        this,
-                                        CreditCardActivity.class
-                                )
-                        );
-                    } else {
-                        showEditDialog(account);
-                    }
-                }
+                view -> showEditDialog(account)
         );
 
         accountContainer.addView(card);
@@ -1176,6 +1185,21 @@ public class AccountActivity extends AppCompatActivity {
     private void showEditDialog(
             Account account
     ) {
+        String originalAccountName =
+                account.getName() == null
+                        ? ""
+                        : account.getName().trim();
+
+        boolean isCashAccount =
+                "Cash".equalsIgnoreCase(
+                        originalAccountName
+                );
+
+        boolean managedCreditCard =
+                "Credit Card".equalsIgnoreCase(
+                        account.getType()
+                );
+
         LinearLayout dialogLayout =
                 new LinearLayout(this);
 
@@ -1219,7 +1243,7 @@ public class AccountActivity extends AppCompatActivity {
                 new TextView(this);
 
         txtAccountName.setText(
-                account.getName()
+                originalAccountName
         );
 
         txtAccountName.setTextColor(
@@ -1261,9 +1285,23 @@ public class AccountActivity extends AppCompatActivity {
         TextView txtInfo =
                 new TextView(this);
 
-        txtInfo.setText(
-                "Account name cannot be changed because existing transactions are linked to it."
-        );
+        if (isCashAccount) {
+            txtInfo.setText(
+                    "Cash is the app's default account, so its name remains fixed. "
+                            + "You can still change its opening balance and color."
+            );
+        } else if (managedCreditCard) {
+            txtInfo.setText(
+                    "Rename this credit-card account here. All linked transactions, "
+                            + "recurring entries, subscriptions, loan payments and card references "
+                            + "using the old account name will be updated automatically."
+            );
+        } else {
+            txtInfo.setText(
+                    "Changing the account name also updates every linked record that uses "
+                            + "the old account name. Your transaction history remains safe."
+            );
+        }
 
         txtInfo.setTextColor(
                 getColorValue(
@@ -1296,6 +1334,58 @@ public class AccountActivity extends AppCompatActivity {
         );
 
         dialogLayout.addView(txtInfo);
+
+        TextView txtNameLabel =
+                createLabel(
+                        "Account Name"
+                );
+
+        dialogLayout.addView(
+                txtNameLabel
+        );
+
+        TextInputLayout inputName =
+                createDialogInputLayout(
+                        "Account name"
+                );
+
+        TextInputEditText editName =
+                new TextInputEditText(this);
+
+        editName.setText(
+                originalAccountName
+        );
+
+        editName.setInputType(
+                InputType.TYPE_CLASS_TEXT
+                        | InputType.TYPE_TEXT_FLAG_CAP_WORDS
+        );
+
+        editName.setSingleLine(true);
+        editName.setTextSize(15);
+        editName.setTextColor(
+                getColorValue(
+                        R.color.app_text_primary
+                )
+        );
+
+        editName.setEnabled(!isCashAccount);
+
+        inputName.addView(editName);
+
+        if (isCashAccount) {
+            inputName.setHelperText(
+                    "The default Cash account name cannot be changed."
+            );
+        } else {
+            inputName.setHelperText(
+                    "Old linked account records will be renamed automatically."
+            );
+        }
+
+        dialogLayout.addView(
+                inputName
+        );
 
         TextView txtBalanceLabel =
                 createLabel(
@@ -1404,7 +1494,11 @@ public class AccountActivity extends AppCompatActivity {
 
         AlertDialog dialog =
                 new AlertDialog.Builder(this)
-                        .setTitle("Edit Account")
+                        .setTitle(
+                                managedCreditCard
+                                        ? "Edit Credit Card Account"
+                                        : "Edit Account"
+                        )
                         .setView(dialogLayout)
                         .setNegativeButton(
                                 "Cancel",
@@ -1436,6 +1530,22 @@ public class AccountActivity extends AppCompatActivity {
             dialog.getButton(
                     AlertDialog.BUTTON_POSITIVE
             ).setOnClickListener(view -> {
+                String newAccountName =
+                        isCashAccount
+                                ? originalAccountName
+                                : getEditTextValue(
+                                editName
+                        );
+
+                if (newAccountName.isEmpty()) {
+                    inputName.setError(
+                            "Please enter account name"
+                    );
+
+                    editName.requestFocus();
+                    return;
+                }
+
                 String openingText =
                         getEditTextValue(
                                 editBalance
@@ -1460,50 +1570,109 @@ public class AccountActivity extends AppCompatActivity {
                     return;
                 }
 
+                inputName.setError(null);
                 inputBalance.setError(null);
 
-                account.setOpeningBalance(
-                        openingBalance
-                );
-
-                account.setColor(
+                String selectedColorCode =
                         getColorCode(
                                 editColor
                                         .getText()
                                         .toString()
                                         .trim()
-                        )
-                );
+                        );
 
                 dialog.getButton(
                         AlertDialog.BUTTON_POSITIVE
                 ).setEnabled(false);
 
-                new Thread(() -> {
-                    DatabaseClient
-                            .getInstance(
-                                    getApplicationContext()
-                            )
-                            .getAppDatabase()
-                            .accountDao()
-                            .update(account);
-
-                    runOnUiThread(() -> {
-                        dialog.dismiss();
-
-                        Toast.makeText(
-                                AccountActivity.this,
-                                "Account updated",
-                                Toast.LENGTH_SHORT
-                        ).show();
-
-                        loadAccounts();
-                    });
-                }).start();
+                updateAccountAndLinkedRecords(
+                        account,
+                        originalAccountName,
+                        newAccountName,
+                        openingBalance,
+                        selectedColorCode,
+                        dialog,
+                        inputName,
+                        editName
+                );
             });
         });
 
         dialog.show();
+    }
+
+    private void updateAccountAndLinkedRecords(
+            Account account,
+            String oldAccountName,
+            String newAccountName,
+            double openingBalance,
+            String selectedColorCode,
+            AlertDialog dialog,
+            TextInputLayout inputName,
+            TextInputEditText editName
+    ) {
+        new Thread(() -> {
+            try {
+                AccountRenameManager.updateAccount(
+                        DatabaseClient
+                                .getInstance(
+                                        getApplicationContext()
+                                )
+                                .getAppDatabase(),
+                        account,
+                        newAccountName,
+                        openingBalance,
+                        selectedColorCode
+                );
+
+                runOnUiThread(() -> {
+                    dialog.dismiss();
+
+                    Toast.makeText(
+                            AccountActivity.this,
+                            oldAccountName.equals(newAccountName)
+                                    ? "Account updated"
+                                    : "Account renamed and linked records synced",
+                            Toast.LENGTH_LONG
+                    ).show();
+
+                    loadAccounts();
+                });
+
+            } catch (IllegalArgumentException exception) {
+                runOnUiThread(() -> {
+                    dialog.getButton(
+                            AlertDialog.BUTTON_POSITIVE
+                    ).setEnabled(true);
+
+                    inputName.setError(
+                            exception.getMessage() == null
+                                    ? "Unable to update account name"
+                                    : exception.getMessage()
+                    );
+
+                    editName.requestFocus();
+                });
+
+            } catch (Exception exception) {
+                runOnUiThread(() -> {
+                    dialog.getButton(
+                            AlertDialog.BUTTON_POSITIVE
+                    ).setEnabled(true);
+
+                    Toast.makeText(
+                            AccountActivity.this,
+                            "Unable to update account: "
+                                    + (exception.getMessage() == null
+                                    ? "Unknown error"
+                                    : exception.getMessage()),
+                            Toast.LENGTH_LONG
+                    ).show();
+
+                    loadAccounts();
+                });
+            }
+        }).start();
     }
 
     private TextInputLayout createDialogInputLayout(
