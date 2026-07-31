@@ -29,6 +29,31 @@
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="barcode_ui" />
 
+        <!--
+            NOTIFICATION TRANSACTION READER
+
+            This is not an SMS reader.
+
+            Android can connect this service only after the user manually
+            enables Notification Access from system settings.
+
+            The BIND_NOTIFICATION_LISTENER_SERVICE permission is assigned
+            to the service, not requested from the user as a normal runtime
+            permission.
+        -->
+
+        <service
+            android:name=".services.TransactionNotificationListenerService"
+            android:exported="false"
+            android:label="Transaction Notification Reader"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+
+        </service>
+
         <!-- FIREBASE AUTHENTICATION -->
 
         <activity
