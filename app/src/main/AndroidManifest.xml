@@ -29,6 +29,13 @@
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="barcode_ui" />
 
+        <!-- Initializes the permanent Cloud Backup/Account delete actions. -->
+        <provider
+            android:name=".cloud.CloudDeleteActionsInitializer"
+            android:authorities="${applicationId}.cloud_delete_initializer"
+            android:exported="false"
+            android:initOrder="100" />
+
         <!-- FIREBASE AUTHENTICATION -->
 
         <activity
