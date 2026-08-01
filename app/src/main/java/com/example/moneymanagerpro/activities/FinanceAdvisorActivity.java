@@ -1,975 +1,939 @@
 package com.example.moneymanagerpro.activities;
 
+import android.content.Intent;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.ColorRes;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.assistant.SmartTransactionAssistantEngine;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.NumberFormat;
-import java.text.ParsePosition;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
-public class FinanceAdvisorActivity extends AppCompatActivity {
+/**
+ * Offline Smart Transaction Assistant.
+ *
+ * It provides monthly money-health analysis, duplicate detection, unusual
+ * expense warnings, category suggestions and natural-language answers without
+ * sending private finance data to a server.
+ */
+public class FinanceAdvisorActivity
+        extends AppCompatActivity {
 
-    private TextView txtScore;
-    private TextView txtScoreLabel;
+    private TextView txtAssistantPeriod;
+    private TextView txtHealthScore;
+    private TextView txtHealthLabel;
     private TextView txtIncome;
     private TextView txtExpense;
     private TextView txtSaving;
+    private TextView txtDuplicateCount;
+    private TextView txtUnusualCount;
+    private TextView txtTopCategory;
     private TextView txtOverview;
+    private TextView txtAnswerTitle;
+    private TextView txtAnswer;
 
+    private TextInputLayout inputAssistantQuery;
+    private TextInputEditText etAssistantQuery;
+
+    private MaterialCardView cardAssistantAnswer;
+
+    private MaterialButton btnAskAssistant;
+    private MaterialButton btnQuickExpense;
+    private MaterialButton btnQuickCategory;
+    private MaterialButton btnQuickDuplicates;
+    private MaterialButton btnQuickUnusual;
+    private MaterialButton btnRefreshAssistant;
+    private MaterialButton btnOpenTransactions;
+
+    private LinearLayout alertContainer;
     private LinearLayout recommendationContainer;
 
-    private int adviceRequestVersion = 0;
+    private final SmartTransactionAssistantEngine assistantEngine =
+            new SmartTransactionAssistantEngine();
+
+    private SmartTransactionAssistantEngine.Analysis currentAnalysis;
+
+    private int analysisRequestVersion = 0;
+    private boolean analysisLoading = false;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(
+            Bundle savedInstanceState
+    ) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_finance_advisor);
+
+        setContentView(
+                R.layout.activity_finance_advisor
+        );
 
         bindViews();
-        prepareScreen();
+        setupActions();
+        showLoadingState();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        loadAdvice();
+        loadAnalysis();
     }
 
     private void bindViews() {
         TextView btnBack =
-                findViewById(R.id.btnBack);
+                findViewById(
+                        R.id.btnBack
+                );
 
-        txtScore =
-                findViewById(R.id.txtScore);
+        txtAssistantPeriod =
+                findViewById(
+                        R.id.txtAssistantPeriod
+                );
 
-        txtScoreLabel =
-                findViewById(R.id.txtScoreLabel);
+        txtHealthScore =
+                findViewById(
+                        R.id.txtHealthScore
+                );
+
+        txtHealthLabel =
+                findViewById(
+                        R.id.txtHealthLabel
+                );
 
         txtIncome =
-                findViewById(R.id.txtAdvisorIncome);
+                findViewById(
+                        R.id.txtAssistantIncome
+                );
 
         txtExpense =
-                findViewById(R.id.txtAdvisorExpense);
+                findViewById(
+                        R.id.txtAssistantExpense
+                );
 
         txtSaving =
-                findViewById(R.id.txtAdvisorSaving);
+                findViewById(
+                        R.id.txtAssistantSaving
+                );
+
+        txtDuplicateCount =
+                findViewById(
+                        R.id.txtDuplicateCount
+                );
+
+        txtUnusualCount =
+                findViewById(
+                        R.id.txtUnusualCount
+                );
+
+        txtTopCategory =
+                findViewById(
+                        R.id.txtTopCategory
+                );
 
         txtOverview =
-                findViewById(R.id.txtAdvisorOverview);
+                findViewById(
+                        R.id.txtAssistantOverview
+                );
+
+        txtAnswerTitle =
+                findViewById(
+                        R.id.txtAssistantAnswerTitle
+                );
+
+        txtAnswer =
+                findViewById(
+                        R.id.txtAssistantAnswer
+                );
+
+        inputAssistantQuery =
+                findViewById(
+                        R.id.inputAssistantQuery
+                );
+
+        etAssistantQuery =
+                findViewById(
+                        R.id.etAssistantQuery
+                );
+
+        cardAssistantAnswer =
+                findViewById(
+                        R.id.cardAssistantAnswer
+                );
+
+        btnAskAssistant =
+                findViewById(
+                        R.id.btnAskAssistant
+                );
+
+        btnQuickExpense =
+                findViewById(
+                        R.id.btnQuickExpense
+                );
+
+        btnQuickCategory =
+                findViewById(
+                        R.id.btnQuickCategory
+                );
+
+        btnQuickDuplicates =
+                findViewById(
+                        R.id.btnQuickDuplicates
+                );
+
+        btnQuickUnusual =
+                findViewById(
+                        R.id.btnQuickUnusual
+                );
+
+        btnRefreshAssistant =
+                findViewById(
+                        R.id.btnRefreshAssistant
+                );
+
+        btnOpenTransactions =
+                findViewById(
+                        R.id.btnOpenTransactions
+                );
+
+        alertContainer =
+                findViewById(
+                        R.id.assistantAlertContainer
+                );
 
         recommendationContainer =
-                findViewById(R.id.recommendationContainer);
+                findViewById(
+                        R.id.recommendationContainer
+                );
 
         btnBack.setOnClickListener(
                 view -> finish()
         );
 
-        BubbleTouchAnimator.apply(
-                btnBack
+        BubbleTouchAnimator.apply(btnBack);
+    }
+
+    private void setupActions() {
+        btnAskAssistant.setOnClickListener(
+                view -> answerCurrentQuestion()
         );
-    }
 
-    private void prepareScreen() {
-        showLoadingState();
-    }
-
-    private void showLoadingState() {
-        txtScore.setText("—");
-
-        txtScore.setTextColor(
-                getColorValue(
-                        R.color.purple
+        btnQuickExpense.setOnClickListener(
+                view -> askQuickQuestion(
+                        "How much did I spend this month?"
                 )
         );
 
-        txtScoreLabel.setText(
-                "Analysing your finance data"
+        btnQuickCategory.setOnClickListener(
+                view -> askQuickQuestion(
+                        "Which is my highest category this month?"
+                )
+        );
+
+        btnQuickDuplicates.setOnClickListener(
+                view -> askQuickQuestion(
+                        "Show duplicate transactions"
+                )
+        );
+
+        btnQuickUnusual.setOnClickListener(
+                view -> askQuickQuestion(
+                        "Show unusual high expenses"
+                )
+        );
+
+        btnRefreshAssistant.setOnClickListener(
+                view -> loadAnalysis()
+        );
+
+        btnOpenTransactions.setOnClickListener(
+                view -> startActivity(
+                        new Intent(
+                                this,
+                                TransactionsActivity.class
+                        )
+                )
+        );
+
+        etAssistantQuery.setOnEditorActionListener(
+                (view, actionId, event) -> {
+                    if (actionId == EditorInfo.IME_ACTION_DONE
+                            || actionId == EditorInfo.IME_ACTION_GO
+                            || actionId == EditorInfo.IME_ACTION_SEARCH) {
+
+                        answerCurrentQuestion();
+                        return true;
+                    }
+
+                    return false;
+                }
+        );
+
+        BubbleTouchAnimator.apply(btnAskAssistant);
+        BubbleTouchAnimator.apply(btnQuickExpense);
+        BubbleTouchAnimator.apply(btnQuickCategory);
+        BubbleTouchAnimator.apply(btnQuickDuplicates);
+        BubbleTouchAnimator.apply(btnQuickUnusual);
+        BubbleTouchAnimator.apply(btnRefreshAssistant);
+        BubbleTouchAnimator.apply(btnOpenTransactions);
+    }
+
+    private void loadAnalysis() {
+        if (analysisLoading) {
+            return;
+        }
+
+        analysisLoading = true;
+
+        int requestVersion =
+                ++analysisRequestVersion;
+
+        showLoadingState();
+
+        new Thread(
+                () -> {
+                    try {
+                        List<Transaction> transactions =
+                                DatabaseClient
+                                        .getInstance(
+                                                getApplicationContext()
+                                        )
+                                        .getAppDatabase()
+                                        .transactionDao()
+                                        .getAllTransactions();
+
+                        SmartTransactionAssistantEngine.Analysis analysis =
+                                assistantEngine.analyse(
+                                        transactions
+                                );
+
+                        runOnUiThread(
+                                () -> {
+                                    if (requestVersion
+                                            != analysisRequestVersion
+                                            || isFinishing()
+                                            || isDestroyed()) {
+
+                                        return;
+                                    }
+
+                                    analysisLoading = false;
+                                    currentAnalysis = analysis;
+
+                                    showAnalysis(
+                                            analysis
+                                    );
+                                }
+                        );
+
+                    } catch (Exception exception) {
+                        runOnUiThread(
+                                () -> {
+                                    if (requestVersion
+                                            != analysisRequestVersion
+                                            || isFinishing()
+                                            || isDestroyed()) {
+
+                                        return;
+                                    }
+
+                                    analysisLoading = false;
+                                    currentAnalysis = null;
+
+                                    showAnalysisFailure();
+                                }
+                        );
+                    }
+                }
+        ).start();
+    }
+
+    private void showLoadingState() {
+        txtAssistantPeriod.setText(
+                "Analysing local transactions..."
+        );
+
+        txtHealthScore.setText("—");
+        txtHealthLabel.setText(
+                "Calculating money health"
         );
 
         txtIncome.setText("₹0.00");
         txtExpense.setText("₹0.00");
         txtSaving.setText("₹0.00");
 
-        txtSaving.setTextColor(
-                getColorValue(
-                        R.color.secondary
-                )
-        );
+        txtDuplicateCount.setText("—");
+        txtUnusualCount.setText("—");
+        txtTopCategory.setText("—");
 
         txtOverview.setText(
-                "Reviewing this month’s income, expenses and spending patterns."
+                "Income, expenses, categories, duplicate entries and unusual amounts are being reviewed privately on this device."
         );
 
+        alertContainer.removeAllViews();
         recommendationContainer.removeAllViews();
 
-        addStatusCard(
+        addDynamicCard(
+                alertContainer,
                 "Analysing transactions",
-                "Your personal suggestions will appear here after the calculation is complete.",
-                "✦",
-                AdviceTone.PURPLE
+                "Smart alerts will appear after the local calculation completes.",
+                R.color.purple,
+                R.color.purple_surface,
+                R.color.purple_outline
+        );
+
+        txtAnswerTitle.setText(
+                "Assistant is getting ready"
+        );
+
+        txtAnswer.setText(
+                "You can ask a question after the transaction analysis is complete."
+        );
+
+        styleAnswerCard(
+                SmartTransactionAssistantEngine.AnswerTone.PURPLE
+        );
+
+        setAssistantControlsEnabled(
+                false
         );
     }
 
-    private void loadAdvice() {
-        int currentRequest =
-                ++adviceRequestVersion;
-
-        showLoadingState();
-
-        new Thread(() -> {
-            try {
-                List<Transaction> transactions =
-                        DatabaseClient
-                                .getInstance(
-                                        getApplicationContext()
-                                )
-                                .getAppDatabase()
-                                .transactionDao()
-                                .getAllTransactions();
-
-                AdvisorData advisorData =
-                        calculateAdvisorData(
-                                transactions
-                        );
-
-                runOnUiThread(() -> {
-                    if (currentRequest
-                            != adviceRequestVersion
-                            || isFinishing()
-                            || isDestroyed()) {
-
-                        return;
-                    }
-
-                    showAdvisorData(
-                            advisorData
-                    );
-                });
-
-            } catch (Exception exception) {
-                runOnUiThread(() -> {
-                    if (currentRequest
-                            != adviceRequestVersion
-                            || isFinishing()
-                            || isDestroyed()) {
-
-                        return;
-                    }
-
-                    showAdvisorError();
-                });
-            }
-        }).start();
-    }
-
-    private AdvisorData calculateAdvisorData(
-            List<Transaction> transactions
+    private void showAnalysis(
+            @NonNull SmartTransactionAssistantEngine.Analysis analysis
     ) {
-        AdvisorData data =
-                new AdvisorData();
+        SmartTransactionAssistantEngine.MonthMetrics current =
+                analysis.getCurrentMonth();
 
-        Calendar today =
-                Calendar.getInstance();
-
-        data.currentYear =
-                today.get(
-                        Calendar.YEAR
-                );
-
-        data.currentMonth =
-                today.get(
-                        Calendar.MONTH
-                );
-
-        data.currentDay =
-                today.get(
-                        Calendar.DAY_OF_MONTH
-                );
-
-        data.daysInCurrentMonth =
-                today.getActualMaximum(
-                        Calendar.DAY_OF_MONTH
-                );
-
-        Calendar previousMonth =
-                (Calendar) today.clone();
-
-        previousMonth.add(
-                Calendar.MONTH,
-                -1
+        txtAssistantPeriod.setText(
+                analysis.getCurrentMonthLabel()
+                        + " • Offline private analysis"
         );
 
-        int previousYear =
-                previousMonth.get(
-                        Calendar.YEAR
-                );
-
-        int previousMonthNumber =
-                previousMonth.get(
-                        Calendar.MONTH
-                );
-
-        if (transactions != null) {
-            for (Transaction transaction : transactions) {
-                if (transaction == null) {
-                    continue;
-                }
-
-                Date transactionDate =
-                        parseDate(
-                                transaction.getDate()
-                        );
-
-                if (transactionDate == null) {
-                    continue;
-                }
-
-                double amount =
-                        transaction.getAmount();
-
-                if (Double.isNaN(amount)
-                        || Double.isInfinite(amount)
-                        || amount == 0) {
-
-                    continue;
-                }
-
-                amount =
-                        Math.abs(amount);
-
-                Calendar transactionCalendar =
-                        Calendar.getInstance();
-
-                transactionCalendar.setTime(
-                        transactionDate
-                );
-
-                boolean currentMonthTransaction =
-                        transactionCalendar.get(
-                                Calendar.YEAR
-                        ) == data.currentYear
-                                && transactionCalendar.get(
-                                Calendar.MONTH
-                        ) == data.currentMonth;
-
-                boolean previousMonthTransaction =
-                        transactionCalendar.get(
-                                Calendar.YEAR
-                        ) == previousYear
-                                && transactionCalendar.get(
-                                Calendar.MONTH
-                        ) == previousMonthNumber;
-
-                String type =
-                        safeText(
-                                transaction.getType(),
-                                ""
-                        );
-
-                if (currentMonthTransaction) {
-                    if ("INCOME".equalsIgnoreCase(type)) {
-                        data.currentIncome += amount;
-                        data.currentIncomeEntries++;
-                        data.currentEntries++;
-
-                    } else if ("EXPENSE".equalsIgnoreCase(type)) {
-                        data.currentExpense += amount;
-                        data.currentExpenseEntries++;
-                        data.currentEntries++;
-
-                        addCategoryExpense(
-                                data.categoryExpenses,
-                                safeText(
-                                        transaction.getCategory(),
-                                        "Other"
-                                ),
-                                amount
-                        );
-                    }
-                }
-
-                if (previousMonthTransaction) {
-                    if ("INCOME".equalsIgnoreCase(type)) {
-                        data.previousIncome += amount;
-                        data.previousEntries++;
-
-                    } else if ("EXPENSE".equalsIgnoreCase(type)) {
-                        data.previousExpense += amount;
-                        data.previousEntries++;
-                    }
-                }
-            }
-        }
-
-        data.saving =
-                data.currentIncome
-                        - data.currentExpense;
-
-        if (data.currentIncome > 0) {
-            data.savingRate =
-                    (
-                            data.saving
-                                    / data.currentIncome
-                    ) * 100;
-        }
-
-        data.dailyExpenseAverage =
-                data.currentExpense
-                        / Math.max(
-                        data.currentDay,
-                        1
-                );
-
-        data.projectedExpense =
-                data.dailyExpenseAverage
-                        * data.daysInCurrentMonth;
-
-        data.largestCategoryName =
-                getLargestCategoryName(
-                        data.categoryExpenses
-                );
-
-        data.largestCategoryAmount =
-                getLargestCategoryAmount(
-                        data.categoryExpenses
-                );
-
-        if (data.currentExpense > 0) {
-            data.largestCategoryPercentage =
-                    (
-                            data.largestCategoryAmount
-                                    / data.currentExpense
-                    ) * 100;
-        }
-
-        if (data.previousExpense > 0) {
-            data.expenseDifference =
-                    data.currentExpense
-                            - data.previousExpense;
-
-            data.expenseTrendPercentage =
-                    (
-                            Math.abs(
-                                    data.expenseDifference
-                            )
-                                    / data.previousExpense
-                    ) * 100;
-        }
-
-        data.score =
-                calculateScore(data);
-
-        return data;
-    }
-
-    private void addCategoryExpense(
-            LinkedHashMap<String, Double> categoryExpenses,
-            String category,
-            double amount
-    ) {
-        String safeCategory =
-                safeText(
-                        category,
-                        "Other"
-                );
-
-        String matchingCategory =
-                null;
-
-        for (String existingCategory
-                : categoryExpenses.keySet()) {
-
-            if (existingCategory.equalsIgnoreCase(
-                    safeCategory
-            )) {
-                matchingCategory =
-                        existingCategory;
-
-                break;
-            }
-        }
-
-        if (matchingCategory == null) {
-            categoryExpenses.put(
-                    safeCategory,
-                    amount
-            );
-
-        } else {
-            double oldAmount =
-                    categoryExpenses.get(
-                            matchingCategory
-                    ) == null
-                            ? 0
-                            : categoryExpenses.get(
-                            matchingCategory
-                    );
-
-            categoryExpenses.put(
-                    matchingCategory,
-                    oldAmount + amount
-            );
-        }
-    }
-
-    private int calculateScore(
-            AdvisorData data
-    ) {
-        if (data.currentEntries == 0) {
-            return 0;
-        }
-
-        int score = 100;
-
-        if (data.currentIncome <= 0) {
-            score -= 35;
-
-        } else if (data.saving < 0) {
-            score -= 40;
-
-        } else if (data.savingRate < 5) {
-            score -= 25;
-
-        } else if (data.savingRate < 10) {
-            score -= 18;
-
-        } else if (data.savingRate < 20) {
-            score -= 10;
-
-        } else if (data.savingRate >= 30) {
-            score += 3;
-        }
-
-        if (data.largestCategoryPercentage >= 60) {
-            score -= 15;
-
-        } else if (data.largestCategoryPercentage >= 45) {
-            score -= 8;
-        }
-
-        if (data.previousExpense > 0) {
-            if (data.expenseDifference > 0
-                    && data.expenseTrendPercentage >= 25) {
-
-                score -= 12;
-
-            } else if (data.expenseDifference > 0
-                    && data.expenseTrendPercentage >= 10) {
-
-                score -= 6;
-            }
-        }
-
-        if (data.currentDay >= 10
-                && data.currentEntries < 4) {
-
-            score -= 5;
-        }
-
-        return Math.max(
-                0,
-                Math.min(
-                        score,
-                        100
-                )
-        );
-    }
-
-    private void showAdvisorData(
-            AdvisorData data
-    ) {
-        txtScore.setText(
+        txtHealthScore.setText(
                 String.valueOf(
-                        data.score
+                        analysis.getHealthScore()
                 )
         );
 
-        txtScore.setTextColor(
-                getScoreColor(
-                        data.score
+        txtHealthScore.setTextColor(
+                getHealthColor(
+                        analysis.getHealthScore()
                 )
         );
 
-        txtScoreLabel.setText(
-                getScoreLabel(
-                        data.score
+        txtHealthLabel.setText(
+                getHealthLabel(
+                        analysis.getHealthScore(),
+                        current.getTotalCount()
                 )
         );
 
         txtIncome.setText(
                 formatMoney(
-                        data.currentIncome
+                        current.getIncome()
                 )
         );
 
         txtExpense.setText(
                 formatMoney(
-                        data.currentExpense
+                        current.getExpense()
                 )
         );
 
         txtSaving.setText(
                 formatSignedMoney(
-                        data.saving
+                        current.getSaving()
                 )
         );
 
-        if (data.saving > 0) {
-            txtSaving.setTextColor(
-                    getColorValue(
-                            R.color.success
-                    )
-            );
+        txtSaving.setTextColor(
+                getColorValue(
+                        current.getSaving() > 0.0001d
+                                ? R.color.success
+                                : current.getSaving() < -0.0001d
+                                ? R.color.expense
+                                : R.color.app_text_secondary
+                )
+        );
 
-        } else if (data.saving < 0) {
-            txtSaving.setTextColor(
-                    getColorValue(
-                            R.color.expense
-                    )
-            );
+        txtDuplicateCount.setText(
+                String.valueOf(
+                        analysis.getDuplicateExtraCount()
+                )
+        );
 
-        } else {
-            txtSaving.setTextColor(
-                    getColorValue(
-                            R.color.app_text_secondary
-                    )
-            );
-        }
+        txtUnusualCount.setText(
+                String.valueOf(
+                        analysis
+                                .getUnusualTransactions()
+                                .size()
+                )
+        );
+
+        txtTopCategory.setText(
+                current.getTopCategory().isEmpty()
+                        ? "No data"
+                        : current.getTopCategory()
+        );
 
         txtOverview.setText(
-                buildOverviewText(
-                        data
+                buildOverview(
+                        analysis
                 )
         );
 
+        renderAlerts(
+                analysis
+        );
+
+        renderRecommendations(
+                analysis
+        );
+
+        showAnswer(
+                assistantEngine.answer(
+                        "summary",
+                        analysis
+                )
+        );
+
+        setAssistantControlsEnabled(
+                true
+        );
+    }
+
+    private void showAnalysisFailure() {
+        txtAssistantPeriod.setText(
+                "Analysis unavailable"
+        );
+
+        txtHealthScore.setText("!");
+        txtHealthScore.setTextColor(
+                getColorValue(
+                        R.color.expense
+                )
+        );
+
+        txtHealthLabel.setText(
+                "Transactions could not be read"
+        );
+
+        txtOverview.setText(
+                "The local database could not be analysed. Close the screen and try again. Existing transaction data has not been changed."
+        );
+
+        alertContainer.removeAllViews();
         recommendationContainer.removeAllViews();
 
-        List<AdviceItem> adviceItems =
-                buildAdvice(data);
+        addDynamicCard(
+                alertContainer,
+                "Analysis failed",
+                "No transaction was modified. Tap Refresh Analysis to try again.",
+                R.color.expense,
+                R.color.error_surface,
+                R.color.error_outline
+        );
 
-        if (adviceItems.isEmpty()) {
-            addStatusCard(
-                    "No suggestion available",
-                    "Add more income and expense entries to generate useful monthly insights.",
-                    "i",
-                    AdviceTone.NEUTRAL
+        txtAnswerTitle.setText(
+                "Assistant unavailable"
+        );
+
+        txtAnswer.setText(
+                "Refresh the analysis before asking a finance question."
+        );
+
+        styleAnswerCard(
+                SmartTransactionAssistantEngine.AnswerTone.EXPENSE
+        );
+
+        setAssistantControlsEnabled(
+                false
+        );
+
+        btnRefreshAssistant.setEnabled(true);
+        btnRefreshAssistant.setAlpha(1f);
+    }
+
+    private void renderAlerts(
+            @NonNull SmartTransactionAssistantEngine.Analysis analysis
+    ) {
+        alertContainer.removeAllViews();
+
+        if (analysis.getDuplicateExtraCount() == 0
+                && analysis
+                .getUnusualTransactions()
+                .isEmpty()) {
+
+            addDynamicCard(
+                    alertContainer,
+                    "No urgent smart alert",
+                    "No likely duplicate or unusual high-value expense was found in the current local analysis.",
+                    R.color.success,
+                    R.color.success_surface,
+                    R.color.success_outline
             );
 
             return;
         }
 
-        for (int index = 0;
-             index < adviceItems.size();
-             index++) {
-
-            addAdviceCard(
-                    adviceItems.get(index),
-                    index + 1
-            );
-        }
-    }
-
-    private String buildOverviewText(
-            AdvisorData data
-    ) {
-        String monthName =
-                new SimpleDateFormat(
-                        "MMMM yyyy",
-                        Locale.ENGLISH
-                ).format(
-                        createMonthDate(
-                                data.currentYear,
-                                data.currentMonth
-                        )
+        int duplicateLimit =
+                Math.min(
+                        3,
+                        analysis
+                                .getDuplicateGroups()
+                                .size()
                 );
 
-        if (data.currentEntries == 0) {
-            return "No income or expense entries were found for "
-                    + monthName
-                    + ". Add transactions to calculate your money health score.";
-        }
+        for (int index = 0;
+             index < duplicateLimit;
+             index++) {
 
-        StringBuilder overview =
-                new StringBuilder();
+            SmartTransactionAssistantEngine.DuplicateGroup group =
+                    analysis
+                            .getDuplicateGroups()
+                            .get(index);
 
-        overview.append("In ")
-                .append(monthName)
-                .append(", ")
-                .append(data.currentEntries)
-                .append(
-                        data.currentEntries == 1
-                                ? " transaction has"
-                                : " transactions have"
-                )
-                .append(" been analysed. ");
-
-        overview.append("Income is ")
-                .append(
-                        formatMoney(
-                                data.currentIncome
-                        )
-                )
-                .append(" and expense is ")
-                .append(
-                        formatMoney(
-                                data.currentExpense
-                        )
-                )
-                .append(". ");
-
-        if (data.saving > 0) {
-            overview.append("You currently have a positive saving of ")
-                    .append(
-                            formatMoney(
-                                    data.saving
-                            )
-                    );
-
-            if (data.currentIncome > 0) {
-                overview.append(" (")
-                        .append(
-                                formatPercentage(
-                                        data.savingRate
-                                )
-                        )
-                        .append(" of income)");
-            }
-
-            overview.append(".");
-
-        } else if (data.saving < 0) {
-            overview.append("Expenses are above income by ")
-                    .append(
-                            formatMoney(
-                                    Math.abs(
-                                            data.saving
-                                    )
-                            )
+            addDynamicCard(
+                    alertContainer,
+                    "Possible duplicate • "
+                            + group.getCategory(),
+                    group.getCount()
+                            + " matching entries • "
+                            + formatMoney(
+                            group.getAmount()
                     )
-                    .append(".");
-
-        } else {
-            overview.append(
-                    "Income and expense are currently equal."
+                            + " • "
+                            + group.getAccount()
+                            + "\n"
+                            + group.getFirstDate()
+                            + " to "
+                            + group.getLatestDate(),
+                    R.color.orange,
+                    R.color.warning_surface,
+                    R.color.warning_outline
             );
         }
 
-        return overview.toString();
+        int unusualLimit =
+                Math.min(
+                        3,
+                        analysis
+                                .getUnusualTransactions()
+                                .size()
+                );
+
+        for (int index = 0;
+             index < unusualLimit;
+             index++) {
+
+            SmartTransactionAssistantEngine.UnusualTransaction item =
+                    analysis
+                            .getUnusualTransactions()
+                            .get(index);
+
+            String note =
+                    item.getNote().trim().isEmpty()
+                            ? ""
+                            : " • " + item.getNote().trim();
+
+            addDynamicCard(
+                    alertContainer,
+                    "Unusual expense • "
+                            + item.getCategory(),
+                    formatMoney(
+                            item.getAmount()
+                    )
+                            + " • "
+                            + item.getAccount()
+                            + note
+                            + "\n"
+                            + item.getDisplayDate()
+                            + "\n"
+                            + item.getReason(),
+                    R.color.expense,
+                    R.color.error_surface,
+                    R.color.error_outline
+            );
+        }
     }
 
-    private List<AdviceItem> buildAdvice(
-            AdvisorData data
+    private void renderRecommendations(
+            @NonNull SmartTransactionAssistantEngine.Analysis analysis
     ) {
-        List<AdviceItem> items =
-                new ArrayList<>();
+        recommendationContainer.removeAllViews();
 
-        if (data.currentEntries == 0) {
-            items.add(
-                    new AdviceItem(
-                            "Start tracking this month",
-                            "Add income and expense entries to receive a personal score, savings analysis and category-based suggestions.",
-                            "＋",
-                            AdviceTone.INFO
-                    )
+        List<SmartTransactionAssistantEngine.Insight> insights =
+                analysis.getInsights();
+
+        if (insights.isEmpty()) {
+            addDynamicCard(
+                    recommendationContainer,
+                    "No recommendation available",
+                    "Add more transactions to build a useful monthly pattern.",
+                    R.color.app_text_secondary,
+                    R.color.app_surface_soft,
+                    R.color.app_outline
             );
 
-            return items;
+            return;
         }
 
-        /*
-         * Income and saving position
-         */
+        for (SmartTransactionAssistantEngine.Insight insight
+                : insights) {
 
-        if (data.currentIncome <= 0) {
-            items.add(
-                    new AdviceItem(
-                            "Monthly income is missing",
-                            "Expense entries are available, but no income has been recorded for this month. Add income to calculate an accurate savings rate.",
-                            "!",
-                            AdviceTone.WARNING
-                    )
-            );
+            ToneColors colors =
+                    colorsForInsight(
+                            insight.getTone()
+                    );
 
-        } else if (data.saving < 0) {
-            items.add(
-                    new AdviceItem(
-                            "Spending is above income",
-                            "Your expenses exceed income by "
-                                    + formatMoney(
-                                    Math.abs(
-                                            data.saving
-                                    )
-                            )
-                                    + ". Review flexible and non-essential categories first.",
-                            "↓",
-                            AdviceTone.EXPENSE
-                    )
-            );
-
-        } else if (data.savingRate < 10) {
-            items.add(
-                    new AdviceItem(
-                            "Savings margin is currently low",
-                            "You have retained "
-                                    + formatPercentage(
-                                    data.savingRate
-                            )
-                                    + " of this month’s income. A small reduction in flexible spending could improve the monthly buffer.",
-                            "₹",
-                            AdviceTone.WARNING
-                    )
-            );
-
-        } else if (data.savingRate < 20) {
-            items.add(
-                    new AdviceItem(
-                            "Savings are moving positively",
-                            "Your current savings rate is "
-                                    + formatPercentage(
-                                    data.savingRate
-                            )
-                                    + ". Continue tracking expenses to protect this positive margin.",
-                            "✓",
-                            AdviceTone.INFO
-                    )
-            );
-
-        } else {
-            items.add(
-                    new AdviceItem(
-                            "Healthy current savings rate",
-                            "You have retained "
-                                    + formatPercentage(
-                                    data.savingRate
-                            )
-                                    + " of this month’s income, equal to "
-                                    + formatMoney(
-                                    data.saving
-                            )
-                                    + ".",
-                            "✓",
-                            AdviceTone.SUCCESS
-                    )
+            addDynamicCard(
+                    recommendationContainer,
+                    insight.getTitle(),
+                    insight.getMessage(),
+                    colors.accent,
+                    colors.surface,
+                    colors.outline
             );
         }
+    }
 
-        /*
-         * Largest spending category
-         */
+    private void answerCurrentQuestion() {
+        hideKeyboard();
+        inputAssistantQuery.setError(null);
 
-        if (!data.largestCategoryName.isEmpty()
-                && data.currentExpense > 0) {
+        if (analysisLoading) {
+            Toast.makeText(
+                    this,
+                    "Transaction analysis is still running",
+                    Toast.LENGTH_SHORT
+            ).show();
 
-            AdviceTone categoryTone;
-
-            if (data.largestCategoryPercentage >= 50) {
-                categoryTone =
-                        AdviceTone.WARNING;
-
-            } else {
-                categoryTone =
-                        AdviceTone.PURPLE;
-            }
-
-            items.add(
-                    new AdviceItem(
-                            "Top spending category",
-                            data.largestCategoryName
-                                    + " accounts for "
-                                    + formatPercentage(
-                                    data.largestCategoryPercentage
-                            )
-                                    + " of monthly expenses, totalling "
-                                    + formatMoney(
-                                    data.largestCategoryAmount
-                            )
-                                    + ".",
-                            "◎",
-                            categoryTone
-                    )
-            );
+            return;
         }
 
-        /*
-         * Daily spending and projection
-         */
+        if (currentAnalysis == null) {
+            inputAssistantQuery.setError(
+                    "Refresh analysis before asking"
+            );
 
-        if (data.currentExpense > 0) {
-            String projectionText =
-                    "Average daily expense is "
+            return;
+        }
+
+        String question =
+                etAssistantQuery.getText() == null
+                        ? ""
+                        : etAssistantQuery
+                        .getText()
+                        .toString()
+                        .trim();
+
+        if (question.isEmpty()) {
+            inputAssistantQuery.setError(
+                    "Enter a finance question"
+            );
+
+            etAssistantQuery.requestFocus();
+            return;
+        }
+
+        showAnswer(
+                assistantEngine.answer(
+                        question,
+                        currentAnalysis
+                )
+        );
+    }
+
+    private void askQuickQuestion(
+            @NonNull String question
+    ) {
+        etAssistantQuery.setText(question);
+        etAssistantQuery.setSelection(
+                question.length()
+        );
+
+        answerCurrentQuestion();
+    }
+
+    private void showAnswer(
+            @NonNull SmartTransactionAssistantEngine.Answer answer
+    ) {
+        txtAnswerTitle.setText(
+                answer.getTitle()
+        );
+
+        txtAnswer.setText(
+                answer.getMessage()
+        );
+
+        styleAnswerCard(
+                answer.getTone()
+        );
+    }
+
+    private void styleAnswerCard(
+            @NonNull SmartTransactionAssistantEngine.AnswerTone tone
+    ) {
+        ToneColors colors =
+                colorsForAnswer(tone);
+
+        cardAssistantAnswer.setCardBackgroundColor(
+                getColorValue(
+                        colors.surface
+                )
+        );
+
+        cardAssistantAnswer.setStrokeColor(
+                getColorValue(
+                        colors.outline
+                )
+        );
+
+        txtAnswerTitle.setTextColor(
+                getColorValue(
+                        colors.accent
+                )
+        );
+    }
+
+    private void setAssistantControlsEnabled(
+            boolean enabled
+    ) {
+        btnAskAssistant.setEnabled(enabled);
+        btnQuickExpense.setEnabled(enabled);
+        btnQuickCategory.setEnabled(enabled);
+        btnQuickDuplicates.setEnabled(enabled);
+        btnQuickUnusual.setEnabled(enabled);
+        etAssistantQuery.setEnabled(enabled);
+
+        float alpha =
+                enabled
+                        ? 1f
+                        : 0.55f;
+
+        btnAskAssistant.setAlpha(alpha);
+        btnQuickExpense.setAlpha(alpha);
+        btnQuickCategory.setAlpha(alpha);
+        btnQuickDuplicates.setAlpha(alpha);
+        btnQuickUnusual.setAlpha(alpha);
+        etAssistantQuery.setAlpha(alpha);
+    }
+
+    private String buildOverview(
+            @NonNull SmartTransactionAssistantEngine.Analysis analysis
+    ) {
+        SmartTransactionAssistantEngine.MonthMetrics current =
+                analysis.getCurrentMonth();
+
+        if (current.getTotalCount() == 0) {
+            return "No income or expense entry is available for "
+                    + current.getLabel()
+                    + ". Add transactions to activate complete assistant insights.";
+        }
+
+        String savingText;
+
+        if (current.getSaving() > 0.0001d) {
+            savingText =
+                    "A positive saving of "
                             + formatMoney(
-                            data.dailyExpenseAverage
+                            current.getSaving()
                     )
-                            + ". At the same pace, estimated month-end expense is about "
+                            + " remains.";
+
+        } else if (current.getSaving() < -0.0001d) {
+            savingText =
+                    "Expense is above income by "
                             + formatMoney(
-                            data.projectedExpense
+                            Math.abs(
+                                    current.getSaving()
+                            )
                     )
                             + ".";
 
-            AdviceTone projectionTone =
-                    data.currentIncome > 0
-                            && data.projectedExpense
-                            > data.currentIncome
-                            ? AdviceTone.EXPENSE
-                            : AdviceTone.INFO;
-
-            items.add(
-                    new AdviceItem(
-                            "Daily spending pace",
-                            projectionText,
-                            "↗",
-                            projectionTone
-                    )
-            );
-        }
-
-        /*
-         * Previous month comparison
-         */
-
-        if (data.previousExpense > 0) {
-            if (data.expenseDifference > 0) {
-                items.add(
-                        new AdviceItem(
-                                "Expense trend has increased",
-                                "Current month expense is "
-                                        + formatPercentage(
-                                        data.expenseTrendPercentage
-                                )
-                                        + " higher than the previous month, a difference of "
-                                        + formatMoney(
-                                        data.expenseDifference
-                                )
-                                        + ".",
-                                "↑",
-                                AdviceTone.WARNING
-                        )
-                );
-
-            } else if (data.expenseDifference < 0) {
-                items.add(
-                        new AdviceItem(
-                                "Expense trend has improved",
-                                "Current month expense is "
-                                        + formatPercentage(
-                                        data.expenseTrendPercentage
-                                )
-                                        + " lower than the previous month, a reduction of "
-                                        + formatMoney(
-                                        Math.abs(
-                                                data.expenseDifference
-                                        )
-                                )
-                                        + ".",
-                                "↓",
-                                AdviceTone.SUCCESS
-                        )
-                );
-
-            } else {
-                items.add(
-                        new AdviceItem(
-                                "Expense level is unchanged",
-                                "Your current expense matches the previous month at "
-                                        + formatMoney(
-                                        data.currentExpense
-                                )
-                                        + ".",
-                                "＝",
-                                AdviceTone.NEUTRAL
-                        )
-                );
-            }
-
         } else {
-            items.add(
-                    new AdviceItem(
-                            "Build a monthly comparison",
-                            "Continue recording transactions so the advisor can compare this month with your previous spending pattern.",
-                            "↔",
-                            AdviceTone.NEUTRAL
-                    )
-            );
+            savingText =
+                    "Income and expense are currently equal.";
         }
 
-        /*
-         * Tracking consistency
-         */
+        String categoryText =
+                current.getTopCategory().isEmpty()
+                        ? "No expense category is available yet."
+                        : current.getTopCategory()
+                        + " is the largest expense category at "
+                        + formatMoney(
+                        current.getTopCategoryAmount()
+                )
+                        + ".";
 
-        if (data.currentDay >= 10
-                && data.currentEntries < 4) {
-
-            items.add(
-                    new AdviceItem(
-                            "More entries will improve accuracy",
-                            "Only "
-                                    + data.currentEntries
-                                    + (
-                                    data.currentEntries == 1
-                                            ? " transaction has"
-                                            : " transactions have"
-                            )
-                                    + " been recorded this month. Regular tracking creates a more reliable score.",
-                            "≡",
-                            AdviceTone.PURPLE
-                    )
-            );
-        }
-
-        return items;
+        return current.getTotalCount()
+                + " transactions were analysed for "
+                + current.getLabel()
+                + ". Income is "
+                + formatMoney(
+                current.getIncome()
+        )
+                + " and expense is "
+                + formatMoney(
+                current.getExpense()
+        )
+                + ". "
+                + savingText
+                + " "
+                + categoryText;
     }
 
-    private void addAdviceCard(
-            AdviceItem item,
-            int position
+    private void addDynamicCard(
+            @NonNull LinearLayout container,
+            @NonNull String titleText,
+            @NonNull String messageText,
+            @ColorRes int accentColor,
+            @ColorRes int surfaceColor,
+            @ColorRes int outlineColor
     ) {
-        AdviceStyle style =
-                getAdviceStyle(
-                        item.tone
-                );
-
-        MaterialCardView cardView =
+        MaterialCardView card =
                 new MaterialCardView(this);
 
-        cardView.setCardBackgroundColor(
-                style.surfaceColor
+        card.setCardBackgroundColor(
+                getColorValue(
+                        surfaceColor
+                )
         );
 
-        cardView.setRadius(
+        card.setRadius(
                 dp(17)
         );
 
-        cardView.setCardElevation(0);
+        card.setCardElevation(0f);
 
-        cardView.setStrokeWidth(
-                dp(1)
+        card.setStrokeColor(
+                getColorValue(
+                        outlineColor
+                )
         );
 
-        cardView.setStrokeColor(
-                style.outlineColor
+        card.setStrokeWidth(
+                dp(1)
         );
 
         LinearLayout.LayoutParams cardParams =
@@ -980,14 +944,12 @@ public class FinanceAdvisorActivity extends AppCompatActivity {
 
         cardParams.setMargins(
                 0,
-                dp(4),
                 0,
-                dp(6)
+                0,
+                dp(9)
         );
 
-        cardView.setLayoutParams(
-                cardParams
-        );
+        card.setLayoutParams(cardParams);
 
         LinearLayout content =
                 new LinearLayout(this);
@@ -1001,21 +963,38 @@ public class FinanceAdvisorActivity extends AppCompatActivity {
         );
 
         content.setPadding(
+                dp(14),
                 dp(13),
-                dp(13),
-                dp(13),
+                dp(14),
                 dp(13)
         );
 
-        TextView icon =
-                createAdviceIcon(
-                        item.icon,
-                        style
+        TextView badge =
+                new TextView(this);
+
+        badge.setText("✦");
+        badge.setGravity(Gravity.CENTER);
+        badge.setTextSize(17);
+        badge.setTextColor(
+                getColorValue(
+                        accentColor
+                )
+        );
+
+        badge.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+
+        LinearLayout.LayoutParams badgeParams =
+                new LinearLayout.LayoutParams(
+                        dp(38),
+                        dp(38)
                 );
 
-        content.addView(
-                icon
-        );
+        badge.setLayoutParams(badgeParams);
+
+        content.addView(badge);
 
         LinearLayout textContainer =
                 new LinearLayout(this);
@@ -1038,520 +1017,195 @@ public class FinanceAdvisorActivity extends AppCompatActivity {
                 0
         );
 
-        textContainer.setLayoutParams(
-                textParams
-        );
-
-        TextView positionLabel =
-                createText(
-                        "INSIGHT "
-                                + position,
-                        8,
-                        style.accentColor,
-                        true
-                );
+        textContainer.setLayoutParams(textParams);
 
         TextView title =
-                createText(
-                        item.title,
-                        14,
-                        getColorValue(
-                                R.color.app_text_primary
-                        ),
-                        true
-                );
+                new TextView(this);
 
-        LinearLayout.LayoutParams titleParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        titleParams.setMargins(
-                0,
-                dp(3),
-                0,
-                0
+        title.setText(titleText);
+        title.setTextSize(14);
+        title.setTextColor(
+                getColorValue(
+                        accentColor
+                )
         );
 
-        title.setLayoutParams(
-                titleParams
+        title.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
         );
 
-        TextView description =
-                createText(
-                        item.description,
-                        11,
-                        getColorValue(
-                                R.color.app_text_secondary
-                        ),
-                        false
-                );
+        textContainer.addView(title);
 
-        description.setLineSpacing(
+        TextView message =
+                new TextView(this);
+
+        message.setText(messageText);
+        message.setTextSize(11);
+        message.setTextColor(
+                getColorValue(
+                        R.color.app_text_secondary
+                )
+        );
+
+        message.setLineSpacing(
                 dp(2),
                 1f
         );
 
-        LinearLayout.LayoutParams descriptionParams =
+        LinearLayout.LayoutParams messageParams =
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
 
-        descriptionParams.setMargins(
+        messageParams.setMargins(
                 0,
-                dp(5),
+                dp(4),
                 0,
                 0
         );
 
-        description.setLayoutParams(
-                descriptionParams
-        );
+        message.setLayoutParams(messageParams);
 
-        textContainer.addView(
-                positionLabel
-        );
-
-        textContainer.addView(
-                title
-        );
-
-        textContainer.addView(
-                description
-        );
-
-        content.addView(
-                textContainer
-        );
-
-        cardView.addView(
-                content
-        );
-
-        BubbleTouchAnimator.apply(
-                cardView
-        );
-
-        recommendationContainer.addView(
-                cardView
-        );
+        textContainer.addView(message);
+        content.addView(textContainer);
+        card.addView(content);
+        container.addView(card);
     }
 
-    private void addStatusCard(
-            String title,
-            String description,
-            String iconText,
-            AdviceTone tone
+    private ToneColors colorsForAnswer(
+            @NonNull SmartTransactionAssistantEngine.AnswerTone tone
     ) {
-        addAdviceCard(
-                new AdviceItem(
-                        title,
-                        description,
-                        iconText,
-                        tone
-                ),
-                1
-        );
-    }
-
-    private TextView createAdviceIcon(
-            String symbol,
-            AdviceStyle style
-    ) {
-        TextView icon =
-                createText(
-                        symbol,
-                        symbol.length() > 1
-                                ? 13
-                                : 18,
-                        style.accentColor,
-                        true
+        switch (tone) {
+            case SUCCESS:
+                return new ToneColors(
+                        R.color.success,
+                        R.color.success_surface,
+                        R.color.success_outline
                 );
 
-        icon.setGravity(
-                Gravity.CENTER
-        );
-
-        icon.setBackground(
-                createRoundedDrawable(
-                        getColorValue(
-                                R.color.app_surface
-                        ),
-                        style.outlineColor,
-                        14
-                )
-        );
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        dp(46),
-                        dp(46)
+            case EXPENSE:
+                return new ToneColors(
+                        R.color.expense,
+                        R.color.error_surface,
+                        R.color.error_outline
                 );
 
-        icon.setLayoutParams(
-                params
-        );
+            case WARNING:
+                return new ToneColors(
+                        R.color.orange,
+                        R.color.warning_surface,
+                        R.color.warning_outline
+                );
 
-        return icon;
+            case INFO:
+                return new ToneColors(
+                        R.color.secondary,
+                        R.color.info_surface,
+                        R.color.info_outline
+                );
+
+            case PURPLE:
+                return new ToneColors(
+                        R.color.purple,
+                        R.color.purple_surface,
+                        R.color.purple_outline
+                );
+
+            case NEUTRAL:
+            default:
+                return new ToneColors(
+                        R.color.app_text_secondary,
+                        R.color.app_surface_soft,
+                        R.color.app_outline
+                );
+        }
     }
 
-    private void showAdvisorError() {
-        txtScore.setText("0");
+    private ToneColors colorsForInsight(
+            @NonNull SmartTransactionAssistantEngine.InsightTone tone
+    ) {
+        switch (tone) {
+            case SUCCESS:
+                return new ToneColors(
+                        R.color.success,
+                        R.color.success_surface,
+                        R.color.success_outline
+                );
 
-        txtScore.setTextColor(
-                getColorValue(
-                        R.color.app_text_secondary
-                )
-        );
+            case EXPENSE:
+                return new ToneColors(
+                        R.color.expense,
+                        R.color.error_surface,
+                        R.color.error_outline
+                );
 
-        txtScoreLabel.setText(
-                "Unable to calculate score"
-        );
+            case WARNING:
+                return new ToneColors(
+                        R.color.orange,
+                        R.color.warning_surface,
+                        R.color.warning_outline
+                );
 
-        txtIncome.setText("₹0.00");
-        txtExpense.setText("₹0.00");
-        txtSaving.setText("₹0.00");
-
-        txtSaving.setTextColor(
-                getColorValue(
-                        R.color.app_text_secondary
-                )
-        );
-
-        txtOverview.setText(
-                "Finance data could not be analysed. Please reopen this screen and try again."
-        );
-
-        recommendationContainer.removeAllViews();
-
-        addStatusCard(
-                "Advisor data unavailable",
-                "The saved transactions could not be read at this time.",
-                "!",
-                AdviceTone.EXPENSE
-        );
-
-        Toast.makeText(
-                this,
-                "Unable to load finance advisor",
-                Toast.LENGTH_SHORT
-        ).show();
+            case INFO:
+            default:
+                return new ToneColors(
+                        R.color.secondary,
+                        R.color.info_surface,
+                        R.color.info_outline
+                );
+        }
     }
 
-    private int getScoreColor(
+    private int getHealthColor(
             int score
     ) {
-        if (score >= 80) {
+        if (score >= 75) {
             return getColorValue(
                     R.color.success
             );
         }
 
-        if (score >= 60) {
+        if (score >= 50) {
             return getColorValue(
-                    R.color.purple
-            );
-        }
-
-        if (score >= 40) {
-            return getColorValue(
-                    R.color.warning
-            );
-        }
-
-        if (score > 0) {
-            return getColorValue(
-                    R.color.expense
+                    R.color.orange
             );
         }
 
         return getColorValue(
-                R.color.app_text_secondary
+                R.color.expense
         );
     }
 
-    private String getScoreLabel(
-            int score
+    private String getHealthLabel(
+            int score,
+            int transactionCount
     ) {
+        if (transactionCount == 0) {
+            return "Add transactions to calculate score";
+        }
+
         if (score >= 85) {
-            return "Excellent money control";
+            return "Strong and well controlled";
         }
 
         if (score >= 70) {
-            return "Healthy financial position";
+            return "Healthy with room to improve";
         }
 
-        if (score >= 55) {
-            return "Good, with room to improve";
+        if (score >= 50) {
+            return "Needs closer monthly attention";
         }
 
-        if (score >= 40) {
-            return "Review current spending habits";
-        }
-
-        if (score > 0) {
-            return "Financial attention is needed";
-        }
-
-        return "Add entries to calculate score";
-    }
-
-    private AdviceStyle getAdviceStyle(
-            AdviceTone tone
-    ) {
-        switch (tone) {
-            case SUCCESS:
-                return new AdviceStyle(
-                        getColorValue(
-                                R.color.success
-                        ),
-                        getColorValue(
-                                R.color.success_surface
-                        ),
-                        getColorValue(
-                                R.color.success_outline
-                        )
-                );
-
-            case EXPENSE:
-                return new AdviceStyle(
-                        getColorValue(
-                                R.color.expense
-                        ),
-                        getColorValue(
-                                R.color.expense_surface
-                        ),
-                        getColorValue(
-                                R.color.expense_outline
-                        )
-                );
-
-            case WARNING:
-                return new AdviceStyle(
-                        getColorValue(
-                                R.color.warning
-                        ),
-                        getColorValue(
-                                R.color.warning_surface
-                        ),
-                        getColorValue(
-                                R.color.warning_outline
-                        )
-                );
-
-            case INFO:
-                return new AdviceStyle(
-                        getColorValue(
-                                R.color.secondary
-                        ),
-                        getColorValue(
-                                R.color.info_surface
-                        ),
-                        getColorValue(
-                                R.color.info_outline
-                        )
-                );
-
-            case PURPLE:
-                return new AdviceStyle(
-                        getColorValue(
-                                R.color.purple
-                        ),
-                        getColorValue(
-                                R.color.purple_surface
-                        ),
-                        getColorValue(
-                                R.color.purple_outline
-                        )
-                );
-
-            case NEUTRAL:
-            default:
-                return new AdviceStyle(
-                        getColorValue(
-                                R.color.app_text_secondary
-                        ),
-                        getColorValue(
-                                R.color.app_surface_soft
-                        ),
-                        getColorValue(
-                                R.color.app_outline_soft
-                        )
-                );
-        }
-    }
-
-    private String getLargestCategoryName(
-            LinkedHashMap<String, Double> categoryExpenses
-    ) {
-        String largestCategory =
-                "";
-
-        double largestAmount =
-                0;
-
-        for (Map.Entry<String, Double> entry
-                : categoryExpenses.entrySet()) {
-
-            if (entry.getValue() != null
-                    && entry.getValue() > largestAmount) {
-
-                largestAmount =
-                        entry.getValue();
-
-                largestCategory =
-                        entry.getKey();
-            }
-        }
-
-        return largestCategory;
-    }
-
-    private double getLargestCategoryAmount(
-            LinkedHashMap<String, Double> categoryExpenses
-    ) {
-        double largestAmount =
-                0;
-
-        for (Double amount
-                : categoryExpenses.values()) {
-
-            if (amount != null) {
-                largestAmount =
-                        Math.max(
-                                largestAmount,
-                                amount
-                        );
-            }
-        }
-
-        return largestAmount;
-    }
-
-    private Date createMonthDate(
-            int year,
-            int month
-    ) {
-        Calendar calendar =
-                Calendar.getInstance();
-
-        calendar.set(
-                Calendar.YEAR,
-                year
-        );
-
-        calendar.set(
-                Calendar.MONTH,
-                month
-        );
-
-        calendar.set(
-                Calendar.DAY_OF_MONTH,
-                1
-        );
-
-        clearTime(calendar);
-
-        return calendar.getTime();
-    }
-
-    private Date parseDate(
-            String dateText
-    ) {
-        if (dateText == null
-                || dateText.trim().isEmpty()) {
-
-            return null;
-        }
-
-        String cleanDate =
-                dateText.trim();
-
-        String[] patterns = {
-                "yyyy-MM-dd HH:mm:ss.SSS",
-                "yyyy-MM-dd HH:mm:ss",
-                "yyyy-MM-dd HH:mm",
-                "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-                "yyyy-MM-dd'T'HH:mm:ssXXX",
-                "yyyy-MM-dd'T'HH:mm:ss.SSS",
-                "yyyy-MM-dd'T'HH:mm:ss",
-                "yyyy-MM-dd'T'HH:mm",
-                "yyyy-MM-dd",
-                "yyyy/MM/dd HH:mm:ss",
-                "yyyy/MM/dd HH:mm",
-                "yyyy/MM/dd",
-                "dd/MM/yyyy HH:mm:ss",
-                "dd/MM/yyyy HH:mm",
-                "dd/MM/yyyy",
-                "dd-MM-yyyy HH:mm:ss",
-                "dd-MM-yyyy HH:mm",
-                "dd-MM-yyyy",
-                "dd MMM yyyy HH:mm:ss",
-                "dd MMM yyyy HH:mm",
-                "dd MMM yyyy",
-                "dd MMMM yyyy HH:mm:ss",
-                "dd MMMM yyyy HH:mm",
-                "dd MMMM yyyy"
-        };
-
-        for (String pattern : patterns) {
-            Date parsedDate =
-                    parseStrictDate(
-                            cleanDate,
-                            pattern
-                    );
-
-            if (parsedDate != null) {
-                return parsedDate;
-            }
-        }
-
-        return null;
-    }
-
-    private Date parseStrictDate(
-            String value,
-            String pattern
-    ) {
-        try {
-            SimpleDateFormat formatter =
-                    new SimpleDateFormat(
-                            pattern,
-                            Locale.ENGLISH
-                    );
-
-            formatter.setLenient(false);
-
-            ParsePosition parsePosition =
-                    new ParsePosition(0);
-
-            Date parsedDate =
-                    formatter.parse(
-                            value,
-                            parsePosition
-                    );
-
-            if (parsedDate == null
-                    || parsePosition.getIndex()
-                    != value.length()) {
-
-                return null;
-            }
-
-            return parsedDate;
-
-        } catch (Exception exception) {
-            return null;
-        }
+        return "Important spending review needed";
     }
 
     private String formatMoney(
             double amount
     ) {
         NumberFormat formatter =
-                NumberFormat.getNumberInstance(
+                NumberFormat.getCurrencyInstance(
                         new Locale(
                                 "en",
                                 "IN"
@@ -1561,126 +1215,48 @@ public class FinanceAdvisorActivity extends AppCompatActivity {
         formatter.setMinimumFractionDigits(2);
         formatter.setMaximumFractionDigits(2);
 
-        return "₹"
-                + formatter.format(
-                amount
+        return formatter.format(
+                Math.abs(amount)
         );
     }
 
     private String formatSignedMoney(
             double amount
     ) {
-        if (amount > 0) {
-            return "+"
-                    + formatMoney(amount);
+        if (amount > 0.0001d) {
+            return "+" + formatMoney(amount);
         }
 
-        if (amount < 0) {
-            return "-"
-                    + formatMoney(
-                    Math.abs(amount)
-            );
+        if (amount < -0.0001d) {
+            return "-" + formatMoney(amount);
         }
 
         return formatMoney(0);
     }
 
-    private String formatPercentage(
-            double percentage
-    ) {
-        return String.format(
-                Locale.US,
-                "%.1f%%",
-                percentage
-        );
-    }
+    private void hideKeyboard() {
+        View focusedView =
+                getCurrentFocus();
 
-    private TextView createText(
-            String text,
-            float textSize,
-            int textColor,
-            boolean bold
-    ) {
-        TextView textView =
-                new TextView(this);
+        if (focusedView == null) {
+            return;
+        }
 
-        textView.setText(text);
-        textView.setTextSize(textSize);
-        textView.setTextColor(textColor);
+        InputMethodManager inputMethodManager =
+                (InputMethodManager) getSystemService(
+                        INPUT_METHOD_SERVICE
+                );
 
-        if (bold) {
-            textView.setTypeface(
-                    Typeface.DEFAULT,
-                    Typeface.BOLD
+        if (inputMethodManager != null) {
+            inputMethodManager.hideSoftInputFromWindow(
+                    focusedView.getWindowToken(),
+                    0
             );
         }
-
-        return textView;
-    }
-
-    private GradientDrawable createRoundedDrawable(
-            int backgroundColor,
-            int outlineColor,
-            int radiusDp
-    ) {
-        GradientDrawable drawable =
-                new GradientDrawable();
-
-        drawable.setColor(
-                backgroundColor
-        );
-
-        drawable.setStroke(
-                dp(1),
-                outlineColor
-        );
-
-        drawable.setCornerRadius(
-                dp(radiusDp)
-        );
-
-        return drawable;
-    }
-
-    private String safeText(
-            String value,
-            String fallback
-    ) {
-        if (value == null
-                || value.trim().isEmpty()) {
-
-            return fallback;
-        }
-
-        return value.trim();
-    }
-
-    private void clearTime(
-            Calendar calendar
-    ) {
-        calendar.set(
-                Calendar.HOUR_OF_DAY,
-                0
-        );
-
-        calendar.set(
-                Calendar.MINUTE,
-                0
-        );
-
-        calendar.set(
-                Calendar.SECOND,
-                0
-        );
-
-        calendar.set(
-                Calendar.MILLISECOND,
-                0
-        );
     }
 
     private int getColorValue(
-            int colorResource
+            @ColorRes int colorResource
     ) {
         return ContextCompat.getColor(
                 this,
@@ -1699,99 +1275,20 @@ public class FinanceAdvisorActivity extends AppCompatActivity {
         );
     }
 
-    private enum AdviceTone {
-        SUCCESS,
-        EXPENSE,
-        WARNING,
-        INFO,
-        PURPLE,
-        NEUTRAL
-    }
+    private static final class ToneColors {
 
-    private static class AdviceStyle {
+        private final int accent;
+        private final int surface;
+        private final int outline;
 
-        private final int accentColor;
-        private final int surfaceColor;
-        private final int outlineColor;
-
-        private AdviceStyle(
-                int accentColor,
-                int surfaceColor,
-                int outlineColor
+        private ToneColors(
+                int accent,
+                int surface,
+                int outline
         ) {
-            this.accentColor =
-                    accentColor;
-
-            this.surfaceColor =
-                    surfaceColor;
-
-            this.outlineColor =
-                    outlineColor;
-        }
-    }
-
-    private static class AdvisorData {
-
-        private double currentIncome;
-        private double currentExpense;
-        private double saving;
-        private double savingRate;
-
-        private double previousIncome;
-        private double previousExpense;
-
-        private double expenseDifference;
-        private double expenseTrendPercentage;
-
-        private double dailyExpenseAverage;
-        private double projectedExpense;
-
-        private String largestCategoryName =
-                "";
-
-        private double largestCategoryAmount;
-        private double largestCategoryPercentage;
-
-        private int currentIncomeEntries;
-        private int currentExpenseEntries;
-        private int currentEntries;
-        private int previousEntries;
-
-        private int currentYear;
-        private int currentMonth;
-        private int currentDay;
-        private int daysInCurrentMonth;
-
-        private int score;
-
-        private final LinkedHashMap<String, Double> categoryExpenses =
-                new LinkedHashMap<>();
-    }
-
-    private static class AdviceItem {
-
-        private final String title;
-        private final String description;
-        private final String icon;
-        private final AdviceTone tone;
-
-        private AdviceItem(
-                String title,
-                String description,
-                String icon,
-                AdviceTone tone
-        ) {
-            this.title =
-                    title;
-
-            this.description =
-                    description;
-
-            this.icon =
-                    icon;
-
-            this.tone =
-                    tone;
+            this.accent = accent;
+            this.surface = surface;
+            this.outline = outline;
         }
     }
 }
