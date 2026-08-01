@@ -12,23 +12,9 @@ import com.google.firebase.auth.FirebaseUser;
 /**
  * Permanently deletes the signed-in user's latest encrypted cloud backup.
  *
- * This manager:
- *
- * 1. Verifies the active Firebase account.
- * 2. Requires a verified email account.
- * 3. Checks whether a usable encrypted backup exists.
- * 4. Deletes all encrypted chunk documents.
- * 5. Deletes the latest backup metadata document.
- * 6. Cancels automatic cloud backup scheduling.
- * 7. Clears local cloud-backup status metadata.
- *
- * This manager does NOT:
- *
- * - delete the Firebase Authentication account,
- * - delete offline backups,
- * - delete local Room data,
- * - remove the locally saved recovery passphrase,
- * - sign the user out.
+ * This manager deletes only cloud-backup data. It never deletes the local
+ * Room database, offline backup files, the Firebase Authentication account,
+ * or the locally saved recovery passphrase.
  */
 public final class CloudBackupDeletionManager {
 
@@ -62,8 +48,7 @@ public final class CloudBackupDeletionManager {
     }
 
     /**
-     * Checks whether the current Firebase account has a usable encrypted
-     * cloud backup.
+     * Checks whether the current account has a usable encrypted backup.
      */
     public void checkBackupAvailability(
             @NonNull AvailabilityCallback callback
@@ -109,10 +94,8 @@ public final class CloudBackupDeletionManager {
     }
 
     /**
-     * Loads the current cloud-backup metadata before the final deletion
-     * confirmation is displayed.
-     *
-     * A null metadata result means no cloud backup is currently stored.
+     * Loads current server metadata for confirmation UI.
+     * A null result means that no backup is stored for this account.
      */
     public void loadBackupMetadata(
             @NonNull MetadataCallback callback
@@ -159,8 +142,8 @@ public final class CloudBackupDeletionManager {
     }
 
     /**
-     * Permanently deletes the latest encrypted backup belonging to the
-     * currently signed-in Firebase account.
+     * Permanently deletes metadata and every encrypted chunk belonging to
+     * the currently signed-in Firebase account.
      */
     public void deleteLatestCloudBackup(
             @NonNull DeleteCallback callback
@@ -184,10 +167,6 @@ public final class CloudBackupDeletionManager {
         String expectedFirebaseUserId =
                 firebaseUser.getUid();
 
-        /*
-         * Re-check server metadata immediately before deletion.
-         * This provides a clear No Backup result and verifies ownership.
-         */
         cloudBackupUploader.loadLatestBackupMetadata(
                 firebaseUser,
                 new CloudBackupUploader.MetadataCallback() {
@@ -291,12 +270,9 @@ public final class CloudBackupDeletionManager {
     }
 
     /**
-     * Stops future automatic uploads and clears local backup status after
-     * the Firestore deletion has completed successfully.
-     *
-     * User-selected cloud frequency is intentionally not overwritten.
-     * Therefore the user can later save the schedule again after creating
-     * a new cloud backup and recovery passphrase.
+     * Cancels future cloud work and clears stale local cloud status. The
+     * cloud schedule is reset to Manual only so the deleted backup is not
+     * recreated automatically without a new user action.
      */
     private void cleanupLocalCloudBackupState(
             @NonNull String firebaseUserId
@@ -310,33 +286,41 @@ public final class CloudBackupDeletionManager {
         } catch (Exception exception) {
             Log.w(
                     TAG,
-                    "Cloud backup was deleted, but automatic work "
+                    "Cloud backup was deleted, but scheduled work "
                             + "could not be cancelled.",
                     exception
             );
         }
 
         try {
-            schedulePreferences.setCloudNextScheduledAt(
-                    firebaseUserId,
-                    0L
+            schedulePreferences.clearCloudAccountData(
+                    firebaseUserId
+            );
+
+            schedulePreferences.resetCloudSchedule(
+                    firebaseUserId
             );
 
         } catch (Exception exception) {
             Log.w(
                     TAG,
-                    "Cloud backup was deleted, but next scheduled "
-                            + "time could not be cleared.",
+                    "Cloud backup was deleted, but local cloud status "
+                            + "could not be fully reset.",
                     exception
             );
-        }
 
-        /*
-         * BackupSchedulePreferences may not expose a complete status-reset
-         * method in every project version. The server remains the source of
-         * truth. Future UI refreshes must check Firestore availability and
-         * display No Cloud Backup Available.
-         */
+            try {
+                schedulePreferences.setCloudNextScheduledAt(
+                        firebaseUserId,
+                        0L
+                );
+
+            } catch (Exception ignored) {
+                // Firestore deletion already succeeded. Local status is
+                // best-effort cleanup and must not report server deletion
+                // as failed.
+            }
+        }
     }
 
     @Nullable
