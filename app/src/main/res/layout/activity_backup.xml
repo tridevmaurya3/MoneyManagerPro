@@ -15,38 +15,74 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="16dp"
-        android:paddingTop="18dp"
+        android:paddingTop="16dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="36dp">
+        android:paddingBottom="40dp">
 
         <!-- PAGE HEADER -->
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Backup &amp; Restore"
-            android:textColor="#202124"
-            android:textSize="27sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="अपने पूरे financial data को सुरक्षित रखें और जरूरत पड़ने पर आसानी से वापस लाएँ।"
-            android:textColor="#667085"
-            android:textSize="14sp" />
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:cardBackgroundColor="#E6F1FB"
+                app:cardCornerRadius="15dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#C3DCF2"
+                app:strokeWidth="1dp">
 
-        <!-- BACKUP STATUS CARD -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="B"
+                    android:textColor="#0F6CBD"
+                    android:textSize="21sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="13dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Backup &amp; Restore"
+                    android:textColor="#202124"
+                    android:textSize="25sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Offline और encrypted cloud protection"
+                    android:textColor="#667085"
+                    android:textSize="13sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- MAIN STATUS CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="18dp"
             app:cardBackgroundColor="#EEF6FF"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="1dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
             app:strokeColor="#B8D8F2"
             app:strokeWidth="1dp">
 
@@ -54,7 +90,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="17dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -63,17 +99,17 @@
                     android:orientation="horizontal">
 
                     <com.google.android.material.card.MaterialCardView
-                        android:layout_width="46dp"
-                        android:layout_height="46dp"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
                         app:cardBackgroundColor="#DCECF9"
-                        app:cardCornerRadius="14dp"
+                        app:cardCornerRadius="13dp"
                         app:cardElevation="0dp">
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:gravity="center"
-                            android:text="B"
+                            android:text="✓"
                             android:textColor="#0F6CBD"
                             android:textSize="21sp"
                             android:textStyle="bold" />
@@ -83,88 +119,109 @@
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="13dp"
+                        android:layout_marginStart="12dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Backup Status"
+                            android:text="Protection Status"
                             android:textColor="#274C6B"
-                            android:textSize="18sp"
+                            android:textSize="17sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="Latest backup और storage location"
+                            android:text="Latest verified backup और saved location"
                             android:textColor="#5F7485"
                             android:textSize="12sp" />
 
                     </LinearLayout>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="#DDF2E4"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingStart="11dp"
+                            android:paddingTop="5dp"
+                            android:paddingEnd="11dp"
+                            android:paddingBottom="5dp"
+                            android:text="Protected"
+                            android:textColor="#107C10"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                    </com.google.android.material.card.MaterialCardView>
 
                 </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="15dp"
                     android:background="#C9DFEF" />
 
                 <TextView
                     android:id="@+id/txtBackupStatus"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="13dp"
                     android:gravity="start"
                     android:lineSpacingExtra="3dp"
                     android:text="Backup की स्थिति जाँची जा रही है..."
                     android:textColor="#315F83"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- DATA PROTECTION HEADING -->
+        <!-- MANUAL BACKUP HEADING -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Data Protection"
+            android:layout_marginTop="23dp"
+            android:text="Manual Backup"
             android:textColor="#242424"
-            android:textSize="19sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:text="अपने transactions और financial records को सुरक्षित रखें"
+            android:text="अभी तुरंत backup बनाएँ या पुराना backup restore करें"
             android:textColor="#707070"
             android:textSize="12sp" />
 
-        <!-- CREATE BACKUP CARD -->
+        <!-- MANUAL ACTION CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="13dp"
-            app:cardBackgroundColor="#F0FAF3"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="1dp"
-            app:strokeColor="#B4DEC0"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="#FFFFFF"
+            app:cardCornerRadius="19dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#DCE2E8"
             app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="16dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -173,9 +230,9 @@
                     android:orientation="horizontal">
 
                     <com.google.android.material.card.MaterialCardView
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        app:cardBackgroundColor="#DCF2E2"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        app:cardBackgroundColor="#E5F5E9"
                         app:cardCornerRadius="13dp"
                         app:cardElevation="0dp">
 
@@ -185,7 +242,7 @@
                             android:gravity="center"
                             android:text="＋"
                             android:textColor="#107C10"
-                            android:textSize="25sp"
+                            android:textSize="23sp"
                             android:textStyle="bold" />
 
                     </com.google.android.material.card.MaterialCardView>
@@ -193,25 +250,25 @@
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="13dp"
+                        android:layout_marginStart="12dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Create Latest Backup"
+                            android:text="Verified Local Backup"
                             android:textColor="#245C31"
-                            android:textSize="18sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:text="पुराने backup को सुरक्षित तरीके से replace करें"
-                            android:textColor="#5A7460"
-                            android:textSize="12sp" />
+                            android:layout_marginTop="2dp"
+                            android:text="Version 5 • SHA-256 • Investments included"
+                            android:textColor="#627269"
+                            android:textSize="11sp" />
 
                     </LinearLayout>
 
@@ -220,47 +277,104 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="13dp"
                     android:lineSpacingExtra="2dp"
-                    android:text="सभी transactions, accounts, categories, goals, loans, credit cards, card payments, budgets, subscriptions और recurring records का verified backup बनाया जाएगा।"
-                    android:textColor="#526B58"
-                    android:textSize="13sp" />
+                    android:text="सभी transactions, accounts, categories, expense items, goals, loans, credit cards, subscriptions और investments सुरक्षित किए जाएँगे।"
+                    android:textColor="#52615A"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCreateBackup"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="Create Backup"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="#107C10"
+                        app:cornerRadius="14dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnRestoreBackup"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="Restore"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="#C42B1C"
+                        app:cornerRadius="14dp" />
+
+                </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnCreateBackup"
+                    android:id="@+id/btnChangeBackupFolder"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
-                    android:text="Create New Backup"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="11dp"
+                    android:text="Choose or Change Backup Folder"
                     android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textColor="#0F6CBD"
+                    android:textSize="13sp"
                     android:textStyle="bold"
-                    app:backgroundTint="#107C10"
-                    app:cornerRadius="14dp" />
+                    app:cornerRadius="14dp"
+                    app:strokeColor="#9FC5E5" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- RESTORE BACKUP CARD -->
+        <!-- AUTOMATIC OFFLINE BACKUP HEADING -->
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Automatic Offline Backup"
+            android:textColor="#242424"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="चुने हुए Documents folder में scheduled verified backup"
+            android:textColor="#707070"
+            android:textSize="12sp" />
+
+        <!-- OFFLINE SETTINGS CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="13dp"
-            app:cardBackgroundColor="#FFF4F2"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="1dp"
-            app:strokeColor="#F0C1BA"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="#F2FAF4"
+            app:cardCornerRadius="19dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#B9DEC3"
             app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="16dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -269,9 +383,9 @@
                     android:orientation="horizontal">
 
                     <com.google.android.material.card.MaterialCardView
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        app:cardBackgroundColor="#F8E2DE"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        app:cardBackgroundColor="#DDF2E4"
                         app:cardCornerRadius="13dp"
                         app:cardElevation="0dp">
 
@@ -279,9 +393,9 @@
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:gravity="center"
-                            android:text="↶"
-                            android:textColor="#C42B1C"
-                            android:textSize="25sp"
+                            android:text="A"
+                            android:textColor="#107C10"
+                            android:textSize="19sp"
                             android:textStyle="bold" />
 
                     </com.google.android.material.card.MaterialCardView>
@@ -289,38 +403,560 @@
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="13dp"
+                        android:layout_marginStart="12dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Restore Latest Backup"
-                            android:textColor="#81372F"
-                            android:textSize="18sp"
+                            android:text="Offline Schedule"
+                            android:textColor="#245C31"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtOfflineScheduleStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Manual only"
+                            android:textColor="#5A7460"
+                            android:textSize="11sp" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#C8E2CF"
+                        app:strokeWidth="1dp">
+
+                        <TextView
+                            android:id="@+id/txtOfflineNextBackup"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingStart="10dp"
+                            android:paddingTop="5dp"
+                            android:paddingEnd="10dp"
+                            android:paddingBottom="5dp"
+                            android:text="Not scheduled"
+                            android:textColor="#56705D"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layoutOfflineFrequency"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:hint="Backup frequency"
+                    app:boxBackgroundColor="#FFFFFF"
+                    app:boxCornerRadiusBottomEnd="13dp"
+                    app:boxCornerRadiusBottomStart="13dp"
+                    app:boxCornerRadiusTopEnd="13dp"
+                    app:boxCornerRadiusTopStart="13dp"
+                    app:boxStrokeColor="#78A987"
+                    app:endIconMode="dropdown_menu">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/dropdownOfflineFrequency"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:importantForAutofill="no"
+                        android:inputType="none"
+                        android:text="Manual only"
+                        android:textColor="#28382D"
+                        android:textSize="14sp" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOfflineBackupTime"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="11dp"
+                    android:gravity="center_vertical"
+                    android:text="Preferred time: 02:00 AM"
+                    android:textAllCaps="false"
+                    android:textColor="#315E3D"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="13dp"
+                    app:strokeColor="#91BE9D" />
+
+                <LinearLayout
+                    android:id="@+id/groupOfflineWeeklyDay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Weekly backup day"
+                        app:boxBackgroundColor="#FFFFFF"
+                        app:boxCornerRadiusBottomEnd="13dp"
+                        app:boxCornerRadiusBottomStart="13dp"
+                        app:boxCornerRadiusTopEnd="13dp"
+                        app:boxCornerRadiusTopStart="13dp"
+                        app:boxStrokeColor="#78A987"
+                        app:endIconMode="dropdown_menu">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownOfflineWeeklyDay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:importantForAutofill="no"
+                            android:inputType="none"
+                            android:text="Sunday"
+                            android:textColor="#28382D"
+                            android:textSize="14sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/groupOfflineMonthlyDay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Monthly backup date"
+                        app:boxBackgroundColor="#FFFFFF"
+                        app:boxCornerRadiusBottomEnd="13dp"
+                        app:boxCornerRadiusBottomStart="13dp"
+                        app:boxCornerRadiusTopEnd="13dp"
+                        app:boxCornerRadiusTopStart="13dp"
+                        app:boxStrokeColor="#78A987"
+                        app:endIconMode="dropdown_menu">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownOfflineMonthlyDay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:importantForAutofill="no"
+                            android:inputType="none"
+                            android:text="1"
+                            android:textColor="#28382D"
+                            android:textSize="14sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchOfflineChargingOnly"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="13dp"
+                    android:minHeight="48dp"
+                    android:text="Backup only while charging"
+                    android:textColor="#304838"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Internet की जरूरत नहीं होगी। Backup saved folder permission का उपयोग करेगा।"
+                    android:textColor="#627269"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveOfflineSchedule"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="15dp"
+                    android:text="Save Offline Schedule"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="#107C10"
+                    app:cornerRadius="14dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ENCRYPTED CLOUD BACKUP HEADING -->
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Encrypted Cloud Backup"
+            android:textColor="#242424"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="Same Firebase account से दूसरे फोन पर encrypted restore"
+            android:textColor="#707070"
+            android:textSize="12sp" />
+
+        <!-- CLOUD ACCOUNT CARD -->
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="#F2F6FF"
+            app:cardCornerRadius="19dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#BCCDEF"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        app:cardBackgroundColor="#E0E9FA"
+                        app:cardCornerRadius="13dp"
+                        app:cardElevation="0dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="C"
+                            android:textColor="#4059A9"
+                            android:textSize="19sp"
+                            android:textStyle="bold" />
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:text="Saved backup को अपने आप खोजकर restore करें"
-                            android:textColor="#83625E"
-                            android:textSize="12sp" />
+                            android:text="Cloud Account &amp; Sync"
+                            android:textColor="#334477"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtCloudAccountStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Checking Firebase account..."
+                            android:textColor="#65719A"
+                            android:textSize="11sp" />
 
                     </LinearLayout>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#CDD7EE"
+                        app:strokeWidth="1dp">
+
+                        <TextView
+                            android:id="@+id/txtCloudBackupAvailability"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingStart="10dp"
+                            android:paddingTop="5dp"
+                            android:paddingEnd="10dp"
+                            android:paddingBottom="5dp"
+                            android:text="Not checked"
+                            android:textColor="#57658E"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                    </com.google.android.material.card.MaterialCardView>
 
                 </LinearLayout>
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    app:cardBackgroundColor="#FFF9F8"
+                    android:layout_marginTop="14dp"
+                    app:cardBackgroundColor="#FFFFFF"
                     app:cardCornerRadius="13dp"
                     app:cardElevation="0dp"
-                    app:strokeColor="#F2D4CF"
+                    app:strokeColor="#D4DDF1"
+                    app:strokeWidth="1dp">
+
+                    <TextView
+                        android:id="@+id/txtCloudBackupStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:lineSpacingExtra="2dp"
+                        android:padding="13dp"
+                        android:text="Cloud backup status अभी उपलब्ध नहीं है।"
+                        android:textColor="#53618A"
+                        android:textSize="12sp" />
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCloudAccountAction"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Open Cloud Account"
+                    android:textAllCaps="false"
+                    android:textColor="#4059A9"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="13dp"
+                    app:strokeColor="#9FB0DB" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCloudBackupNow"
+                        android:layout_width="0dp"
+                        android:layout_height="50dp"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:text="Backup Now"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="#4059A9"
+                        app:cornerRadius="13dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCloudRestore"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="50dp"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:text="Cloud Restore"
+                        android:textAllCaps="false"
+                        android:textColor="#4059A9"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="13dp"
+                        app:strokeColor="#9FB0DB" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="17dp"
+                    android:background="#D7DFF0" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="Automatic Cloud Schedule"
+                    android:textColor="#334477"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layoutCloudFrequency"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:hint="Cloud backup frequency"
+                    app:boxBackgroundColor="#FFFFFF"
+                    app:boxCornerRadiusBottomEnd="13dp"
+                    app:boxCornerRadiusBottomStart="13dp"
+                    app:boxCornerRadiusTopEnd="13dp"
+                    app:boxCornerRadiusTopStart="13dp"
+                    app:boxStrokeColor="#8196CC"
+                    app:endIconMode="dropdown_menu">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/dropdownCloudFrequency"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:importantForAutofill="no"
+                        android:inputType="none"
+                        android:text="Manual only"
+                        android:textColor="#303958"
+                        android:textSize="14sp" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCloudBackupTime"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="11dp"
+                    android:gravity="center_vertical"
+                    android:text="Preferred time: 02:00 AM"
+                    android:textAllCaps="false"
+                    android:textColor="#40517E"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="13dp"
+                    app:strokeColor="#9FB0DB" />
+
+                <LinearLayout
+                    android:id="@+id/groupCloudWeeklyDay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Weekly cloud backup day"
+                        app:boxBackgroundColor="#FFFFFF"
+                        app:boxCornerRadiusBottomEnd="13dp"
+                        app:boxCornerRadiusBottomStart="13dp"
+                        app:boxCornerRadiusTopEnd="13dp"
+                        app:boxCornerRadiusTopStart="13dp"
+                        app:boxStrokeColor="#8196CC"
+                        app:endIconMode="dropdown_menu">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownCloudWeeklyDay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:importantForAutofill="no"
+                            android:inputType="none"
+                            android:text="Sunday"
+                            android:textColor="#303958"
+                            android:textSize="14sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/groupCloudMonthlyDay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Monthly cloud backup date"
+                        app:boxBackgroundColor="#FFFFFF"
+                        app:boxCornerRadiusBottomEnd="13dp"
+                        app:boxCornerRadiusBottomStart="13dp"
+                        app:boxCornerRadiusTopEnd="13dp"
+                        app:boxCornerRadiusTopStart="13dp"
+                        app:boxStrokeColor="#8196CC"
+                        app:endIconMode="dropdown_menu">
+
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownCloudMonthlyDay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:importantForAutofill="no"
+                            android:inputType="none"
+                            android:text="1"
+                            android:textColor="#303958"
+                            android:textSize="14sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchCloudWifiOnly"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="13dp"
+                    android:checked="true"
+                    android:minHeight="48dp"
+                    android:text="Use Wi-Fi only"
+                    android:textColor="#35405F"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchCloudChargingOnly"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="Backup only while charging"
+                    android:textColor="#35405F"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveCloudSchedule"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Save Cloud Schedule"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="#4059A9"
+                    app:cornerRadius="14dp" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    app:cardBackgroundColor="#FFF9E8"
+                    app:cardCornerRadius="13dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="#E7D59B"
                     app:strokeWidth="1dp">
 
                     <TextView
@@ -328,43 +964,83 @@
                         android:layout_height="wrap_content"
                         android:lineSpacingExtra="2dp"
                         android:padding="13dp"
-                        android:text="सावधानी: Restore करने पर वर्तमान app data हट जाएगा और backup वाला data वापस आ जाएगा।"
-                        android:textColor="#A13C30"
-                        android:textSize="12sp"
+                        android:text="Recovery passphrase कभी Firebase पर upload नहीं होगी। नए फोन पर restore करते समय वही passphrase दोबारा दर्ज करनी होगी।"
+                        android:textColor="#755D18"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
 
                 </com.google.android.material.card.MaterialCardView>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnRestoreBackup"
-                    android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
-                    android:text="Check and Restore Backup"
-                    android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="#C42B1C"
-                    app:cornerRadius="14dp" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnChangeBackupFolder"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+        <!-- CLOUD DATA CONTROL -->
+
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
-            android:text="Choose or Change Backup Folder"
-            android:textAllCaps="false"
-            android:textColor="#0F6CBD"
-            android:textStyle="bold"
-            app:cornerRadius="14dp"
-            app:strokeColor="#9FC5E5" />
+            app:cardBackgroundColor="#FFF6F5"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#E9C2BD"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="15dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Cloud Data Control"
+                    android:textColor="#7A342D"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingExtra="2dp"
+                    android:text="ये actions permanent हैं और confirmation के बाद ही पूरे किए जाएँगे।"
+                    android:textColor="#8C625D"
+                    android:textSize="11sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDeleteCloudBackup"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="49dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Permanently Delete Cloud Backup"
+                    android:textAllCaps="false"
+                    android:textColor="#B3261E"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="13dp"
+                    app:strokeColor="#D9A29D" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDeleteCloudAccount"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="49dp"
+                    android:layout_marginTop="9dp"
+                    android:text="Permanently Delete Cloud Account"
+                    android:textAllCaps="false"
+                    android:textColor="#B3261E"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="13dp"
+                    app:strokeColor="#D9A29D" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- INFORMATION CARD -->
 
@@ -374,7 +1050,7 @@
             android:layout_marginTop="16dp"
             app:cardBackgroundColor="#FFFFFF"
             app:cardCornerRadius="18dp"
-            app:cardElevation="1dp"
+            app:cardElevation="0dp"
             app:strokeColor="#DCE2E8"
             app:strokeWidth="1dp">
 
@@ -387,9 +1063,9 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Backup कैसे सुरक्षित रहता है?"
+                    android:text="आपका data कैसे सुरक्षित रहेगा?"
                     android:textColor="#30343B"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -397,9 +1073,9 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:lineSpacingExtra="3dp"
-                    android:text="• Backup चुने हुए Documents folder में रहता है।&#10;• SHA-256 verification से file corruption जाँची जाती है।&#10;• नया backup verify होने के बाद ही पुराने backup को replace करता है।&#10;• App uninstall होने पर भी backup file सुरक्षित रहती है।&#10;• पुराने Backup Format v1 और v2 भी restore किए जा सकते हैं।"
+                    android:text="• Offline backup चुने हुए Documents folder में रहता है।&#10;• SHA-256 से file corruption जाँची जाती है।&#10;• नया backup verify होने के बाद ही पुराना backup replace होता है।&#10;• App uninstall होने पर offline backup file बनी रहती है।&#10;• Cloud backup device पर encrypt होने के बाद ही upload होता है।&#10;• Cloud recovery passphrase Firebase पर save नहीं होती।"
                     android:textColor="#606A76"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
 
             </LinearLayout>
 

@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.NumberPicker;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -41,21 +42,26 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 public class TransactionsActivity extends AppCompatActivity {
 
+    private static final int EARLIEST_SELECTABLE_YEAR = 2000;
+
     private static final String SORT_NEWEST =
             "Newest first";
+
     private static final String SORT_OLDEST =
             "Oldest first";
+
     private static final String SORT_AMOUNT_HIGH =
             "Amount: High to low";
+
     private static final String SORT_AMOUNT_LOW =
             "Amount: Low to high";
 
@@ -77,11 +83,17 @@ public class TransactionsActivity extends AppCompatActivity {
     private MaterialButton btnResetFilters;
     private MaterialButton btnShowFilters;
     private MaterialButton btnSortTransactions;
+
+    private MaterialButton btnPreviousTransactionMonth;
+    private MaterialButton btnNextTransactionMonth;
+
+    private View btnChooseTransactionPeriod;
     private View transactionFilterPanel;
 
     private TextView txtEmptyTransactions;
     private TextView txtResultCount;
     private TextView txtActiveFilterSummary;
+    private TextView txtSelectedTransactionPeriod;
 
     private LinearLayout transactionContainer;
 
@@ -89,20 +101,36 @@ public class TransactionsActivity extends AppCompatActivity {
 
     private final List<Transaction> allTransactions =
             new ArrayList<>();
+
     private final Map<Integer, List<ExpenseItem>>
             expenseItemsByTransaction =
             new LinkedHashMap<>();
 
     private Calendar filterStartDate;
     private Calendar filterEndDate;
-    private String selectedSort = SORT_NEWEST;
+
+    private final Calendar selectedTransactionPeriod =
+            Calendar.getInstance();
+
+    private int lastObservedCurrentYear;
+    private int lastObservedCurrentMonth;
+
+    private String selectedSort =
+            SORT_NEWEST;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(
+            Bundle savedInstanceState
+    ) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_transactions);
 
+        setContentView(
+                R.layout.activity_transactions
+        );
+
+        initializeSelectedTransactionPeriod();
         bindViews();
+        setupMonthYearSelector();
         setupFilters();
 
         transactionRepository =
@@ -115,6 +143,8 @@ public class TransactionsActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
+        resetToCurrentMonthWhenCalendarMonthChanges();
+
         if (transactionRepository != null) {
             loadTransactions();
         }
@@ -122,28 +152,44 @@ public class TransactionsActivity extends AppCompatActivity {
 
     private void bindViews() {
         TextView btnBack =
-                findViewById(R.id.btnBack);
+                findViewById(
+                        R.id.btnBack
+                );
 
         etSearchTransactions =
-                findViewById(R.id.etSearchTransactions);
+                findViewById(
+                        R.id.etSearchTransactions
+                );
 
         etMinAmount =
-                findViewById(R.id.etMinAmount);
+                findViewById(
+                        R.id.etMinAmount
+                );
 
         etMaxAmount =
-                findViewById(R.id.etMaxAmount);
+                findViewById(
+                        R.id.etMaxAmount
+                );
 
         etFromDate =
-                findViewById(R.id.etFromDate);
+                findViewById(
+                        R.id.etFromDate
+                );
 
         etToDate =
-                findViewById(R.id.etToDate);
+                findViewById(
+                        R.id.etToDate
+                );
 
         inputMinAmount =
-                findViewById(R.id.inputMinAmount);
+                findViewById(
+                        R.id.inputMinAmount
+                );
 
         inputMaxAmount =
-                findViewById(R.id.inputMaxAmount);
+                findViewById(
+                        R.id.inputMaxAmount
+                );
 
         dropdownTransactionType =
                 findViewById(
@@ -166,10 +212,14 @@ public class TransactionsActivity extends AppCompatActivity {
                 );
 
         btnApplyFilters =
-                findViewById(R.id.btnApplyFilters);
+                findViewById(
+                        R.id.btnApplyFilters
+                );
 
         btnResetFilters =
-                findViewById(R.id.btnResetFilters);
+                findViewById(
+                        R.id.btnResetFilters
+                );
 
         btnShowFilters =
                 findViewById(
@@ -192,11 +242,33 @@ public class TransactionsActivity extends AppCompatActivity {
                 );
 
         txtResultCount =
-                findViewById(R.id.txtResultCount);
+                findViewById(
+                        R.id.txtResultCount
+                );
 
         txtActiveFilterSummary =
                 findViewById(
                         R.id.txtActiveFilterSummary
+                );
+
+        txtSelectedTransactionPeriod =
+                findViewById(
+                        R.id.txtSelectedTransactionPeriod
+                );
+
+        btnPreviousTransactionMonth =
+                findViewById(
+                        R.id.btnPreviousTransactionMonth
+                );
+
+        btnNextTransactionMonth =
+                findViewById(
+                        R.id.btnNextTransactionMonth
+                );
+
+        btnChooseTransactionPeriod =
+                findViewById(
+                        R.id.btnChooseTransactionPeriod
                 );
 
         transactionContainer =
@@ -206,6 +278,579 @@ public class TransactionsActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(
                 view -> finish()
+        );
+    }
+
+    private void initializeSelectedTransactionPeriod() {
+        Calendar current =
+                Calendar.getInstance();
+
+        lastObservedCurrentYear =
+                current.get(Calendar.YEAR);
+
+        lastObservedCurrentMonth =
+                current.get(Calendar.MONTH);
+
+        setCalendarToMonth(
+                selectedTransactionPeriod,
+                lastObservedCurrentYear,
+                lastObservedCurrentMonth
+        );
+    }
+
+    private void setupMonthYearSelector() {
+        updateSelectedPeriodUi();
+
+        BubbleTouchAnimator.apply(
+                btnPreviousTransactionMonth
+        );
+
+        BubbleTouchAnimator.apply(
+                btnNextTransactionMonth
+        );
+
+        BubbleTouchAnimator.apply(
+                btnChooseTransactionPeriod
+        );
+
+        btnPreviousTransactionMonth
+                .setOnClickListener(
+                        view -> changeSelectedMonth(-1)
+                );
+
+        btnNextTransactionMonth
+                .setOnClickListener(
+                        view -> changeSelectedMonth(1)
+                );
+
+        btnChooseTransactionPeriod
+                .setOnClickListener(
+                        view -> showMonthYearPicker()
+                );
+    }
+
+    private void changeSelectedMonth(
+            int monthChange
+    ) {
+        Calendar requestedPeriod =
+                copyMonth(
+                        selectedTransactionPeriod
+                );
+
+        requestedPeriod.add(
+                Calendar.MONTH,
+                monthChange
+        );
+
+        if (isAfterCurrentMonth(
+                requestedPeriod
+        )) {
+            Toast.makeText(
+                    this,
+                    "Future month cannot be selected",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
+        }
+
+        if (requestedPeriod.get(
+                Calendar.YEAR
+        ) < EARLIEST_SELECTABLE_YEAR) {
+            Toast.makeText(
+                    this,
+                    "No earlier period is available",
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
+        }
+
+        setCalendarToMonth(
+                selectedTransactionPeriod,
+                requestedPeriod.get(
+                        Calendar.YEAR
+                ),
+                requestedPeriod.get(
+                        Calendar.MONTH
+                )
+        );
+
+        applySelectedMonthScope();
+    }
+
+    private void showMonthYearPicker() {
+        Calendar current =
+                Calendar.getInstance();
+
+        LinearLayout pickerContainer =
+                new LinearLayout(this);
+
+        pickerContainer.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        pickerContainer.setGravity(
+                Gravity.CENTER
+        );
+
+        pickerContainer.setPadding(
+                dp(18),
+                dp(8),
+                dp(18),
+                dp(8)
+        );
+
+        NumberPicker monthPicker =
+                new NumberPicker(this);
+
+        monthPicker.setMinValue(0);
+        monthPicker.setMaxValue(11);
+
+        monthPicker.setDisplayedValues(
+                createMonthNames(11)
+        );
+
+        monthPicker.setValue(
+                selectedTransactionPeriod.get(
+                        Calendar.MONTH
+                )
+        );
+
+        monthPicker.setWrapSelectorWheel(
+                false
+        );
+
+        NumberPicker yearPicker =
+                new NumberPicker(this);
+
+        yearPicker.setMinValue(
+                EARLIEST_SELECTABLE_YEAR
+        );
+
+        yearPicker.setMaxValue(
+                current.get(Calendar.YEAR)
+        );
+
+        yearPicker.setValue(
+                selectedTransactionPeriod.get(
+                        Calendar.YEAR
+                )
+        );
+
+        yearPicker.setWrapSelectorWheel(
+                false
+        );
+
+        LinearLayout.LayoutParams monthParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1.35f
+                );
+
+        LinearLayout.LayoutParams yearParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f
+                );
+
+        monthPicker.setLayoutParams(
+                monthParams
+        );
+
+        yearPicker.setLayoutParams(
+                yearParams
+        );
+
+        pickerContainer.addView(
+                monthPicker
+        );
+
+        pickerContainer.addView(
+                yearPicker
+        );
+
+        updateMonthPickerMaximum(
+                monthPicker,
+                yearPicker.getValue(),
+                current
+        );
+
+        yearPicker.setOnValueChangedListener(
+                (picker, oldValue, newValue) ->
+                        updateMonthPickerMaximum(
+                                monthPicker,
+                                newValue,
+                                current
+                        )
+        );
+
+        new AlertDialog.Builder(this)
+                .setTitle(
+                        "Choose Month and Year"
+                )
+                .setView(
+                        pickerContainer
+                )
+                .setNegativeButton(
+                        "Cancel",
+                        null
+                )
+                .setPositiveButton(
+                        "Apply",
+                        (dialog, which) -> {
+                            setCalendarToMonth(
+                                    selectedTransactionPeriod,
+                                    yearPicker.getValue(),
+                                    monthPicker.getValue()
+                            );
+
+                            applySelectedMonthScope();
+                        }
+                )
+                .show();
+    }
+
+    private void updateMonthPickerMaximum(
+            NumberPicker monthPicker,
+            int selectedYear,
+            Calendar current
+    ) {
+        int maximumMonth =
+                selectedYear
+                        == current.get(Calendar.YEAR)
+                        ? current.get(Calendar.MONTH)
+                        : Calendar.DECEMBER;
+
+        int currentValue =
+                monthPicker.getValue();
+
+        monthPicker.setDisplayedValues(
+                null
+        );
+
+        monthPicker.setMaxValue(
+                maximumMonth
+        );
+
+        monthPicker.setDisplayedValues(
+                createMonthNames(
+                        maximumMonth
+                )
+        );
+
+        if (currentValue > maximumMonth) {
+            monthPicker.setValue(
+                    maximumMonth
+            );
+        }
+    }
+
+    private String[] createMonthNames(
+            int maximumMonth
+    ) {
+        String[] allMonths = {
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December"
+        };
+
+        String[] availableMonths =
+                new String[
+                        maximumMonth + 1
+                        ];
+
+        System.arraycopy(
+                allMonths,
+                0,
+                availableMonths,
+                0,
+                availableMonths.length
+        );
+
+        return availableMonths;
+    }
+
+    private void applySelectedMonthScope() {
+        filterStartDate = null;
+        filterEndDate = null;
+
+        updateDateFields();
+
+        dropdownTransactionPeriod.setText(
+                "Selected Month",
+                false
+        );
+
+        updateSelectedPeriodUi();
+        filterTransactions();
+    }
+
+    private void resetSelectedPeriodToCurrentMonth() {
+        Calendar current =
+                Calendar.getInstance();
+
+        setCalendarToMonth(
+                selectedTransactionPeriod,
+                current.get(Calendar.YEAR),
+                current.get(Calendar.MONTH)
+        );
+
+        lastObservedCurrentYear =
+                current.get(Calendar.YEAR);
+
+        lastObservedCurrentMonth =
+                current.get(Calendar.MONTH);
+
+        updateSelectedPeriodUi();
+    }
+
+    private void resetToCurrentMonthWhenCalendarMonthChanges() {
+        Calendar current =
+                Calendar.getInstance();
+
+        int currentYear =
+                current.get(Calendar.YEAR);
+
+        int currentMonth =
+                current.get(Calendar.MONTH);
+
+        boolean monthChanged =
+                currentYear
+                        != lastObservedCurrentYear
+                        || currentMonth
+                        != lastObservedCurrentMonth;
+
+        if (!monthChanged) {
+            return;
+        }
+
+        lastObservedCurrentYear =
+                currentYear;
+
+        lastObservedCurrentMonth =
+                currentMonth;
+
+        setCalendarToMonth(
+                selectedTransactionPeriod,
+                currentYear,
+                currentMonth
+        );
+
+        filterStartDate = null;
+        filterEndDate = null;
+
+        updateDateFields();
+
+        if (dropdownTransactionPeriod != null) {
+            dropdownTransactionPeriod.setText(
+                    "Selected Month",
+                    false
+            );
+        }
+
+        updateSelectedPeriodUi();
+    }
+
+    private void updateSelectedPeriodUi() {
+        if (txtSelectedTransactionPeriod == null) {
+            return;
+        }
+
+        String selectedScope =
+                dropdownTransactionPeriod == null
+                        ? "Selected Month"
+                        : getSelectedText(
+                        dropdownTransactionPeriod,
+                        "Selected Month"
+                );
+
+        String visiblePeriod;
+
+        if ("All Time".equals(selectedScope)) {
+            visiblePeriod =
+                    "All Time";
+
+        } else if ("Selected Year".equals(
+                selectedScope
+        )) {
+            visiblePeriod =
+                    String.valueOf(
+                            selectedTransactionPeriod.get(
+                                    Calendar.YEAR
+                            )
+                    );
+
+        } else if ("Today".equals(
+                selectedScope
+        )) {
+            visiblePeriod =
+                    "Today";
+
+        } else if ("This Week".equals(
+                selectedScope
+        )) {
+            visiblePeriod =
+                    "This Week";
+
+        } else {
+            visiblePeriod =
+                    formatMonthYear(
+                            selectedTransactionPeriod
+                    );
+        }
+
+        txtSelectedTransactionPeriod.setText(
+                visiblePeriod
+        );
+
+        boolean canMoveForward =
+                !isCurrentMonth(
+                        selectedTransactionPeriod
+                );
+
+        btnNextTransactionMonth.setEnabled(
+                canMoveForward
+        );
+
+        btnNextTransactionMonth.setAlpha(
+                canMoveForward
+                        ? 1f
+                        : 0.42f
+        );
+
+        boolean canMoveBackward =
+                selectedTransactionPeriod.get(
+                        Calendar.YEAR
+                ) > EARLIEST_SELECTABLE_YEAR
+                        || selectedTransactionPeriod.get(
+                        Calendar.MONTH
+                ) > Calendar.JANUARY;
+
+        btnPreviousTransactionMonth.setEnabled(
+                canMoveBackward
+        );
+
+        btnPreviousTransactionMonth.setAlpha(
+                canMoveBackward
+                        ? 1f
+                        : 0.42f
+        );
+    }
+
+    private String formatMonthYear(
+            Calendar calendar
+    ) {
+        return new SimpleDateFormat(
+                "MMMM yyyy",
+                Locale.ENGLISH
+        ).format(
+                calendar.getTime()
+        );
+    }
+
+    private boolean isCurrentMonth(
+            Calendar calendar
+    ) {
+        Calendar current =
+                Calendar.getInstance();
+
+        return calendar.get(Calendar.YEAR)
+                == current.get(Calendar.YEAR)
+                && calendar.get(Calendar.MONTH)
+                == current.get(Calendar.MONTH);
+    }
+
+    private boolean isAfterCurrentMonth(
+            Calendar calendar
+    ) {
+        Calendar current =
+                Calendar.getInstance();
+
+        int requestedValue =
+                calendar.get(Calendar.YEAR)
+                        * 12
+                        + calendar.get(
+                        Calendar.MONTH
+                );
+
+        int currentValue =
+                current.get(Calendar.YEAR)
+                        * 12
+                        + current.get(
+                        Calendar.MONTH
+                );
+
+        return requestedValue
+                > currentValue;
+    }
+
+    private Calendar copyMonth(
+            Calendar source
+    ) {
+        Calendar copy =
+                Calendar.getInstance();
+
+        setCalendarToMonth(
+                copy,
+                source.get(Calendar.YEAR),
+                source.get(Calendar.MONTH)
+        );
+
+        return copy;
+    }
+
+    private void setCalendarToMonth(
+            Calendar calendar,
+            int year,
+            int month
+    ) {
+        calendar.clear();
+
+        calendar.set(
+                Calendar.YEAR,
+                year
+        );
+
+        calendar.set(
+                Calendar.MONTH,
+                month
+        );
+
+        calendar.set(
+                Calendar.DAY_OF_MONTH,
+                1
+        );
+
+        calendar.set(
+                Calendar.HOUR_OF_DAY,
+                0
+        );
+
+        calendar.set(
+                Calendar.MINUTE,
+                0
+        );
+
+        calendar.set(
+                Calendar.SECOND,
+                0
+        );
+
+        calendar.set(
+                Calendar.MILLISECOND,
+                0
         );
     }
 
@@ -240,13 +885,13 @@ public class TransactionsActivity extends AppCompatActivity {
         setDropdownItems(
                 dropdownTransactionPeriod,
                 new String[]{
+                        "Selected Month",
+                        "Selected Year",
                         "All Time",
                         "Today",
-                        "This Week",
-                        "This Month",
-                        "This Year"
+                        "This Week"
                 },
-                "All Time"
+                "Selected Month"
         );
 
         dropdownTransactionType
@@ -269,8 +914,10 @@ public class TransactionsActivity extends AppCompatActivity {
 
         dropdownTransactionPeriod
                 .setOnItemClickListener(
-                        (parent, view, position, id) ->
-                                filterTransactions()
+                        (parent, view, position, id) -> {
+                            updateSelectedPeriodUi();
+                            filterTransactions();
+                        }
                 );
 
         etSearchTransactions.addTextChangedListener(
@@ -321,9 +968,18 @@ public class TransactionsActivity extends AppCompatActivity {
                 view -> resetAllFilters()
         );
 
-        BubbleTouchAnimator.apply(btnApplyFilters);
-        BubbleTouchAnimator.apply(btnResetFilters);
-        BubbleTouchAnimator.apply(btnShowFilters);
+        BubbleTouchAnimator.apply(
+                btnApplyFilters
+        );
+
+        BubbleTouchAnimator.apply(
+                btnResetFilters
+        );
+
+        BubbleTouchAnimator.apply(
+                btnShowFilters
+        );
+
         BubbleTouchAnimator.apply(
                 btnSortTransactions
         );
@@ -341,7 +997,9 @@ public class TransactionsActivity extends AppCompatActivity {
         );
     }
 
-    private void setFilterPanelExpanded(boolean expanded) {
+    private void setFilterPanelExpanded(
+            boolean expanded
+    ) {
         transactionFilterPanel.setVisibility(
                 expanded
                         ? View.VISIBLE
@@ -385,17 +1043,21 @@ public class TransactionsActivity extends AppCompatActivity {
             activeFilters++;
         }
 
-        if (!"All Time".equals(
+        if (!"Selected Month".equals(
                 getSelectedText(
                         dropdownTransactionPeriod,
-                        "All Time"
+                        "Selected Month"
                 )
         )) {
             activeFilters++;
         }
 
-        if (!getText(etMinAmount).isEmpty()
-                || !getText(etMaxAmount).isEmpty()) {
+        if (!getText(
+                etMinAmount
+        ).isEmpty()
+                || !getText(
+                etMaxAmount
+        ).isEmpty()) {
             activeFilters++;
         }
 
@@ -412,13 +1074,16 @@ public class TransactionsActivity extends AppCompatActivity {
                 getActiveFilterCount();
 
         boolean hasCustomSort =
-                !SORT_NEWEST.equals(selectedSort);
+                !SORT_NEWEST.equals(
+                        selectedSort
+                );
 
         if (activeFilters == 0
                 && !hasCustomSort) {
             txtActiveFilterSummary.setVisibility(
                     View.GONE
             );
+
             return;
         }
 
@@ -426,33 +1091,44 @@ public class TransactionsActivity extends AppCompatActivity {
                 new StringBuilder();
 
         if (activeFilters > 0) {
-            summary.append(activeFilters)
-                    .append(
-                            activeFilters == 1
-                                    ? " filter applied"
-                                    : " filters applied"
-                    );
+            summary.append(
+                    activeFilters
+            ).append(
+                    activeFilters == 1
+                            ? " filter applied"
+                            : " filters applied"
+            );
         }
 
         if (hasCustomSort) {
             if (summary.length() > 0) {
-                summary.append("  •  ");
+                summary.append(
+                        "  •  "
+                );
             }
 
-            summary.append(selectedSort);
+            summary.append(
+                    selectedSort
+            );
         }
 
         txtActiveFilterSummary.setText(
                 summary.toString()
         );
+
         txtActiveFilterSummary.setVisibility(
                 View.VISIBLE
         );
     }
 
-    private void showSortMenu(View anchor) {
+    private void showSortMenu(
+            View anchor
+    ) {
         PopupMenu sortMenu =
-                new PopupMenu(this, anchor);
+                new PopupMenu(
+                        this,
+                        anchor
+                );
 
         String[] options = {
                 SORT_NEWEST,
@@ -477,7 +1153,9 @@ public class TransactionsActivity extends AppCompatActivity {
                     selectedSort =
                             item.getTitle()
                                     .toString();
+
                     filterTransactions();
+
                     return true;
                 }
         );
@@ -497,8 +1175,14 @@ public class TransactionsActivity extends AppCompatActivity {
                         items
                 );
 
-        dropdown.setAdapter(adapter);
-        dropdown.setText(selectedItem, false);
+        dropdown.setAdapter(
+                adapter
+        );
+
+        dropdown.setText(
+                selectedItem,
+                false
+        );
     }
 
     private void loadTransactions() {
@@ -521,43 +1205,49 @@ public class TransactionsActivity extends AppCompatActivity {
                             .expenseItemDao()
                             .getAllExpenseItems();
 
-            Map<Integer, List<ExpenseItem>> groupedItems =
+            Map<Integer, List<ExpenseItem>>
+                    groupedItems =
                     new LinkedHashMap<>();
 
-            for (ExpenseItem item : expenseItems) {
-                List<ExpenseItem> items =
-                        groupedItems.get(
-                                item.getTransactionId()
-                        );
+            if (expenseItems != null) {
+                for (ExpenseItem item :
+                        expenseItems) {
+                    List<ExpenseItem> items =
+                            groupedItems.get(
+                                    item.getTransactionId()
+                            );
 
-                if (items == null) {
-                    items = new ArrayList<>();
-                    groupedItems.put(
-                            item.getTransactionId(),
-                            items
-                    );
-                }
+                    if (items == null) {
+                        items =
+                                new ArrayList<>();
 
-                items.add(item);
-            }
-
-            runOnUiThread(() -> {
-                    allTransactions.clear();
-                    expenseItemsByTransaction.clear();
-
-                    if (transactions != null) {
-                        allTransactions.addAll(
-                                transactions
+                        groupedItems.put(
+                                item.getTransactionId(),
+                                items
                         );
                     }
 
-                    expenseItemsByTransaction.putAll(
-                            groupedItems
-                    );
+                    items.add(item);
+                }
+            }
 
-                    updateCategoryFilterOptions();
-                    updateAccountFilterOptions();
-                    filterTransactions();
+            runOnUiThread(() -> {
+                allTransactions.clear();
+                expenseItemsByTransaction.clear();
+
+                if (transactions != null) {
+                    allTransactions.addAll(
+                            transactions
+                    );
+                }
+
+                expenseItemsByTransaction.putAll(
+                        groupedItems
+                );
+
+                updateCategoryFilterOptions();
+                updateAccountFilterOptions();
+                filterTransactions();
             });
         }).start();
     }
@@ -572,23 +1262,28 @@ public class TransactionsActivity extends AppCompatActivity {
         Set<String> categorySet =
                 new LinkedHashSet<>();
 
-        categorySet.add("All Categories");
+        categorySet.add(
+                "All Categories"
+        );
 
         for (Transaction transaction :
                 allTransactions) {
-
             String category =
                     safeText(
                             transaction.getCategory()
                     );
 
             if (!category.isEmpty()) {
-                categorySet.add(category);
+                categorySet.add(
+                        category
+                );
             }
         }
 
         List<String> categoryList =
-                new ArrayList<>(categorySet);
+                new ArrayList<>(
+                        categorySet
+                );
 
         ArrayAdapter<String> adapter =
                 new ArrayAdapter<>(
@@ -608,6 +1303,7 @@ public class TransactionsActivity extends AppCompatActivity {
                     selectedCategory,
                     false
             );
+
         } else {
             dropdownTransactionCategory.setText(
                     "All Categories",
@@ -626,23 +1322,28 @@ public class TransactionsActivity extends AppCompatActivity {
         Set<String> accountSet =
                 new LinkedHashSet<>();
 
-        accountSet.add("All Accounts");
+        accountSet.add(
+                "All Accounts"
+        );
 
         for (Transaction transaction :
                 allTransactions) {
-
             String account =
                     safeText(
                             transaction.getAccount()
                     );
 
             if (!account.isEmpty()) {
-                accountSet.add(account);
+                accountSet.add(
+                        account
+                );
             }
         }
 
         List<String> accountList =
-                new ArrayList<>(accountSet);
+                new ArrayList<>(
+                        accountSet
+                );
 
         ArrayAdapter<String> adapter =
                 new ArrayAdapter<>(
@@ -662,6 +1363,7 @@ public class TransactionsActivity extends AppCompatActivity {
                     selectedAccount,
                     false
             );
+
         } else {
             dropdownTransactionAccount.setText(
                     "All Accounts",
@@ -676,13 +1378,18 @@ public class TransactionsActivity extends AppCompatActivity {
         Calendar calendar;
 
         if (isFromDate) {
-            calendar = filterStartDate == null
-                    ? Calendar.getInstance()
-                    : (Calendar) filterStartDate.clone();
+            calendar =
+                    filterStartDate == null
+                            ? Calendar.getInstance()
+                            : (Calendar)
+                            filterStartDate.clone();
+
         } else {
-            calendar = filterEndDate == null
-                    ? Calendar.getInstance()
-                    : (Calendar) filterEndDate.clone();
+            calendar =
+                    filterEndDate == null
+                            ? Calendar.getInstance()
+                            : (Calendar)
+                            filterEndDate.clone();
         }
 
         DatePickerDialog dialog =
@@ -698,11 +1405,14 @@ public class TransactionsActivity extends AppCompatActivity {
                                     dayOfMonth
                             );
 
-                            clearTime(selectedDate);
+                            clearTime(
+                                    selectedDate
+                            );
 
                             if (isFromDate) {
                                 filterStartDate =
                                         selectedDate;
+
                             } else {
                                 filterEndDate =
                                         selectedDate;
@@ -711,8 +1421,12 @@ public class TransactionsActivity extends AppCompatActivity {
                             updateDateFields();
                             filterTransactions();
                         },
-                        calendar.get(Calendar.YEAR),
-                        calendar.get(Calendar.MONTH),
+                        calendar.get(
+                                Calendar.YEAR
+                        ),
+                        calendar.get(
+                                Calendar.MONTH
+                        ),
                         calendar.get(
                                 Calendar.DAY_OF_MONTH
                         )
@@ -765,13 +1479,17 @@ public class TransactionsActivity extends AppCompatActivity {
         );
 
         dropdownTransactionPeriod.setText(
-                "All Time",
+                "Selected Month",
                 false
         );
 
+        resetSelectedPeriodToCurrentMonth();
+
         inputMinAmount.setError(null);
         inputMaxAmount.setError(null);
-        selectedSort = SORT_NEWEST;
+
+        selectedSort =
+                SORT_NEWEST;
 
         filterTransactions();
     }
@@ -795,14 +1513,12 @@ public class TransactionsActivity extends AppCompatActivity {
 
         if (minAmount == null
                 || maxAmount == null) {
-
             return;
         }
 
         if (minAmount >= 0
                 && maxAmount >= 0
                 && minAmount > maxAmount) {
-
             inputMaxAmount.setError(
                     "Maximum amount must be greater than minimum amount"
             );
@@ -815,7 +1531,6 @@ public class TransactionsActivity extends AppCompatActivity {
                 && filterStartDate.after(
                 filterEndDate
         )) {
-
             Toast.makeText(
                     this,
                     "From date cannot be after To date",
@@ -831,10 +1546,11 @@ public class TransactionsActivity extends AppCompatActivity {
         transactionContainer.removeAllViews();
 
         String searchText =
-                getText(etSearchTransactions)
-                        .toLowerCase(
-                                Locale.getDefault()
-                        );
+                getText(
+                        etSearchTransactions
+                ).toLowerCase(
+                        Locale.getDefault()
+                );
 
         String typeFilter =
                 getSelectedText(
@@ -857,7 +1573,7 @@ public class TransactionsActivity extends AppCompatActivity {
         String periodFilter =
                 getSelectedText(
                         dropdownTransactionPeriod,
-                        "All Time"
+                        "Selected Month"
                 );
 
         List<Transaction> visibleTransactions =
@@ -865,7 +1581,6 @@ public class TransactionsActivity extends AppCompatActivity {
 
         for (Transaction transaction :
                 allTransactions) {
-
             boolean visible =
                     matchesTypeFilter(
                             transaction,
@@ -903,11 +1618,15 @@ public class TransactionsActivity extends AppCompatActivity {
             }
         }
 
-        sortTransactions(visibleTransactions);
+        sortTransactions(
+                visibleTransactions
+        );
 
         for (Transaction transaction :
                 visibleTransactions) {
-            addTransactionCard(transaction);
+            addTransactionCard(
+                    transaction
+            );
         }
 
         int visibleCount =
@@ -919,7 +1638,10 @@ public class TransactionsActivity extends AppCompatActivity {
                         : visibleCount
                           + " transactions found";
 
-        txtResultCount.setText(resultText);
+        txtResultCount.setText(
+                resultText
+        );
+
         updateFilterSummary();
 
         txtEmptyTransactions.setVisibility(
@@ -954,9 +1676,14 @@ public class TransactionsActivity extends AppCompatActivity {
                     }
 
                     long firstTime =
-                            getTransactionTime(first);
+                            getTransactionTime(
+                                    first
+                            );
+
                     long secondTime =
-                            getTransactionTime(second);
+                            getTransactionTime(
+                                    second
+                            );
 
                     if (SORT_OLDEST.equals(
                             selectedSort
@@ -993,10 +1720,13 @@ public class TransactionsActivity extends AppCompatActivity {
             TextInputLayout inputLayout
     ) {
         String amountText =
-                getText(editText);
+                getText(
+                        editText
+                );
 
         if (amountText.isEmpty()) {
             inputLayout.setError(null);
+
             return -1.0;
         }
 
@@ -1015,6 +1745,7 @@ public class TransactionsActivity extends AppCompatActivity {
             }
 
             inputLayout.setError(null);
+
             return amount;
 
         } catch (Exception exception) {
@@ -1040,19 +1771,25 @@ public class TransactionsActivity extends AppCompatActivity {
         if (typeFilter.equals(
                 "Income Only"
         )) {
-            return type.equals("INCOME");
+            return type.equals(
+                    "INCOME"
+            );
         }
 
         if (typeFilter.equals(
                 "Expense Only"
         )) {
-            return type.equals("EXPENSE");
+            return type.equals(
+                    "EXPENSE"
+            );
         }
 
         if (typeFilter.equals(
                 "Transfers Only"
         )) {
-            return type.equals("TRANSFER_IN")
+            return type.equals(
+                    "TRANSFER_IN"
+            )
                     || type.equals(
                     "TRANSFER_OUT"
             );
@@ -1099,12 +1836,6 @@ public class TransactionsActivity extends AppCompatActivity {
             Transaction transaction,
             String periodFilter
     ) {
-        if (periodFilter.equals(
-                "All Time"
-        )) {
-            return true;
-        }
-
         Calendar transactionDate =
                 parseTransactionDate(
                         safeText(
@@ -1116,13 +1847,51 @@ public class TransactionsActivity extends AppCompatActivity {
             return false;
         }
 
+        clearTime(
+                transactionDate
+        );
+
+        if (periodFilter.equals(
+                "All Time"
+        )) {
+            return true;
+        }
+
+        if (periodFilter.equals(
+                "Selected Month"
+        )) {
+            return transactionDate.get(
+                    Calendar.YEAR
+            ) == selectedTransactionPeriod.get(
+                    Calendar.YEAR
+            )
+                    && transactionDate.get(
+                    Calendar.MONTH
+            ) == selectedTransactionPeriod.get(
+                    Calendar.MONTH
+            );
+        }
+
+        if (periodFilter.equals(
+                "Selected Year"
+        )) {
+            return transactionDate.get(
+                    Calendar.YEAR
+            ) == selectedTransactionPeriod.get(
+                    Calendar.YEAR
+            );
+        }
+
         Calendar today =
                 Calendar.getInstance();
 
-        clearTime(today);
-        clearTime(transactionDate);
+        clearTime(
+                today
+        );
 
-        if (periodFilter.equals("Today")) {
+        if (periodFilter.equals(
+                "Today"
+        )) {
             return transactionDate.get(
                     Calendar.YEAR
             ) == today.get(
@@ -1132,38 +1901,15 @@ public class TransactionsActivity extends AppCompatActivity {
                     Calendar.DAY_OF_YEAR
             ) == today.get(
                     Calendar.DAY_OF_YEAR
-            );
-        }
-
-        if (periodFilter.equals(
-                "This Month"
-        )) {
-            return transactionDate.get(
-                    Calendar.YEAR
-            ) == today.get(
-                    Calendar.YEAR
-            )
-                    && transactionDate.get(
-                    Calendar.MONTH
-            ) == today.get(
-                    Calendar.MONTH
-            );
-        }
-
-        if (periodFilter.equals(
-                "This Year"
-        )) {
-            return transactionDate.get(
-                    Calendar.YEAR
-            ) == today.get(
-                    Calendar.YEAR
             );
         }
 
         Calendar weekStart =
                 Calendar.getInstance();
 
-        clearTime(weekStart);
+        clearTime(
+                weekStart
+        );
 
         weekStart.setFirstDayOfWeek(
                 Calendar.MONDAY
@@ -1187,7 +1933,8 @@ public class TransactionsActivity extends AppCompatActivity {
         );
 
         Calendar weekEnd =
-                (Calendar) weekStart.clone();
+                (Calendar)
+                        weekStart.clone();
 
         weekEnd.add(
                 Calendar.DAY_OF_MONTH,
@@ -1207,7 +1954,6 @@ public class TransactionsActivity extends AppCompatActivity {
     ) {
         if (filterStartDate == null
                 && filterEndDate == null) {
-
             return true;
         }
 
@@ -1222,13 +1968,14 @@ public class TransactionsActivity extends AppCompatActivity {
             return false;
         }
 
-        clearTime(transactionDate);
+        clearTime(
+                transactionDate
+        );
 
         if (filterStartDate != null
                 && transactionDate.before(
                 filterStartDate
         )) {
-
             return false;
         }
 
@@ -1236,7 +1983,6 @@ public class TransactionsActivity extends AppCompatActivity {
                 && transactionDate.after(
                 filterEndDate
         )) {
-
             return false;
         }
 
@@ -1253,13 +1999,11 @@ public class TransactionsActivity extends AppCompatActivity {
 
         if (minAmount >= 0
                 && amount < minAmount) {
-
             return false;
         }
 
         if (maxAmount >= 0
                 && amount > maxAmount) {
-
             return false;
         }
 
@@ -1308,7 +2052,8 @@ public class TransactionsActivity extends AppCompatActivity {
                             combinedText
                     );
 
-            for (ExpenseItem item : items) {
+            for (ExpenseItem item :
+                    items) {
                 itemText.append(' ')
                         .append(
                                 safeText(
@@ -1323,14 +2068,17 @@ public class TransactionsActivity extends AppCompatActivity {
                         );
             }
 
-            combinedText = itemText.toString();
+            combinedText =
+                    itemText.toString();
         }
 
         return combinedText
                 .toLowerCase(
                         Locale.getDefault()
                 )
-                .contains(searchText);
+                .contains(
+                        searchText
+                );
     }
 
     private Calendar parseTransactionDate(
@@ -1341,13 +2089,16 @@ public class TransactionsActivity extends AppCompatActivity {
                 "yyyy-MM-dd"
         };
 
-        for (String format : formats) {
+        for (String format :
+                formats) {
             try {
                 Date parsedDate =
                         new SimpleDateFormat(
                                 format,
                                 Locale.US
-                        ).parse(dateText);
+                        ).parse(
+                                dateText
+                        );
 
                 if (parsedDate != null) {
                     Calendar calendar =
@@ -1385,8 +2136,13 @@ public class TransactionsActivity extends AppCompatActivity {
                 )
         );
 
-        card.setRadius(dp(19));
-        card.setCardElevation(dp(1));
+        card.setRadius(
+                dp(19)
+        );
+
+        card.setCardElevation(
+                dp(1)
+        );
 
         card.setStrokeColor(
                 createTranslucentColor(
@@ -1395,7 +2151,10 @@ public class TransactionsActivity extends AppCompatActivity {
                 )
         );
 
-        card.setStrokeWidth(dp(1));
+        card.setStrokeWidth(
+                dp(1)
+        );
+
         card.setClickable(true);
         card.setFocusable(true);
 
@@ -1421,7 +2180,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 dp(6)
         );
 
-        card.setLayoutParams(cardParams);
+        card.setLayoutParams(
+                cardParams
+        );
 
         LinearLayout content =
                 new LinearLayout(this);
@@ -1523,10 +2284,17 @@ public class TransactionsActivity extends AppCompatActivity {
                 accountParams
         );
 
-        titleContainer.addView(txtTitle);
-        titleContainer.addView(txtAccount);
+        titleContainer.addView(
+                txtTitle
+        );
 
-        topRow.addView(titleContainer);
+        titleContainer.addView(
+                txtAccount
+        );
+
+        topRow.addView(
+                titleContainer
+        );
 
         LinearLayout amountContainer =
                 new LinearLayout(this);
@@ -1564,7 +2332,10 @@ public class TransactionsActivity extends AppCompatActivity {
                         true
                 );
 
-        txtAmount.setGravity(Gravity.END);
+        txtAmount.setGravity(
+                Gravity.END
+        );
+
         txtAmount.setMaxLines(1);
 
         LinearLayout.LayoutParams amountParams =
@@ -1592,9 +2363,13 @@ public class TransactionsActivity extends AppCompatActivity {
                 txtAmount
         );
 
-        topRow.addView(amountContainer);
+        topRow.addView(
+                amountContainer
+        );
 
-        content.addView(topRow);
+        content.addView(
+                topRow
+        );
 
         View divider =
                 createDivider();
@@ -1616,7 +2391,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 dividerParams
         );
 
-        content.addView(divider);
+        content.addView(
+                divider
+        );
 
         LinearLayout informationRow =
                 new LinearLayout(this);
@@ -1673,10 +2450,11 @@ public class TransactionsActivity extends AppCompatActivity {
                 );
 
         if (!note.isEmpty()) {
-            TextView noteView =
-                    createNoteView(note);
-
-            content.addView(noteView);
+            content.addView(
+                    createNoteView(
+                            note
+                    )
+            );
         }
 
         List<ExpenseItem> expenseItems =
@@ -1694,11 +2472,8 @@ public class TransactionsActivity extends AppCompatActivity {
         }
 
         if (visual.isTransfer) {
-            TextView protectedInfo =
-                    createProtectedInfo();
-
             content.addView(
-                    protectedInfo
+                    createProtectedInfo()
             );
 
             card.setOnClickListener(
@@ -1710,12 +2485,11 @@ public class TransactionsActivity extends AppCompatActivity {
             );
 
         } else {
-            LinearLayout actionRow =
+            content.addView(
                     createActionRow(
                             transaction
-                    );
-
-            content.addView(actionRow);
+                    )
+            );
 
             card.setOnClickListener(
                     view -> openEditScreen(
@@ -1724,11 +2498,17 @@ public class TransactionsActivity extends AppCompatActivity {
             );
         }
 
-        card.addView(content);
+        card.addView(
+                content
+        );
 
-        BubbleTouchAnimator.apply(card);
+        BubbleTouchAnimator.apply(
+                card
+        );
 
-        transactionContainer.addView(card);
+        transactionContainer.addView(
+                card
+        );
     }
 
     private TransactionVisual getTransactionVisual(
@@ -1751,7 +2531,9 @@ public class TransactionsActivity extends AppCompatActivity {
                         transaction.getAccount()
                 );
 
-        if (type.equals("INCOME")) {
+        if (type.equals(
+                "INCOME"
+        )) {
             return new TransactionVisual(
                     category.isEmpty()
                             ? "Income"
@@ -1768,7 +2550,9 @@ public class TransactionsActivity extends AppCompatActivity {
             );
         }
 
-        if (type.equals("EXPENSE")) {
+        if (type.equals(
+                "EXPENSE"
+        )) {
             return new TransactionVisual(
                     category.isEmpty()
                             ? "Expense"
@@ -1785,11 +2569,14 @@ public class TransactionsActivity extends AppCompatActivity {
             );
         }
 
-        if (type.equals("TRANSFER_IN")) {
+        if (type.equals(
+                "TRANSFER_IN"
+        )) {
             return new TransactionVisual(
                     account.isEmpty()
                             ? "Transfer In"
-                            : "Transfer to " + account,
+                            : "Transfer to "
+                              + account,
                     "TRANSFER_IN",
                     "Transfer In",
                     "+ ",
@@ -1802,11 +2589,14 @@ public class TransactionsActivity extends AppCompatActivity {
             );
         }
 
-        if (type.equals("TRANSFER_OUT")) {
+        if (type.equals(
+                "TRANSFER_OUT"
+        )) {
             return new TransactionVisual(
                     account.isEmpty()
                             ? "Transfer Out"
-                            : "Transfer from " + account,
+                            : "Transfer from "
+                              + account,
                     "TRANSFER_OUT",
                     "Transfer Out",
                     "− ",
@@ -1841,7 +2631,10 @@ public class TransactionsActivity extends AppCompatActivity {
         TextView icon =
                 new TextView(this);
 
-        icon.setText(visual.iconText);
+        icon.setText(
+                visual.iconText
+        );
+
         icon.setTextColor(
                 visual.accentColor
         );
@@ -1853,7 +2646,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 Typeface.BOLD
         );
 
-        icon.setGravity(Gravity.CENTER);
+        icon.setGravity(
+                Gravity.CENTER
+        );
 
         GradientDrawable background =
                 new GradientDrawable();
@@ -1877,7 +2672,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 dp(14)
         );
 
-        icon.setBackground(background);
+        icon.setBackground(
+                background
+        );
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
@@ -1885,7 +2682,9 @@ public class TransactionsActivity extends AppCompatActivity {
                         dp(48)
                 );
 
-        icon.setLayoutParams(params);
+        icon.setLayoutParams(
+                params
+        );
 
         return icon;
     }
@@ -1896,7 +2695,10 @@ public class TransactionsActivity extends AppCompatActivity {
         TextView badge =
                 new TextView(this);
 
-        badge.setText(visual.badgeText);
+        badge.setText(
+                visual.badgeText
+        );
+
         badge.setTextColor(
                 visual.accentColor
         );
@@ -1908,7 +2710,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 Typeface.BOLD
         );
 
-        badge.setGravity(Gravity.CENTER);
+        badge.setGravity(
+                Gravity.CENTER
+        );
 
         badge.setPadding(
                 dp(10),
@@ -1939,7 +2743,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 dp(13)
         );
 
-        badge.setBackground(background);
+        badge.setBackground(
+                background
+        );
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
@@ -1947,7 +2753,9 @@ public class TransactionsActivity extends AppCompatActivity {
                         dp(30)
                 );
 
-        badge.setLayoutParams(params);
+        badge.setLayoutParams(
+                params
+        );
 
         return badge;
     }
@@ -2000,8 +2808,13 @@ public class TransactionsActivity extends AppCompatActivity {
                 valueParams
         );
 
-        container.addView(labelView);
-        container.addView(valueView);
+        container.addView(
+                labelView
+        );
+
+        container.addView(
+                valueView
+        );
 
         return container;
     }
@@ -2051,7 +2864,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 dp(12)
         );
 
-        noteView.setBackground(background);
+        noteView.setBackground(
+                background
+        );
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
@@ -2066,7 +2881,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 0
         );
 
-        noteView.setLayoutParams(params);
+        noteView.setLayoutParams(
+                params
+        );
 
         return noteView;
     }
@@ -2075,23 +2892,41 @@ public class TransactionsActivity extends AppCompatActivity {
             List<ExpenseItem> items
     ) {
         StringBuilder details =
-                new StringBuilder("Items");
+                new StringBuilder(
+                        "Items"
+                );
 
-        for (ExpenseItem item : items) {
+        for (ExpenseItem item :
+                items) {
             String quantity =
                     formatItemQuantity(
                             item.getQuantity()
                     );
-            String unit = safeText(item.getUnit());
+
+            String unit =
+                    safeText(
+                            item.getUnit()
+                    );
 
             details.append("\n• ")
-                    .append(item.getItemName())
+                    .append(
+                            safeText(
+                                    item.getItemName()
+                            )
+                    )
                     .append(" — Qty ")
-                    .append(quantity);
+                    .append(
+                            quantity
+                    );
 
             if (!unit.isEmpty()
-                    && !unit.equalsIgnoreCase(quantity)) {
-                details.append(' ').append(unit);
+                    && !unit.equalsIgnoreCase(
+                    quantity
+            )) {
+                details.append(' ')
+                        .append(
+                                unit
+                        );
             }
 
             details.append(" • ")
@@ -2119,7 +2954,11 @@ public class TransactionsActivity extends AppCompatActivity {
                         false
                 );
 
-        itemView.setLineSpacing(dp(2), 1f);
+        itemView.setLineSpacing(
+                dp(2),
+                1f
+        );
+
         itemView.setPadding(
                 dp(12),
                 dp(10),
@@ -2135,28 +2974,47 @@ public class TransactionsActivity extends AppCompatActivity {
                         R.color.expense_surface
                 )
         );
+
         background.setStroke(
                 dp(1),
                 getColorValue(
                         R.color.expense_outline
                 )
         );
-        background.setCornerRadius(dp(12));
-        itemView.setBackground(background);
+
+        background.setCornerRadius(
+                dp(12)
+        );
+
+        itemView.setBackground(
+                background
+        );
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 );
-        params.setMargins(0, dp(11), 0, 0);
-        itemView.setLayoutParams(params);
+
+        params.setMargins(
+                0,
+                dp(11),
+                0,
+                0
+        );
+
+        itemView.setLayoutParams(
+                params
+        );
 
         return itemView;
     }
 
-    private String formatItemQuantity(double quantity) {
-        if (quantity == Math.rint(quantity)) {
+    private String formatItemQuantity(
+            double quantity
+    ) {
+        if (quantity
+                == Math.rint(quantity)) {
             return String.format(
                     Locale.US,
                     "%.0f",
@@ -2168,8 +3026,13 @@ public class TransactionsActivity extends AppCompatActivity {
                 Locale.US,
                 "%.2f",
                 quantity
-        ).replaceAll("0+$", "")
-                .replaceAll("\\.$", "");
+        ).replaceAll(
+                "0+$",
+                ""
+        ).replaceAll(
+                "\\.$",
+                ""
+        );
     }
 
     private TextView createProtectedInfo() {
@@ -2214,7 +3077,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 dp(12)
         );
 
-        info.setBackground(background);
+        info.setBackground(
+                background
+        );
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
@@ -2229,7 +3094,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 0
         );
 
-        info.setLayoutParams(params);
+        info.setLayoutParams(
+                params
+        );
 
         return info;
     }
@@ -2244,7 +3111,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 LinearLayout.HORIZONTAL
         );
 
-        actionRow.setGravity(Gravity.END);
+        actionRow.setGravity(
+                Gravity.END
+        );
 
         LinearLayout.LayoutParams rowParams =
                 new LinearLayout.LayoutParams(
@@ -2339,11 +3208,21 @@ public class TransactionsActivity extends AppCompatActivity {
                 )
         );
 
-        BubbleTouchAnimator.apply(btnEdit);
-        BubbleTouchAnimator.apply(btnDelete);
+        BubbleTouchAnimator.apply(
+                btnEdit
+        );
 
-        actionRow.addView(btnEdit);
-        actionRow.addView(btnDelete);
+        BubbleTouchAnimator.apply(
+                btnDelete
+        );
+
+        actionRow.addView(
+                btnEdit
+        );
+
+        actionRow.addView(
+                btnDelete
+        );
 
         return actionRow;
     }
@@ -2359,7 +3238,10 @@ public class TransactionsActivity extends AppCompatActivity {
 
         button.setText(text);
         button.setTextSize(12);
-        button.setTextColor(textColor);
+        button.setTextColor(
+                textColor
+        );
+
         button.setAllCaps(false);
 
         button.setTypeface(
@@ -2367,8 +3249,13 @@ public class TransactionsActivity extends AppCompatActivity {
                 Typeface.BOLD
         );
 
-        button.setGravity(Gravity.CENTER);
-        button.setCornerRadius(dp(13));
+        button.setGravity(
+                Gravity.CENTER
+        );
+
+        button.setCornerRadius(
+                dp(13)
+        );
 
         button.setBackgroundTintList(
                 ColorStateList.valueOf(
@@ -2382,7 +3269,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 )
         );
 
-        button.setStrokeWidth(dp(1));
+        button.setStrokeWidth(
+                dp(1)
+        );
 
         button.setInsetTop(0);
         button.setInsetBottom(0);
@@ -2415,7 +3304,8 @@ public class TransactionsActivity extends AppCompatActivity {
             return "Account not specified";
         }
 
-        return "Account: " + account;
+        return "Account: "
+                + account;
     }
 
     private void openEditScreen(
@@ -2497,7 +3387,9 @@ public class TransactionsActivity extends AppCompatActivity {
                 transaction.getDate()
         );
 
-        startActivity(intent);
+        startActivity(
+                intent
+        );
     }
 
     private void confirmDelete(
@@ -2511,14 +3403,19 @@ public class TransactionsActivity extends AppCompatActivity {
         String description =
                 category.isEmpty()
                         ? "this transaction"
-                        : "\"" + category + "\" transaction";
+                        : "\""
+                          + category
+                          + "\" transaction";
 
         new AlertDialog.Builder(this)
-                .setTitle("Delete Transaction")
+                .setTitle(
+                        "Delete Transaction"
+                )
                 .setMessage(
                         "Permanently delete "
                                 + description
-                                + "?\n\nThis action cannot be undone."
+                                + "?\n\n"
+                                + "This action cannot be undone."
                 )
                 .setNegativeButton(
                         "Cancel",
@@ -2544,7 +3441,9 @@ public class TransactionsActivity extends AppCompatActivity {
                     )
                     .getAppDatabase()
                     .transactionDao()
-                    .delete(transaction);
+                    .delete(
+                            transaction
+                    );
 
             runOnUiThread(() -> {
                 Toast.makeText(
@@ -2567,9 +3466,17 @@ public class TransactionsActivity extends AppCompatActivity {
         TextView textView =
                 new TextView(this);
 
-        textView.setText(text);
-        textView.setTextSize(size);
-        textView.setTextColor(color);
+        textView.setText(
+                text
+        );
+
+        textView.setTextSize(
+                size
+        );
+
+        textView.setTextColor(
+                color
+        );
 
         if (bold) {
             textView.setTypeface(
@@ -2586,7 +3493,9 @@ public class TransactionsActivity extends AppCompatActivity {
             String defaultText
     ) {
         String value =
-                getText(dropdown);
+                getText(
+                        dropdown
+                );
 
         return value.isEmpty()
                 ? defaultText
@@ -2616,14 +3525,24 @@ public class TransactionsActivity extends AppCompatActivity {
     ) {
         NumberFormat numberFormat =
                 NumberFormat.getNumberInstance(
-                        new Locale("en", "IN")
+                        new Locale(
+                                "en",
+                                "IN"
+                        )
                 );
 
-        numberFormat.setMinimumFractionDigits(2);
-        numberFormat.setMaximumFractionDigits(2);
+        numberFormat.setMinimumFractionDigits(
+                2
+        );
+
+        numberFormat.setMaximumFractionDigits(
+                2
+        );
 
         return "₹"
-                + numberFormat.format(amount);
+                + numberFormat.format(
+                amount
+        );
     }
 
     private String formatTransactionDate(
@@ -2634,19 +3553,24 @@ public class TransactionsActivity extends AppCompatActivity {
                 "yyyy-MM-dd"
         };
 
-        for (String format : formats) {
+        for (String format :
+                formats) {
             try {
                 Date date =
                         new SimpleDateFormat(
                                 format,
                                 Locale.US
-                        ).parse(dateText);
+                        ).parse(
+                                dateText
+                        );
 
                 if (date != null) {
                     return new SimpleDateFormat(
                             "dd MMM yyyy, hh:mm a",
                             Locale.ENGLISH
-                    ).format(date);
+                    ).format(
+                            date
+                    );
                 }
 
             } catch (Exception exception) {
@@ -2700,9 +3624,15 @@ public class TransactionsActivity extends AppCompatActivity {
     ) {
         return Color.argb(
                 alpha,
-                Color.red(baseColor),
-                Color.green(baseColor),
-                Color.blue(baseColor)
+                Color.red(
+                        baseColor
+                ),
+                Color.green(
+                        baseColor
+                ),
+                Color.blue(
+                        baseColor
+                )
         );
     }
 
@@ -2747,14 +3677,29 @@ public class TransactionsActivity extends AppCompatActivity {
                 int accentColor,
                 boolean isTransfer
         ) {
-            this.title = title;
-            this.rawType = rawType;
-            this.badgeText = badgeText;
-            this.amountPrefix = amountPrefix;
-            this.amountLabel = amountLabel;
-            this.iconText = iconText;
-            this.accentColor = accentColor;
-            this.isTransfer = isTransfer;
+            this.title =
+                    title;
+
+            this.rawType =
+                    rawType;
+
+            this.badgeText =
+                    badgeText;
+
+            this.amountPrefix =
+                    amountPrefix;
+
+            this.amountLabel =
+                    amountLabel;
+
+            this.iconText =
+                    iconText;
+
+            this.accentColor =
+                    accentColor;
+
+            this.isTransfer =
+                    isTransfer;
         }
     }
 }

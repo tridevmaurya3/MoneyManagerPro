@@ -1,6 +1,9 @@
 package com.example.moneymanagerpro.activities;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -8,26 +11,20 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.backup.BackupIntegrity;
+import com.example.moneymanagerpro.backup.OfflineBackupEngine;
+import com.example.moneymanagerpro.backup.OfflineBackupSettingsController;
+import com.example.moneymanagerpro.cloud.BackupSchedulePreferences;
+import com.example.moneymanagerpro.cloud.CloudBackupSettingsController;
 import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
-import com.example.moneymanagerpro.model.Account;
-import com.example.moneymanagerpro.model.Budget;
-import com.example.moneymanagerpro.model.Category;
-import com.example.moneymanagerpro.model.CreditCard;
-import com.example.moneymanagerpro.model.CreditCardPayment;
-import com.example.moneymanagerpro.model.ExpenseItem;
-import com.example.moneymanagerpro.model.Goal;
-import com.example.moneymanagerpro.model.Loan;
-import com.example.moneymanagerpro.model.LoanPayment;
-import com.example.moneymanagerpro.model.RecurringTransaction;
-import com.example.moneymanagerpro.model.Subscription;
-import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.BackupStorageManager;
 
 import org.json.JSONArray;
@@ -35,7 +32,6 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -45,54 +41,190 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-public class BackupActivity extends AppCompatActivity {
+/**
+ * Manual offline backup, restore, automatic offline backup settings
+ * and encrypted cloud-backup settings.
+ *
+ * Offline backup creation:
+ *
+ * - Uses OfflineBackupEngine.
+ * - Creates version-5 verified backups.
+ * - Includes all Room tables and investments.
+ * - Writes to a temporary document first.
+ * - Verifies SHA-256 before replacing the latest backup.
+ *
+ * Restore support:
+ *
+ * - Version 1 legacy backups
+ * - Version 2 full-data backups
+ * - Version 3 credit-card backups
+ * - Version 4 expense-item backups
+ * - Version 5 investment-aware backups
+ *
+ * Automatic offline backup:
+ *
+ * - Off
+ * - Manual only
+ * - Daily
+ * - Weekly
+ * - Monthly
+ * - Preferred time
+ * - Charging-only condition
+ *
+ * Encrypted cloud backup settings:
+ *
+ * - Firebase account status
+ * - Email verification
+ * - Secure recovery passphrase
+ * - Daily, Weekly and Monthly schedule
+ * - Wi-Fi-only and charging-only constraints
+ */
+public class BackupActivity
+        extends AppCompatActivity {
 
-    private static final String TAG = "BackupActivity";
+    private static final String TAG =
+            "BackupActivity";
 
-    private static final int REQUEST_PICK_BACKUP_FOLDER = 401;
-    private static final int BACKUP_VERSION_LEGACY = 1;
-    private static final int BACKUP_VERSION_FULL_DATA = 2;
-    private static final int BACKUP_VERSION_CREDIT_CARDS = 3;
-    private static final int BACKUP_VERSION_CURRENT = 4;
-    private static final int DATABASE_VERSION = 11;
-    private static final int MAX_BACKUP_BYTES = 25 * 1024 * 1024;
+    private static final int REQUEST_PICK_BACKUP_FOLDER =
+            401;
 
-    private static final int PENDING_ACTION_NONE = 0;
-    private static final int PENDING_ACTION_CREATE_BACKUP = 1;
-    private static final int PENDING_ACTION_RESTORE_BACKUP = 2;
-    private static final int PENDING_ACTION_CHANGE_FOLDER = 3;
+    private static final int BACKUP_VERSION_LEGACY =
+            1;
+
+    private static final int BACKUP_VERSION_FULL_DATA =
+            2;
+
+    private static final int BACKUP_VERSION_CREDIT_CARDS =
+            3;
+
+    private static final int BACKUP_VERSION_EXPENSE_ITEMS =
+            4;
+
+    private static final int BACKUP_VERSION_INVESTMENTS =
+            OfflineBackupEngine.BACKUP_VERSION;
+
+    private static final int PENDING_ACTION_NONE =
+            0;
+
+    private static final int PENDING_ACTION_CREATE_BACKUP =
+            1;
+
+    private static final int PENDING_ACTION_RESTORE_BACKUP =
+            2;
+
+    private static final int PENDING_ACTION_CHANGE_FOLDER =
+            3;
 
     private static final String STATE_PENDING_ACTION =
             "backup_pending_action";
 
+    private static final String INVESTMENT_PREFERENCES_NAME =
+            "investment_tracker_storage";
+
+    private static final String INVESTMENT_PREFERENCES_KEY =
+            "saved_investments";
+
     private TextView txtBackupStatus;
+
     private Button btnCreateBackup;
+
     private Button btnRestoreBackup;
+
     private Button btnChangeBackupFolder;
 
     private BackupStorageManager backupStorageManager;
 
-    private int pendingFolderAction = PENDING_ACTION_NONE;
+    private OfflineBackupEngine offlineBackupEngine;
+
+    private BackupSchedulePreferences schedulePreferences;
+
+    private OfflineBackupSettingsController
+            offlineBackupSettingsController;
+
+    private CloudBackupSettingsController
+            cloudBackupSettingsController;
+
+    private int pendingFolderAction =
+            PENDING_ACTION_NONE;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_backup);
+    protected void onCreate(
+            @Nullable Bundle savedInstanceState
+    ) {
+        super.onCreate(
+                savedInstanceState
+        );
 
-        txtBackupStatus = findViewById(R.id.txtBackupStatus);
-        btnCreateBackup = findViewById(R.id.btnCreateBackup);
-        btnRestoreBackup = findViewById(R.id.btnRestoreBackup);
+        setContentView(
+                R.layout.activity_backup
+        );
+
+        txtBackupStatus =
+                findViewById(
+                        R.id.txtBackupStatus
+                );
+
+        btnCreateBackup =
+                findViewById(
+                        R.id.btnCreateBackup
+                );
+
+        btnRestoreBackup =
+                findViewById(
+                        R.id.btnRestoreBackup
+                );
+
         btnChangeBackupFolder =
-                findViewById(R.id.btnChangeBackupFolder);
+                findViewById(
+                        R.id.btnChangeBackupFolder
+                );
 
         backupStorageManager =
-                new BackupStorageManager(getApplicationContext());
+                new BackupStorageManager(
+                        getApplicationContext()
+                );
+
+        offlineBackupEngine =
+                new OfflineBackupEngine(
+                        getApplicationContext()
+                );
+
+        schedulePreferences =
+                new BackupSchedulePreferences(
+                        getApplicationContext()
+                );
+
+        /*
+         * Connects the Automatic Offline Backup section with its
+         * saved schedule settings and WorkManager scheduler.
+         */
+        offlineBackupSettingsController =
+                new OfflineBackupSettingsController(
+                        this
+                );
+
+        offlineBackupSettingsController.initialize();
+
+        /*
+         * Connects the Encrypted Cloud Backup section with Firebase
+         * account status, secure recovery passphrase and cloud schedule.
+         *
+         * Manual cloud backup, restore and permanent deletion buttons
+         * remain disabled until their dedicated verified steps are added.
+         */
+        cloudBackupSettingsController =
+                new CloudBackupSettingsController(
+                        this
+                );
+
+        cloudBackupSettingsController.initialize();
 
         if (savedInstanceState != null) {
-            pendingFolderAction = savedInstanceState.getInt(
-                    STATE_PENDING_ACTION,
-                    PENDING_ACTION_NONE
-            );
+            pendingFolderAction =
+                    savedInstanceState.getInt(
+                            STATE_PENDING_ACTION,
+                            PENDING_ACTION_NONE
+                    );
         }
 
         btnCreateBackup.setOnClickListener(
@@ -113,19 +245,40 @@ public class BackupActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (offlineBackupSettingsController
+                != null) {
+
+            offlineBackupSettingsController.refresh();
+        }
+
+        if (cloudBackupSettingsController
+                != null) {
+
+            cloudBackupSettingsController.refresh();
+        }
+    }
+
+    @Override
     protected void onSaveInstanceState(
-            Bundle outState
+            @NonNull Bundle outState
     ) {
         outState.putInt(
                 STATE_PENDING_ACTION,
                 pendingFolderAction
         );
 
-        super.onSaveInstanceState(outState);
+        super.onSaveInstanceState(
+                outState
+        );
     }
 
     private void startCreateBackupFlow() {
-        if (!backupStorageManager.hasUsableBackupFolder()) {
+        if (!backupStorageManager
+                .hasUsableBackupFolder()) {
+
             requestBackupFolder(
                     PENDING_ACTION_CREATE_BACKUP
             );
@@ -137,7 +290,9 @@ public class BackupActivity extends AppCompatActivity {
     }
 
     private void startRestoreBackupFlow() {
-        if (!backupStorageManager.hasUsableBackupFolder()) {
+        if (!backupStorageManager
+                .hasUsableBackupFolder()) {
+
             requestBackupFolder(
                     PENDING_ACTION_RESTORE_BACKUP
             );
@@ -152,57 +307,69 @@ public class BackupActivity extends AppCompatActivity {
             int requestedAction
     ) {
         if (backupStorageManager.getSavedTreeUri() != null
-                && !backupStorageManager.isSavedPermissionValid()) {
+                && !backupStorageManager
+                .isSavedPermissionValid()) {
 
             backupStorageManager.clearSavedFolder();
         }
 
-        pendingFolderAction = requestedAction;
+        pendingFolderAction =
+                requestedAction;
 
         String title;
+
         String message;
 
-        if (requestedAction ==
-                PENDING_ACTION_RESTORE_BACKUP) {
+        if (requestedAction
+                == PENDING_ACTION_RESTORE_BACKUP) {
 
-            title = "Backup Folder चुनें";
-
-            message =
-                    "Backup restore करने के लिए उस folder को चुनें " +
-                            "जहाँ पुराना MoneyManagerPro backup मौजूद है।\n\n" +
-                            "सही विकल्प:\n" +
-                            "• Documents folder\n" +
-                            "या\n" +
-                            "• पहले से मौजूद MoneyManagerPro folder\n\n" +
-                            "Backup नाम वाला अंदर का subfolder सीधे न चुनें।\n\n" +
-                            "यह चयन केवल एक बार करना होगा।";
-
-        } else if (requestedAction ==
-                PENDING_ACTION_CHANGE_FOLDER) {
-
-            title = "Backup Folder बदलें";
+            title =
+                    "Backup Folder चुनें";
 
             message =
-                    "नया parent folder चुनें। App उसके अंदर " +
-                            "MoneyManagerPro/Backup folder खोजेगा या बनाएगा।\n\n" +
-                            "पुरानी backup file delete नहीं होगी। " +
-                            "केवल app की saved location बदलेगी।";
+                    "Backup restore करने के लिए उस folder को चुनें "
+                            + "जहाँ पुराना MoneyManagerPro backup मौजूद है।\n\n"
+                            + "सही विकल्प:\n"
+                            + "• Documents folder\n"
+                            + "या\n"
+                            + "• पहले से मौजूद MoneyManagerPro folder\n\n"
+                            + "Backup नाम वाला अंदर का subfolder सीधे न चुनें।\n\n"
+                            + "यह चयन केवल एक बार करना होगा।";
+
+        } else if (requestedAction
+                == PENDING_ACTION_CHANGE_FOLDER) {
+
+            title =
+                    "Backup Folder बदलें";
+
+            message =
+                    "नया parent folder चुनें। App उसके अंदर "
+                            + "MoneyManagerPro/Backup folder खोजेगा या बनाएगा।\n\n"
+                            + "पुरानी backup file delete नहीं होगी। "
+                            + "केवल app की saved location बदलेगी।";
 
         } else {
-            title = "Backup Folder चुनें";
+            title =
+                    "Backup Folder चुनें";
 
             message =
-                    "पहली बार backup location चुनना आवश्यक है।\n\n" +
-                            "Documents folder चुनना सबसे अच्छा रहेगा। " +
-                            "App उसके अंदर स्वयं यह folder बनाएगा:\n\n" +
-                            "MoneyManagerPro/Backup\n\n" +
-                            "यह चयन केवल एक बार करना होगा। " +
-                            "इसके बाद backup location दोबारा नहीं पूछी जाएगी।";
+                    "पहली बार backup location चुनना आवश्यक है।\n\n"
+                            + "Documents folder चुनना सबसे अच्छा रहेगा। "
+                            + "App उसके अंदर स्वयं यह folder बनाएगा:\n\n"
+                            + "MoneyManagerPro/Backup\n\n"
+                            + "यह चयन केवल एक बार करना होगा। "
+                            + "इसके बाद backup location दोबारा नहीं पूछी जाएगी।";
         }
 
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(message)
+        new AlertDialog.Builder(
+                this
+        )
+                .setTitle(
+                        title
+                )
+                .setMessage(
+                        message
+                )
                 .setPositiveButton(
                         "Choose Folder",
                         (dialog, which) ->
@@ -258,8 +425,9 @@ public class BackupActivity extends AppCompatActivity {
                 data
         );
 
-        if (requestCode !=
-                REQUEST_PICK_BACKUP_FOLDER) {
+        if (requestCode
+                != REQUEST_PICK_BACKUP_FOLDER) {
+
             return;
         }
 
@@ -273,6 +441,12 @@ public class BackupActivity extends AppCompatActivity {
             txtBackupStatus.setText(
                     "Backup folder नहीं चुना गया।"
             );
+
+            if (offlineBackupSettingsController
+                    != null) {
+
+                offlineBackupSettingsController.refresh();
+            }
 
             return;
         }
@@ -290,10 +464,21 @@ public class BackupActivity extends AppCompatActivity {
             );
 
             txtBackupStatus.setText(
-                    "Backup folder तैयार है\n" +
-                            backupStorageManager
-                                    .getBackupLocationLabel()
+                    "Backup folder तैयार है\n"
+                            + backupStorageManager
+                            .getBackupLocationLabel()
             );
+
+            /*
+             * If an automatic offline schedule was already saved,
+             * reapply it after receiving permanent folder permission.
+             */
+            if (offlineBackupSettingsController
+                    != null) {
+
+                offlineBackupSettingsController
+                        .onBackupFolderChanged();
+            }
 
             int actionToContinue =
                     pendingFolderAction;
@@ -301,13 +486,13 @@ public class BackupActivity extends AppCompatActivity {
             pendingFolderAction =
                     PENDING_ACTION_NONE;
 
-            if (actionToContinue ==
-                    PENDING_ACTION_CREATE_BACKUP) {
+            if (actionToContinue
+                    == PENDING_ACTION_CREATE_BACKUP) {
 
                 createBackup();
 
-            } else if (actionToContinue ==
-                    PENDING_ACTION_RESTORE_BACKUP) {
+            } else if (actionToContinue
+                    == PENDING_ACTION_RESTORE_BACKUP) {
 
                 checkBackupAndConfirmRestore();
 
@@ -329,716 +514,1667 @@ public class BackupActivity extends AppCompatActivity {
                     "चुना गया folder इस्तेमाल नहीं किया जा सका।"
             );
 
-            new AlertDialog.Builder(this)
-                    .setTitle("Folder Access Failed")
-                    .setMessage(
-                            "चुने गए folder की permanent read/write " +
-                                    "permission save नहीं हो सकी।\n\n" +
-                                    "Documents folder चुनकर दोबारा कोशिश करें।"
+            if (offlineBackupSettingsController
+                    != null) {
+
+                offlineBackupSettingsController.refresh();
+            }
+
+            new AlertDialog.Builder(
+                    this
+            )
+                    .setTitle(
+                            "Folder Access Failed"
                     )
-                    .setPositiveButton("OK", null)
+                    .setMessage(
+                            "चुने गए folder की permanent read/write "
+                                    + "permission save नहीं हो सकी।\n\n"
+                                    + "Documents folder चुनकर दोबारा कोशिश करें।"
+                    )
+                    .setPositiveButton(
+                            "OK",
+                            null
+                    )
                     .show();
         }
     }
 
+    /**
+     * Creates the new version-5 offline backup.
+     */
     private void createBackup() {
-        setBackupButtonsEnabled(false);
-
-        txtBackupStatus.setText(
-                "नया backup बनाया जा रहा है..."
+        setBackupButtonsEnabled(
+                false
         );
 
-        new Thread(() -> {
-            String currentStage =
-                    "डेटाबेस data तैयार करना";
+        txtBackupStatus.setText(
+                "पूरा offline backup बनाया जा रहा है..."
+        );
 
-            try {
-                JSONObject backupData =
-                        buildBackupJson();
+        new Thread(
+                () -> {
+                    try {
+                        OfflineBackupEngine.BackupResult result =
+                                offlineBackupEngine
+                                        .createVerifiedBackup();
 
-                currentStage =
-                        "temporary backup file बनाना";
-
-                Uri temporaryBackupUri =
-                        backupStorageManager
-                                .createTemporaryBackupUri();
-
-                currentStage =
-                        "backup file लिखना";
-
-                writeBackupJson(
-                        temporaryBackupUri,
-                        backupData
-                );
-
-                currentStage =
-                        "लिखे हुए backup को पढ़ना";
-
-                JSONObject verificationData =
-                        readBackupJson(
-                                temporaryBackupUri
+                        safelyRecordOfflineSuccess(
+                                result
                         );
 
-                currentStage =
-                        "backup integrity verify करना";
-
-                validateBackupFile(
-                        verificationData
-                );
-
-                currentStage =
-                        "latest backup सुरक्षित रूप से replace करना";
-
-                Uri latestBackupUri =
-                        backupStorageManager
-                                .commitTemporaryBackup(
-                                        temporaryBackupUri
-                                );
-
-                currentStage =
-                        "final backup की जानकारी पढ़ना";
-
-                long backupSize =
-                        backupStorageManager
-                                .getDocumentSize(
-                                        latestBackupUri
-                                );
-
-                String createdAt =
-                        getBackupDateTime(
-                                backupData,
-                                latestBackupUri
-                        );
-
-                String status =
-                        "Latest backup सफलतापूर्वक बन गया\n" +
-                                "SHA-256 verification सफल\n" +
-                                createdAt +
-                                "\n" +
-                                formatFileSize(backupSize) +
-                                "\n" +
-                                backupStorageManager
+                        String status =
+                                "Latest backup सफलतापूर्वक बन गया\n"
+                                        + "Backup Version: "
+                                        + OfflineBackupEngine.BACKUP_VERSION
+                                        + "\n"
+                                        + "SHA-256 verification सफल\n"
+                                        + "Investments सहित पूरा data सुरक्षित\n"
+                                        + result.getCreatedAtText()
+                                        + "\n"
+                                        + formatFileSize(
+                                        result.getBackupByteCount()
+                                )
+                                        + "\nRecords: "
+                                        + result
+                                        .getRecordCounts()
+                                        .getTotalRecords()
+                                        + "\n"
+                                        + result
                                         .getBackupLocationLabel();
 
-                runOnUiThread(() -> {
-                    setBackupButtonsEnabled(true);
+                        runOnUiThread(
+                                () -> {
+                                    setBackupButtonsEnabled(
+                                            true
+                                    );
 
-                    txtBackupStatus.setText(status);
+                                    txtBackupStatus.setText(
+                                            status
+                                    );
 
-                    Toast.makeText(
-                            BackupActivity.this,
-                            "पुराना backup replace करके नया backup बन गया",
-                            Toast.LENGTH_LONG
-                    ).show();
-                });
+                                    if (offlineBackupSettingsController
+                                            != null) {
 
-            } catch (Exception exception) {
-                Log.e(
-                        TAG,
-                        "Backup creation failed",
-                        exception
-                );
+                                        offlineBackupSettingsController
+                                                .refresh();
+                                    }
 
-                String failedStage =
-                        currentStage;
+                                    Toast.makeText(
+                                            BackupActivity.this,
+                                            "नया verified offline backup बन गया",
+                                            Toast.LENGTH_LONG
+                                    ).show();
+                                }
+                        );
 
-                String failureReason =
-                        getUsefulErrorMessage(
+                    } catch (Exception exception) {
+                        Log.e(
+                                TAG,
+                                "Offline backup creation failed",
                                 exception
                         );
 
-                runOnUiThread(() -> {
-                    setBackupButtonsEnabled(true);
+                        safelyRecordOfflineFailure(
+                                exception
+                        );
 
-                    txtBackupStatus.setText(
-                            "Backup नहीं बन सका\n" +
-                                    "रुका: " +
-                                    failedStage
-                    );
+                        String failedStage =
+                                exception
+                                        instanceof OfflineBackupEngine
+                                        .OfflineBackupException
+                                        ? ((OfflineBackupEngine
+                                            .OfflineBackupException) exception)
+                                        .getStage()
+                                        : "Offline backup";
 
-                    new AlertDialog.Builder(this)
-                            .setTitle("Backup Failed")
-                            .setMessage(
-                                    "Backup इस चरण पर रुका:\n" +
-                                            failedStage +
-                                            "\n\nकारण:\n" +
-                                            failureReason +
-                                            "\n\nSaved location हटाई नहीं गई है। " +
-                                            "पहले Retry करें। अगर folder को " +
-                                            "Android ने हटाया या access बंद किया है, " +
-                                            "तभी Change Folder चुनें।"
-                            )
-                            .setPositiveButton(
-                                    "Retry",
-                                    (dialog, which) ->
-                                            createBackup()
-                            )
-                            .setNegativeButton("Cancel", null)
-                            .show();
-                });
-            }
-        }).start();
-    }
+                        String failureReason =
+                                getUsefulErrorMessage(
+                                        exception
+                                );
 
-    private String getUsefulErrorMessage(
-            Throwable throwable
-    ) {
-        Throwable current = throwable;
-        String usefulMessage = "";
+                        runOnUiThread(
+                                () -> {
+                                    setBackupButtonsEnabled(
+                                            true
+                                    );
 
-        while (current != null) {
-            String message =
-                    current.getMessage();
+                                    txtBackupStatus.setText(
+                                            "Backup नहीं बन सका\n"
+                                                    + "रुका: "
+                                                    + failedStage
+                                    );
 
-            if (message != null
-                    && !message.trim().isEmpty()) {
-                usefulMessage = message.trim();
-            }
+                                    if (offlineBackupSettingsController
+                                            != null) {
 
-            current = current.getCause();
-        }
+                                        offlineBackupSettingsController
+                                                .refresh();
+                                    }
 
-        if (usefulMessage.isEmpty()) {
-            return "Storage provider ने operation पूरा नहीं किया।";
-        }
-
-        return usefulMessage;
+                                    new AlertDialog.Builder(
+                                            BackupActivity.this
+                                    )
+                                            .setTitle(
+                                                    "Backup Failed"
+                                            )
+                                            .setMessage(
+                                                    "Backup इस चरण पर रुका:\n"
+                                                            + failedStage
+                                                            + "\n\nकारण:\n"
+                                                            + failureReason
+                                                            + "\n\nSaved location हटाई नहीं गई है। "
+                                                            + "पहले Retry करें। यदि folder access "
+                                                            + "स्थायी रूप से हट गया है, तभी "
+                                                            + "Change Folder चुनें।"
+                                            )
+                                            .setPositiveButton(
+                                                    "Retry",
+                                                    (dialog, which) ->
+                                                            createBackup()
+                                            )
+                                            .setNegativeButton(
+                                                    "Cancel",
+                                                    null
+                                            )
+                                            .show();
+                                }
+                        );
+                    }
+                }
+        ).start();
     }
 
     private void checkBackupAndConfirmRestore() {
-        setBackupButtonsEnabled(false);
+        setBackupButtonsEnabled(
+                false
+        );
 
         txtBackupStatus.setText(
                 "Backup की जानकारी जाँची जा रही है..."
         );
 
-        new Thread(() -> {
-            try {
-                Uri latestBackupUri =
-                        backupStorageManager
-                                .findLatestBackupUri();
+        new Thread(
+                () -> {
+                    try {
+                        Uri latestBackupUri =
+                                backupStorageManager
+                                        .findLatestBackupUri();
 
-                if (latestBackupUri == null) {
-                    runOnUiThread(() -> {
-                        setBackupButtonsEnabled(true);
+                        if (latestBackupUri == null) {
+                            runOnUiThread(
+                                    () -> {
+                                        setBackupButtonsEnabled(
+                                                true
+                                        );
 
-                        txtBackupStatus.setText(
-                                "चुने हुए folder में कोई backup नहीं मिला।"
-                        );
+                                        txtBackupStatus.setText(
+                                                "चुने हुए folder में कोई backup नहीं मिला।"
+                                        );
 
-                        new AlertDialog.Builder(this)
-                                .setTitle("No Backup Found")
-                                .setMessage(
-                                        "MoneyManagerPro_Latest.mmpbackup " +
-                                                "file नहीं मिली।\n\n" +
-                                                "सही Documents या MoneyManagerPro " +
-                                                "folder चुना गया है या नहीं, जाँच करें।"
-                                )
-                                .setPositiveButton("OK", null)
-                                .show();
-                    });
+                                        new AlertDialog.Builder(
+                                                BackupActivity.this
+                                        )
+                                                .setTitle(
+                                                        "No Backup Found"
+                                                )
+                                                .setMessage(
+                                                        "MoneyManagerPro_Latest.mmpbackup "
+                                                                + "file नहीं मिली।\n\n"
+                                                                + "सही Documents या MoneyManagerPro "
+                                                                + "folder चुना गया है या नहीं, जाँच करें।"
+                                                )
+                                                .setPositiveButton(
+                                                        "OK",
+                                                        null
+                                                )
+                                                .show();
+                                    }
+                            );
 
-                    return;
-                }
+                            return;
+                        }
 
-                JSONObject backupRoot =
-                        readBackupJson(
-                                latestBackupUri
-                        );
+                        JSONObject backupRoot =
+                                readBackupJson(
+                                        latestBackupUri
+                                );
 
-                validateBackupFile(
-                        backupRoot
-                );
-
-                BackupSummary backupSummary =
-                        createBackupSummary(
+                        validateBackupFile(
                                 backupRoot,
                                 latestBackupUri
                         );
 
-                runOnUiThread(() -> {
-                    setBackupButtonsEnabled(true);
+                        BackupSummary backupSummary =
+                                createBackupSummary(
+                                        backupRoot,
+                                        latestBackupUri
+                                );
 
-                    showRestoreConfirmation(
-                            latestBackupUri,
-                            backupSummary
-                    );
-                });
+                        runOnUiThread(
+                                () -> {
+                                    setBackupButtonsEnabled(
+                                            true
+                                    );
 
-            } catch (Exception exception) {
-                Log.e(
-                        TAG,
-                        "Unable to inspect backup",
-                        exception
-                );
+                                    showRestoreConfirmation(
+                                            latestBackupUri,
+                                            backupSummary
+                                    );
+                                }
+                        );
 
-                runOnUiThread(() -> {
-                    setBackupButtonsEnabled(true);
+                    } catch (Exception exception) {
+                        Log.e(
+                                TAG,
+                                "Unable to inspect backup",
+                                exception
+                        );
 
-                    txtBackupStatus.setText(
-                            "Backup file मौजूद है, लेकिन पढ़ी नहीं जा सकी।"
-                    );
+                        String reason =
+                                getUsefulErrorMessage(
+                                        exception
+                                );
 
-                    new AlertDialog.Builder(this)
-                            .setTitle("Invalid Backup")
-                            .setMessage(
-                                    "Backup file खराब है या यह सही " +
-                                            "Money Manager Pro backup नहीं है।"
-                            )
-                            .setPositiveButton("OK", null)
-                            .show();
-                });
-            }
-        }).start();
+                        runOnUiThread(
+                                () -> {
+                                    setBackupButtonsEnabled(
+                                            true
+                                    );
+
+                                    txtBackupStatus.setText(
+                                            "Backup file मौजूद है, लेकिन पढ़ी नहीं जा सकी।"
+                                    );
+
+                                    new AlertDialog.Builder(
+                                            BackupActivity.this
+                                    )
+                                            .setTitle(
+                                                    "Invalid Backup"
+                                            )
+                                            .setMessage(
+                                                    "Backup file खराब है या यह सही "
+                                                            + "Money Manager Pro backup नहीं है।\n\n"
+                                                            + "कारण:\n"
+                                                            + reason
+                                            )
+                                            .setPositiveButton(
+                                                    "OK",
+                                                    null
+                                            )
+                                            .show();
+                                }
+                        );
+                    }
+                }
+        ).start();
     }
 
     private void showRestoreConfirmation(
-            Uri backupUri,
-            BackupSummary summary
+            @NonNull Uri backupUri,
+            @NonNull BackupSummary summary
     ) {
-        String message =
-                "Backup मौजूद है\n\n" +
-                        "दिनांक एवं समय:\n" +
-                        summary.createdAt +
-                        "\n\n" +
-                        "File Size: " +
-                        summary.fileSize +
-                        "\n" +
-                        "Backup Version: " +
-                        summary.backupVersion +
-                        "\n" +
-                        "App Version: " +
-                        summary.appVersion +
-                        "\n\n" +
-                        "Transactions: " +
-                        summary.transactionCount +
-                        "\n" +
-                        "Expense Item Details: " +
-                        summary.expenseItemCount +
-                        "\n" +
-                        "Accounts: " +
-                        summary.accountCount +
-                        "\n" +
-                        "Categories: " +
-                        summary.categoryCount +
-                        "\n" +
-                        "Budgets: " +
-                        summary.budgetCount +
-                        "\n" +
-                        "Goals: " +
-                        summary.goalCount +
-                        "\n" +
-                        "Loans: " +
-                        summary.loanCount +
-                        "\n" +
-                        "Loan Payments: " +
-                        summary.loanPaymentCount +
-                        "\n" +
-                        "Subscriptions: " +
-                        summary.subscriptionCount +
-                        "\n" +
-                        "Credit Cards: " +
-                        summary.creditCardCount +
-                        "\n" +
-                        "Card Payments: " +
-                        summary.creditCardPaymentCount +
-                        "\n" +
-                        "Recurring Transactions: " +
-                        summary.recurringCount +
-                        "\n\n" +
-                        "Integrity: " +
-                        summary.integrityStatus +
-                        "\n\n" +
-                        "Restore करने पर वर्तमान app data हट जाएगा " +
-                        "और इस backup का data वापस आ जाएगा।";
+        StringBuilder message =
+                new StringBuilder();
 
-        new AlertDialog.Builder(this)
-                .setTitle("Restore Backup")
-                .setMessage(message)
+        message.append(
+                "Backup मौजूद है\n\n"
+        );
+
+        message.append(
+                "दिनांक एवं समय:\n"
+        );
+
+        message.append(
+                summary.createdAt
+        );
+
+        message.append(
+                "\n\nFile Size: "
+        );
+
+        message.append(
+                summary.fileSize
+        );
+
+        message.append(
+                "\nBackup Version: "
+        );
+
+        message.append(
+                summary.backupVersion
+        );
+
+        message.append(
+                "\nApp Version: "
+        );
+
+        message.append(
+                summary.appVersion
+        );
+
+        message.append(
+                "\n\nTransactions: "
+        );
+
+        message.append(
+                summary.transactionCount
+        );
+
+        message.append(
+                "\nExpense Item Details: "
+        );
+
+        message.append(
+                summary.expenseItemCount
+        );
+
+        message.append(
+                "\nAccounts: "
+        );
+
+        message.append(
+                summary.accountCount
+        );
+
+        message.append(
+                "\nCategories: "
+        );
+
+        message.append(
+                summary.categoryCount
+        );
+
+        message.append(
+                "\nBudgets: "
+        );
+
+        message.append(
+                summary.budgetCount
+        );
+
+        message.append(
+                "\nGoals: "
+        );
+
+        message.append(
+                summary.goalCount
+        );
+
+        message.append(
+                "\nLoans: "
+        );
+
+        message.append(
+                summary.loanCount
+        );
+
+        message.append(
+                "\nLoan Payments: "
+        );
+
+        message.append(
+                summary.loanPaymentCount
+        );
+
+        message.append(
+                "\nSubscriptions: "
+        );
+
+        message.append(
+                summary.subscriptionCount
+        );
+
+        message.append(
+                "\nCredit Cards: "
+        );
+
+        message.append(
+                summary.creditCardCount
+        );
+
+        message.append(
+                "\nCard Payments: "
+        );
+
+        message.append(
+                summary.creditCardPaymentCount
+        );
+
+        message.append(
+                "\nRecurring Transactions: "
+        );
+
+        message.append(
+                summary.recurringCount
+        );
+
+        if (summary.backupVersion
+                >= BACKUP_VERSION_INVESTMENTS) {
+
+            message.append(
+                    "\nInvestments: "
+            );
+
+            message.append(
+                    summary.investmentCount
+            );
+        }
+
+        message.append(
+                "\n\nIntegrity: "
+        );
+
+        message.append(
+                summary.integrityStatus
+        );
+
+        message.append(
+                "\n\nRestore करने पर वर्तमान app data हट जाएगा "
+                        + "और इस backup का data वापस आ जाएगा।"
+        );
+
+        if (summary.backupVersion
+                < BACKUP_VERSION_INVESTMENTS) {
+
+            message.append(
+                    "\n\nयह पुराना backup है। इसमें investments शामिल "
+                            + "नहीं हैं, इसलिए वर्तमान investments बदले नहीं जाएँगे।"
+            );
+        }
+
+        new AlertDialog.Builder(
+                this
+        )
+                .setTitle(
+                        "Restore Backup"
+                )
+                .setMessage(
+                        message.toString()
+                )
                 .setPositiveButton(
                         "OK, Restore",
                         (dialog, which) ->
-                                restoreBackup(backupUri)
+                                restoreBackup(
+                                        backupUri
+                                )
                 )
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(
+                        "Cancel",
+                        null
+                )
                 .show();
     }
 
     private void restoreBackup(
-            Uri backupUri
+            @NonNull Uri backupUri
     ) {
-        setBackupButtonsEnabled(false);
+        setBackupButtonsEnabled(
+                false
+        );
 
         txtBackupStatus.setText(
                 "Backup restore किया जा रहा है..."
         );
 
-        new Thread(() -> {
-            try {
-                JSONObject root =
-                        readBackupJson(
-                                backupUri
-                        );
-
-                validateBackupFile(root);
-
-                BackupContent backupContent =
-                        parseBackup(root);
-
-                AppDatabase database =
-                        DatabaseClient
-                                .getInstance(
-                                        getApplicationContext()
-                                )
-                                .getAppDatabase();
-
-                database.runInTransaction(() -> {
-                    database.clearAllTables();
-
-                    for (Category category :
-                            backupContent.categories) {
-
-                        database
-                                .categoryDao()
-                                .insert(category);
-                    }
-
-                    if (backupContent.accounts.isEmpty()) {
-                        Account cashAccount =
-                                new Account();
-
-                        cashAccount.setName("Cash");
-                        cashAccount.setType("Cash");
-                        cashAccount.setOpeningBalance(0);
-                        cashAccount.setColor("#2E7D32");
-
-                        database
-                                .accountDao()
-                                .insert(cashAccount);
-
-                    } else {
-                        for (Account account :
-                                backupContent.accounts) {
-
-                            database
-                                    .accountDao()
-                                    .insert(account);
-                        }
-                    }
-
-                    for (Goal goal :
-                            backupContent.goals) {
-
-                        database
-                                .goalDao()
-                                .insert(goal);
-                    }
-
-                    for (RecurringTransaction recurring :
-                            backupContent
-                                    .recurringTransactions) {
-
-                        database
-                                .recurringTransactionDao()
-                                .insert(recurring);
-                    }
-
-                    for (Budget budget :
-                            backupContent.budgets) {
-
-                        database
-                                .budgetDao()
-                                .insert(budget);
-                    }
-
-                    for (Loan loan :
-                            backupContent.loans) {
-
-                        database
-                                .loanDao()
-                                .insert(loan);
-                    }
-
-                    for (Subscription subscription :
-                            backupContent.subscriptions) {
-
-                        database
-                                .subscriptionDao()
-                                .insert(subscription);
-                    }
-
-                    for (CreditCard creditCard :
-                            backupContent.creditCards) {
-
-                        database
-                                .creditCardDao()
-                                .insert(creditCard);
-                    }
-
-                    for (LoanPayment loanPayment :
-                            backupContent.loanPayments) {
-
-                        database
-                                .loanPaymentDao()
-                                .insert(loanPayment);
-                    }
-
-                    for (CreditCardPayment payment :
-                            backupContent.creditCardPayments) {
-
-                        database
-                                .creditCardPaymentDao()
-                                .insert(payment);
-                    }
-
-                    for (Transaction transaction :
-                            backupContent.transactions) {
-
-                        database
-                                .transactionDao()
-                                .insert(transaction);
-                    }
-
-                    if (!backupContent.expenseItems.isEmpty()) {
-                        database
-                                .expenseItemDao()
-                                .insertAll(
-                                        backupContent.expenseItems
+        new Thread(
+                () -> {
+                    try {
+                        JSONObject root =
+                                readBackupJson(
+                                        backupUri
                                 );
-                    }
 
-                    verifyRestoredData(
-                            database,
-                            backupContent
-                    );
-                });
-
-                String restoredDate =
-                        getBackupDateTime(
+                        validateBackupFile(
                                 root,
                                 backupUri
                         );
 
-                runOnUiThread(() -> {
-                    setBackupButtonsEnabled(true);
+                        RestorePayload restorePayload =
+                                createRestorePayload(
+                                        root
+                                );
 
-                    txtBackupStatus.setText(
-                            "Backup सफलतापूर्वक restore हो गया\n" +
-                                    restoredDate
-                    );
+                        restorePayload(
+                                restorePayload
+                        );
 
-                    new AlertDialog.Builder(this)
-                            .setTitle("Restore Complete")
-                            .setMessage(
-                                    "Backup का data सफलतापूर्वक restore हो गया है।\n\n" +
-                                            "Restore verification भी सफल रही।\n\n" +
-                                            "Dashboard पर वापस जाने के बाद नया data दिखाई देगा।"
-                            )
-                            .setPositiveButton(
-                                    "OK",
-                                    (dialog, which) -> finish()
-                            )
-                            .setCancelable(false)
-                            .show();
-                });
-
-            } catch (Exception exception) {
-                Log.e(
-                        TAG,
-                        "Backup restore failed",
-                        exception
-                );
-
-                runOnUiThread(() -> {
-                    setBackupButtonsEnabled(true);
-
-                    txtBackupStatus.setText(
-                            "Restore नहीं हो सका।"
-                    );
-
-                    new AlertDialog.Builder(this)
-                            .setTitle("Restore Failed")
-                            .setMessage(
-                                    "Backup restore नहीं हो सका।\n\n" +
-                                            "Backup file खराब हो सकती है या " +
-                                            "उसका format इस app version के साथ compatible नहीं है।"
-                            )
-                            .setPositiveButton("OK", null)
-                            .show();
-                });
-            }
-        }).start();
-    }
-
-    private void updateBackupStatus() {
-        if (!backupStorageManager
-                .hasUsableBackupFolder()) {
-
-            if (backupStorageManager
-                    .getSavedTreeUri() == null) {
-
-                txtBackupStatus.setText(
-                        "Backup folder अभी चुना नहीं गया है।\n" +
-                                "Create Backup दबाने पर पहली बार folder चुनें।"
-                );
-
-            } else {
-                txtBackupStatus.setText(
-                        "Backup folder की permission उपलब्ध नहीं है।\n" +
-                                "Create Backup या Restore Backup दबाकर folder दोबारा चुनें।"
-                );
-            }
-
-            return;
-        }
-
-        txtBackupStatus.setText(
-                "Backup की स्थिति जाँची जा रही है..."
-        );
-
-        new Thread(() -> {
-            String statusText;
-
-            try {
-                Uri latestBackupUri =
-                        backupStorageManager
-                                .findLatestBackupUri();
-
-                if (latestBackupUri == null) {
-                    statusText =
-                            "Backup folder तैयार है\n" +
-                                    backupStorageManager
-                                            .getBackupLocationLabel() +
-                                    "\nअभी कोई backup उपलब्ध नहीं है।";
-
-                } else {
-                    JSONObject root =
-                            readBackupJson(
-                                    latestBackupUri
-                            );
-
-                    validateBackupFile(root);
-
-                    String createdAt =
-                            getBackupDateTime(
-                                    root,
-                                    latestBackupUri
-                            );
-
-                    long size =
-                            backupStorageManager
-                                    .getDocumentSize(
-                                            latestBackupUri
-                                    );
-
-                    int backupVersion =
-                            root.optInt(
-                                    "backupVersion",
-                                    BACKUP_VERSION_LEGACY
-                            );
-
-                    String verificationLabel =
-                            backupVersion
-                                    >= BACKUP_VERSION_FULL_DATA
-                                    ? "SHA-256 integrity verified"
-                                    : "Legacy v1 structure verified";
-
-                    statusText =
-                            "Latest backup उपलब्ध है\n" +
-                                    verificationLabel +
-                                    "\n" +
-                                    createdAt +
-                                    "\n" +
-                                    formatFileSize(size) +
-                                    "\n" +
-                                    backupStorageManager
-                                            .getBackupLocationLabel();
-                }
-
-            } catch (Exception exception) {
-                statusText =
-                        "Backup file मौजूद है, लेकिन इसकी जानकारी " +
-                                "पढ़ी नहीं जा सकी।";
-            }
-
-            String finalStatusText =
-                    statusText;
-
-            runOnUiThread(() ->
-                    txtBackupStatus.setText(
-                            finalStatusText
-                    )
-            );
-        }).start();
-    }
-
-    private void writeBackupJson(
-            Uri destinationUri,
-            JSONObject backupData
-    ) throws Exception {
-
-        try (
-                OutputStream outputStream =
-                        backupStorageManager
-                                .openBackupOutputStream(
-                                        destinationUri
-                                )
-        ) {
-            byte[] backupBytes =
-                    backupData
-                            .toString(2)
-                            .getBytes(
-                                    StandardCharsets.UTF_8
-                            );
-
-            outputStream.write(backupBytes);
-            outputStream.flush();
-        }
-    }
-
-    private JSONObject readBackupJson(
-            Uri backupUri
-    ) throws Exception {
-
-        try (
-                InputStream inputStream =
-                        backupStorageManager
-                                .openBackupInputStream(
+                        String restoredDate =
+                                getBackupDateTime(
+                                        root,
                                         backupUri
                                 );
-                ByteArrayOutputStream outputStream =
-                        new ByteArrayOutputStream()
-        ) {
-            byte[] buffer = new byte[8192];
-            int totalBytes = 0;
-            int bytesRead;
 
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                totalBytes += bytesRead;
+                        runOnUiThread(
+                                () -> {
+                                    setBackupButtonsEnabled(
+                                            true
+                                    );
 
-                if (totalBytes > MAX_BACKUP_BYTES) {
-                    throw new Exception(
-                            "Backup file exceeds the supported size."
-                    );
+                                    txtBackupStatus.setText(
+                                            "Backup सफलतापूर्वक restore हो गया\n"
+                                                    + restoredDate
+                                    );
+
+                                    if (offlineBackupSettingsController
+                                            != null) {
+
+                                        offlineBackupSettingsController
+                                                .refresh();
+                                    }
+
+                                    new AlertDialog.Builder(
+                                            BackupActivity.this
+                                    )
+                                            .setTitle(
+                                                    "Restore Complete"
+                                            )
+                                            .setMessage(
+                                                    "Backup का data सफलतापूर्वक restore हो गया है।\n\n"
+                                                            + "Restore verification भी सफल रही।\n\n"
+                                                            + (
+                                                            restorePayload.backupVersion
+                                                                    >= BACKUP_VERSION_INVESTMENTS
+                                                                    ? "Investments भी restore हो गए हैं।\n\n"
+                                                                    : ""
+                                                    )
+                                                            + "Dashboard पर वापस जाने के बाद "
+                                                            + "restore किया गया data दिखाई देगा।"
+                                            )
+                                            .setPositiveButton(
+                                                    "OK",
+                                                    (dialog, which) ->
+                                                            finish()
+                                            )
+                                            .setCancelable(
+                                                    false
+                                            )
+                                            .show();
+                                }
+                        );
+
+                    } catch (Exception exception) {
+                        Log.e(
+                                TAG,
+                                "Backup restore failed",
+                                exception
+                        );
+
+                        String reason =
+                                getUsefulErrorMessage(
+                                        exception
+                                );
+
+                        runOnUiThread(
+                                () -> {
+                                    setBackupButtonsEnabled(
+                                            true
+                                    );
+
+                                    txtBackupStatus.setText(
+                                            "Restore नहीं हो सका।"
+                                    );
+
+                                    if (offlineBackupSettingsController
+                                            != null) {
+
+                                        offlineBackupSettingsController
+                                                .refresh();
+                                    }
+
+                                    new AlertDialog.Builder(
+                                            BackupActivity.this
+                                    )
+                                            .setTitle(
+                                                    "Restore Failed"
+                                            )
+                                            .setMessage(
+                                                    "Backup restore नहीं हो सका।\n\n"
+                                                            + "कारण:\n"
+                                                            + reason
+                                                            + "\n\nRoom transaction fail होने पर "
+                                                            + "पुराना database data वापस सुरक्षित रखा गया है।"
+                                            )
+                                            .setPositiveButton(
+                                                    "OK",
+                                                    null
+                                            )
+                                            .show();
+                                }
+                        );
+                    }
                 }
+        ).start();
+    }
 
-                outputStream.write(
-                        buffer,
-                        0,
-                        bytesRead
+    private void restorePayload(
+            @NonNull RestorePayload payload
+    ) throws Exception {
+
+        AppDatabase database =
+                DatabaseClient
+                        .getInstance(
+                                getApplicationContext()
+                        )
+                        .getAppDatabase();
+
+        SharedPreferences investmentPreferences =
+                getSharedPreferences(
+                        INVESTMENT_PREFERENCES_NAME,
+                        Context.MODE_PRIVATE
+                );
+
+        String previousInvestments =
+                investmentPreferences.getString(
+                        INVESTMENT_PREFERENCES_KEY,
+                        "[]"
+                );
+
+        if (previousInvestments == null) {
+            previousInvestments =
+                    "[]";
+        }
+
+        boolean investmentDataChanged =
+                payload.backupVersion
+                        >= BACKUP_VERSION_INVESTMENTS;
+
+        if (investmentDataChanged) {
+            boolean saved =
+                    investmentPreferences
+                            .edit()
+                            .putString(
+                                    INVESTMENT_PREFERENCES_KEY,
+                                    payload.investments.toString()
+                            )
+                            .commit();
+
+            if (!saved) {
+                throw new IllegalStateException(
+                        "Investment data could not be prepared for restore."
                 );
             }
 
-            return new JSONObject(
-                    outputStream.toString(
-                            StandardCharsets.UTF_8.name()
+            String storedInvestments =
+                    investmentPreferences.getString(
+                            INVESTMENT_PREFERENCES_KEY,
+                            "[]"
+                    );
+
+            JSONArray storedArray =
+                    new JSONArray(
+                            storedInvestments == null
+                                    ? "[]"
+                                    : storedInvestments
+                    );
+
+            if (storedArray.length()
+                    != payload.investments.length()) {
+
+                investmentPreferences
+                        .edit()
+                        .putString(
+                                INVESTMENT_PREFERENCES_KEY,
+                                previousInvestments
+                        )
+                        .commit();
+
+                throw new IllegalStateException(
+                        "Investment restore verification failed."
+                );
+            }
+        }
+
+        String previousInvestmentValue =
+                previousInvestments;
+
+        try {
+            database.runInTransaction(
+                    () -> {
+                        SupportSQLiteDatabase sqlDatabase =
+                                database
+                                        .getOpenHelper()
+                                        .getWritableDatabase();
+
+                        clearFinanceTables(
+                                sqlDatabase
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `categories` "
+                                        + "(`id`,`name`,`type`,`color`) "
+                                        + "VALUES (?,?,?,?)",
+                                payload.categories,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "name",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "type",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "color",
+                                                        "#1565C0"
+                                                )
+                                        }
+                        );
+
+                        if (payload.accounts.length() == 0) {
+                            sqlDatabase.execSQL(
+                                    "INSERT INTO `accounts` "
+                                            + "(`name`,`type`,`openingBalance`,`color`) "
+                                            + "VALUES (?,?,?,?)",
+                                    new Object[]{
+                                            "Cash",
+                                            "Cash",
+                                            0D,
+                                            "#2E7D32"
+                                    }
+                            );
+
+                        } else {
+                            insertRows(
+                                    sqlDatabase,
+                                    "INSERT INTO `accounts` "
+                                            + "(`id`,`name`,`type`,`openingBalance`,`color`) "
+                                            + "VALUES (?,?,?,?,?)",
+                                    payload.accounts,
+                                    (object, index) ->
+                                            new Object[]{
+                                                    object.optInt(
+                                                            "id",
+                                                            0
+                                                    ),
+                                                    text(
+                                                            object,
+                                                            "name",
+                                                            "Cash"
+                                                    ),
+                                                    text(
+                                                            object,
+                                                            "type",
+                                                            "Cash"
+                                                    ),
+                                                    object.optDouble(
+                                                            "openingBalance",
+                                                            0D
+                                                    ),
+                                                    text(
+                                                            object,
+                                                            "color",
+                                                            "#2E7D32"
+                                                    )
+                                            }
+                            );
+                        }
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `goals` "
+                                        + "(`id`,`name`,`targetAmount`,`savedAmount`,"
+                                        + "`targetDate`,`color`) "
+                                        + "VALUES (?,?,?,?,?,?)",
+                                payload.goals,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "name",
+                                                        ""
+                                                ),
+                                                object.optDouble(
+                                                        "targetAmount",
+                                                        0D
+                                                ),
+                                                object.optDouble(
+                                                        "savedAmount",
+                                                        0D
+                                                ),
+                                                text(
+                                                        object,
+                                                        "targetDate",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "color",
+                                                        "#6C63FF"
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `recurring_transactions` "
+                                        + "(`id`,`type`,`amount`,`category`,`account`,"
+                                        + "`note`,`frequency`,`startDate`,`nextRunDate`,`active`) "
+                                        + "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                                payload.recurringTransactions,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "type",
+                                                        ""
+                                                ),
+                                                object.optDouble(
+                                                        "amount",
+                                                        0D
+                                                ),
+                                                text(
+                                                        object,
+                                                        "category",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "account",
+                                                        "Cash"
+                                                ),
+                                                text(
+                                                        object,
+                                                        "note",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "frequency",
+                                                        "Monthly"
+                                                ),
+                                                text(
+                                                        object,
+                                                        "startDate",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "nextRunDate",
+                                                        ""
+                                                ),
+                                                booleanInteger(
+                                                        object,
+                                                        "active",
+                                                        true
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `category_budgets` "
+                                        + "(`id`,`category`,`period`,`limitAmount`) "
+                                        + "VALUES (?,?,?,?)",
+                                payload.budgets,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "category",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "period",
+                                                        "Monthly"
+                                                ),
+                                                object.optDouble(
+                                                        "limitAmount",
+                                                        0D
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `loans` "
+                                        + "(`id`,`personName`,`loanType`,`totalAmount`,"
+                                        + "`outstandingAmount`,`interestRate`,`emiAmount`,"
+                                        + "`dueDate`,`note`,`active`,`startDate`,"
+                                        + "`tenureMonths`,`historicalPaidAmount`,"
+                                        + "`historicalInstallments`) "
+                                        + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                                payload.loans,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "personName",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "loanType",
+                                                        "Loan Taken"
+                                                ),
+                                                object.optDouble(
+                                                        "totalAmount",
+                                                        0D
+                                                ),
+                                                object.optDouble(
+                                                        "outstandingAmount",
+                                                        0D
+                                                ),
+                                                object.optDouble(
+                                                        "interestRate",
+                                                        0D
+                                                ),
+                                                object.optDouble(
+                                                        "emiAmount",
+                                                        0D
+                                                ),
+                                                text(
+                                                        object,
+                                                        "dueDate",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "note",
+                                                        ""
+                                                ),
+                                                booleanInteger(
+                                                        object,
+                                                        "active",
+                                                        true
+                                                ),
+                                                text(
+                                                        object,
+                                                        "startDate",
+                                                        ""
+                                                ),
+                                                object.optInt(
+                                                        "tenureMonths",
+                                                        0
+                                                ),
+                                                object.optDouble(
+                                                        "historicalPaidAmount",
+                                                        0D
+                                                ),
+                                                object.optInt(
+                                                        "historicalInstallments",
+                                                        0
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `subscriptions` "
+                                        + "(`id`,`name`,`amount`,`billingCycle`,"
+                                        + "`nextDueDate`,`account`,`category`,"
+                                        + "`remindDays`,`note`,`active`) "
+                                        + "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                                payload.subscriptions,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "name",
+                                                        ""
+                                                ),
+                                                object.optDouble(
+                                                        "amount",
+                                                        0D
+                                                ),
+                                                text(
+                                                        object,
+                                                        "billingCycle",
+                                                        "Monthly"
+                                                ),
+                                                text(
+                                                        object,
+                                                        "nextDueDate",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "account",
+                                                        "Cash"
+                                                ),
+                                                text(
+                                                        object,
+                                                        "category",
+                                                        ""
+                                                ),
+                                                object.optInt(
+                                                        "remindDays",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "note",
+                                                        ""
+                                                ),
+                                                booleanInteger(
+                                                        object,
+                                                        "active",
+                                                        true
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `credit_cards` "
+                                        + "(`id`,`name`,`lastFour`,`accountName`,"
+                                        + "`creditLimit`,`billingDay`,`dueDay`,"
+                                        + "`paymentAccount`,`reminderDays`,`active`) "
+                                        + "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                                payload.creditCards,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "name",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "lastFour",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "accountName",
+                                                        ""
+                                                ),
+                                                object.optDouble(
+                                                        "creditLimit",
+                                                        0D
+                                                ),
+                                                object.optInt(
+                                                        "billingDay",
+                                                        1
+                                                ),
+                                                object.optInt(
+                                                        "dueDay",
+                                                        1
+                                                ),
+                                                text(
+                                                        object,
+                                                        "paymentAccount",
+                                                        "Cash"
+                                                ),
+                                                object.optInt(
+                                                        "reminderDays",
+                                                        3
+                                                ),
+                                                booleanInteger(
+                                                        object,
+                                                        "active",
+                                                        true
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `transactions` "
+                                        + "(`id`,`type`,`amount`,`category`,"
+                                        + "`account`,`note`,`date`) "
+                                        + "VALUES (?,?,?,?,?,?,?)",
+                                payload.transactions,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "type",
+                                                        ""
+                                                ),
+                                                object.optDouble(
+                                                        "amount",
+                                                        0D
+                                                ),
+                                                text(
+                                                        object,
+                                                        "category",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "account",
+                                                        "Cash"
+                                                ),
+                                                text(
+                                                        object,
+                                                        "note",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "date",
+                                                        ""
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `loan_payments` "
+                                        + "(`id`,`loanId`,`amount`,`paymentType`,"
+                                        + "`account`,`paymentDate`,`note`) "
+                                        + "VALUES (?,?,?,?,?,?,?)",
+                                payload.loanPayments,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                object.optInt(
+                                                        "loanId",
+                                                        0
+                                                ),
+                                                object.optDouble(
+                                                        "amount",
+                                                        0D
+                                                ),
+                                                text(
+                                                        object,
+                                                        "paymentType",
+                                                        "EMI"
+                                                ),
+                                                text(
+                                                        object,
+                                                        "account",
+                                                        "Cash"
+                                                ),
+                                                text(
+                                                        object,
+                                                        "paymentDate",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "note",
+                                                        ""
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `credit_card_payments` "
+                                        + "(`id`,`creditCardId`,`statementEndDate`,"
+                                        + "`amount`,`paymentDate`,`sourceAccount`,`note`) "
+                                        + "VALUES (?,?,?,?,?,?,?)",
+                                payload.creditCardPayments,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                object.optInt(
+                                                        "creditCardId",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "statementEndDate",
+                                                        ""
+                                                ),
+                                                object.optDouble(
+                                                        "amount",
+                                                        0D
+                                                ),
+                                                text(
+                                                        object,
+                                                        "paymentDate",
+                                                        ""
+                                                ),
+                                                text(
+                                                        object,
+                                                        "sourceAccount",
+                                                        "Cash"
+                                                ),
+                                                text(
+                                                        object,
+                                                        "note",
+                                                        ""
+                                                )
+                                        }
+                        );
+
+                        insertRows(
+                                sqlDatabase,
+                                "INSERT INTO `expense_items` "
+                                        + "(`id`,`transactionId`,`itemName`,"
+                                        + "`quantity`,`unit`,`price`,`total`,`sortOrder`) "
+                                        + "VALUES (?,?,?,?,?,?,?,?)",
+                                payload.expenseItems,
+                                (object, index) ->
+                                        new Object[]{
+                                                object.optInt(
+                                                        "id",
+                                                        0
+                                                ),
+                                                object.optInt(
+                                                        "transactionId",
+                                                        0
+                                                ),
+                                                text(
+                                                        object,
+                                                        "itemName",
+                                                        ""
+                                                ),
+                                                object.optDouble(
+                                                        "quantity",
+                                                        0D
+                                                ),
+                                                text(
+                                                        object,
+                                                        "unit",
+                                                        ""
+                                                ),
+                                                object.optDouble(
+                                                        "price",
+                                                        0D
+                                                ),
+                                                object.optDouble(
+                                                        "total",
+                                                        0D
+                                                ),
+                                                object.optInt(
+                                                        "sortOrder",
+                                                        index
+                                                )
+                                        }
+                        );
+
+                        verifyRestoredTableCounts(
+                                sqlDatabase,
+                                payload
+                        );
+                    }
+            );
+
+        } catch (Exception databaseException) {
+            if (investmentDataChanged) {
+                boolean rollbackSucceeded =
+                        investmentPreferences
+                                .edit()
+                                .putString(
+                                        INVESTMENT_PREFERENCES_KEY,
+                                        previousInvestmentValue
+                                )
+                                .commit();
+
+                if (!rollbackSucceeded) {
+                    databaseException.addSuppressed(
+                            new IllegalStateException(
+                                    "Investment rollback could not be completed."
+                            )
+                    );
+                }
+            }
+
+            throw databaseException;
+        }
+    }
+
+    private void clearFinanceTables(
+            @NonNull SupportSQLiteDatabase database
+    ) {
+        database.execSQL(
+                "DELETE FROM `expense_items`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `credit_card_payments`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `loan_payments`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `transactions`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `credit_cards`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `loans`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `subscriptions`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `category_budgets`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `recurring_transactions`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `goals`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `accounts`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `categories`"
+        );
+
+        database.execSQL(
+                "DELETE FROM `sqlite_sequence` "
+                        + "WHERE `name` IN ("
+                        + "'transactions',"
+                        + "'expense_items',"
+                        + "'credit_card_payments',"
+                        + "'loan_payments',"
+                        + "'credit_cards',"
+                        + "'loans',"
+                        + "'subscriptions',"
+                        + "'category_budgets',"
+                        + "'recurring_transactions',"
+                        + "'goals',"
+                        + "'accounts',"
+                        + "'categories'"
+                        + ")"
+        );
+    }
+
+    private void insertRows(
+            @NonNull SupportSQLiteDatabase database,
+            @NonNull String sql,
+            @NonNull JSONArray array,
+            @NonNull RowArgumentsFactory factory
+    ) {
+        for (int index = 0;
+             index < array.length();
+             index++) {
+
+            JSONObject object =
+                    array.optJSONObject(
+                            index
+                    );
+
+            if (object == null) {
+                throw new IllegalStateException(
+                        "Invalid restore record at position "
+                                + index
+                );
+            }
+
+            database.execSQL(
+                    sql,
+                    factory.createArguments(
+                            object,
+                            index
                     )
             );
         }
+    }
+
+    private void verifyRestoredTableCounts(
+            @NonNull SupportSQLiteDatabase database,
+            @NonNull RestorePayload payload
+    ) {
+        verifyTableCount(
+                database,
+                "transactions",
+                payload.transactions.length()
+        );
+
+        verifyTableCount(
+                database,
+                "expense_items",
+                payload.expenseItems.length()
+        );
+
+        verifyTableCount(
+                database,
+                "categories",
+                payload.categories.length()
+        );
+
+        verifyTableCount(
+                database,
+                "accounts",
+                payload.accounts.length() == 0
+                        ? 1
+                        : payload.accounts.length()
+        );
+
+        verifyTableCount(
+                database,
+                "goals",
+                payload.goals.length()
+        );
+
+        verifyTableCount(
+                database,
+                "recurring_transactions",
+                payload.recurringTransactions.length()
+        );
+
+        verifyTableCount(
+                database,
+                "category_budgets",
+                payload.budgets.length()
+        );
+
+        verifyTableCount(
+                database,
+                "loans",
+                payload.loans.length()
+        );
+
+        verifyTableCount(
+                database,
+                "loan_payments",
+                payload.loanPayments.length()
+        );
+
+        verifyTableCount(
+                database,
+                "subscriptions",
+                payload.subscriptions.length()
+        );
+
+        verifyTableCount(
+                database,
+                "credit_cards",
+                payload.creditCards.length()
+        );
+
+        verifyTableCount(
+                database,
+                "credit_card_payments",
+                payload.creditCardPayments.length()
+        );
+    }
+
+    private void verifyTableCount(
+            @NonNull SupportSQLiteDatabase database,
+            @NonNull String table,
+            int expectedCount
+    ) {
+        int actualCount =
+                queryTableCount(
+                        database,
+                        table
+                );
+
+        if (actualCount != expectedCount) {
+            throw new IllegalStateException(
+                    "Restore verification failed for "
+                            + table
+                            + ". Expected "
+                            + expectedCount
+                            + " but found "
+                            + actualCount
+                            + "."
+            );
+        }
+    }
+
+    private int queryTableCount(
+            @NonNull SupportSQLiteDatabase database,
+            @NonNull String table
+    ) {
+        try (
+                Cursor cursor =
+                        database.query(
+                                "SELECT COUNT(*) FROM `"
+                                        + table
+                                        + "`"
+                        )
+        ) {
+            if (!cursor.moveToFirst()) {
+                return 0;
+            }
+
+            return cursor.getInt(
+                    0
+            );
+        }
+    }
+
+    @NonNull
+    private RestorePayload createRestorePayload(
+            @NonNull JSONObject root
+    ) {
+        RestorePayload payload =
+                new RestorePayload();
+
+        payload.backupVersion =
+                root.optInt(
+                        "backupVersion",
+                        BACKUP_VERSION_LEGACY
+                );
+
+        payload.transactions =
+                arrayOrEmpty(
+                        root,
+                        "transactions"
+                );
+
+        payload.expenseItems =
+                arrayOrEmpty(
+                        root,
+                        "expenseItems"
+                );
+
+        payload.categories =
+                arrayOrEmpty(
+                        root,
+                        "categories"
+                );
+
+        payload.accounts =
+                arrayOrEmpty(
+                        root,
+                        "accounts"
+                );
+
+        payload.goals =
+                arrayOrEmpty(
+                        root,
+                        "goals"
+                );
+
+        payload.recurringTransactions =
+                arrayOrEmpty(
+                        root,
+                        "recurringTransactions"
+                );
+
+        payload.budgets =
+                arrayOrEmpty(
+                        root,
+                        "budgets"
+                );
+
+        payload.loans =
+                arrayOrEmpty(
+                        root,
+                        "loans"
+                );
+
+        payload.loanPayments =
+                arrayOrEmpty(
+                        root,
+                        "loanPayments"
+                );
+
+        payload.subscriptions =
+                arrayOrEmpty(
+                        root,
+                        "subscriptions"
+                );
+
+        payload.creditCards =
+                arrayOrEmpty(
+                        root,
+                        "creditCards"
+                );
+
+        payload.creditCardPayments =
+                arrayOrEmpty(
+                        root,
+                        "creditCardPayments"
+                );
+
+        payload.investments =
+                arrayOrEmpty(
+                        root,
+                        "investments"
+                );
+
+        return payload;
     }
 
     private void validateBackupFile(
-            JSONObject root
+            @NonNull JSONObject root,
+            @NonNull Uri backupUri
     ) throws Exception {
 
         String appName =
@@ -1047,9 +2183,11 @@ public class BackupActivity extends AppCompatActivity {
                         ""
                 );
 
-        if (!"Money Manager Pro".equals(appName)) {
-            throw new Exception(
-                    "Invalid backup app name"
+        if (!OfflineBackupEngine.APP_NAME.equals(
+                appName
+        )) {
+            throw new IllegalStateException(
+                    "Invalid backup app name."
             );
         }
 
@@ -1059,32 +2197,564 @@ public class BackupActivity extends AppCompatActivity {
                         0
                 );
 
-        if (backupVersion != BACKUP_VERSION_LEGACY
-                && backupVersion != BACKUP_VERSION_FULL_DATA
-                && backupVersion
-                != BACKUP_VERSION_CREDIT_CARDS
-                && backupVersion != BACKUP_VERSION_CURRENT) {
-            throw new Exception(
-                    "Unsupported backup version"
+        if (backupVersion
+                == BACKUP_VERSION_INVESTMENTS) {
+
+            offlineBackupEngine
+                    .inspectAndValidateBackup(
+                            backupUri
+                    );
+
+            return;
+        }
+
+        if (backupVersion
+                == BACKUP_VERSION_LEGACY) {
+
+            validateLegacyBackup(
+                    root
+            );
+
+            return;
+        }
+
+        if (backupVersion
+                == BACKUP_VERSION_FULL_DATA
+                || backupVersion
+                == BACKUP_VERSION_CREDIT_CARDS
+                || backupVersion
+                == BACKUP_VERSION_EXPENSE_ITEMS) {
+
+            validateVersionTwoToFourBackup(
+                    root,
+                    backupVersion
+            );
+
+            return;
+        }
+
+        throw new IllegalStateException(
+                "Unsupported backup version."
+        );
+    }
+
+    private void validateLegacyBackup(
+            @NonNull JSONObject root
+    ) throws Exception {
+
+        String[] requiredArrays = {
+                "transactions",
+                "categories",
+                "accounts",
+                "goals",
+                "recurringTransactions",
+                "budgets",
+                "loans"
+        };
+
+        verifyRequiredArrays(
+                root,
+                requiredArrays
+        );
+
+        JSONObject recordCounts =
+                root.optJSONObject(
+                        "recordCounts"
+                );
+
+        if (recordCounts != null) {
+            verifyDeclaredCounts(
+                    root,
+                    recordCounts,
+                    requiredArrays
             );
         }
 
-        if (backupVersion >= BACKUP_VERSION_FULL_DATA) {
-            validateCurrentBackup(
-                    root,
-                    backupVersion
-                            >= BACKUP_VERSION_CREDIT_CARDS,
-                    backupVersion
-                            >= BACKUP_VERSION_CURRENT
+        validateUniquePositiveIds(
+                root,
+                requiredArrays
+        );
+    }
+
+    private void validateVersionTwoToFourBackup(
+            @NonNull JSONObject root,
+            int backupVersion
+    ) throws Exception {
+
+        int databaseVersion =
+                root.optInt(
+                        "databaseVersion",
+                        0
+                );
+
+        int currentDatabaseVersion =
+                DatabaseClient
+                        .getInstance(
+                                getApplicationContext()
+                        )
+                        .getAppDatabase()
+                        .getOpenHelper()
+                        .getReadableDatabase()
+                        .getVersion();
+
+        if (databaseVersion <= 0
+                || databaseVersion > currentDatabaseVersion) {
+
+            throw new IllegalStateException(
+                    "Unsupported backup database version."
             );
-        } else {
-            validateLegacyBackup(root);
+        }
+
+        List<String> requiredArrayList =
+                new ArrayList<>();
+
+        requiredArrayList.add(
+                "transactions"
+        );
+
+        requiredArrayList.add(
+                "categories"
+        );
+
+        requiredArrayList.add(
+                "accounts"
+        );
+
+        requiredArrayList.add(
+                "goals"
+        );
+
+        requiredArrayList.add(
+                "recurringTransactions"
+        );
+
+        requiredArrayList.add(
+                "budgets"
+        );
+
+        requiredArrayList.add(
+                "loans"
+        );
+
+        requiredArrayList.add(
+                "loanPayments"
+        );
+
+        requiredArrayList.add(
+                "subscriptions"
+        );
+
+        if (backupVersion
+                >= BACKUP_VERSION_CREDIT_CARDS) {
+
+            requiredArrayList.add(
+                    "creditCards"
+            );
+
+            requiredArrayList.add(
+                    "creditCardPayments"
+            );
+        }
+
+        if (backupVersion
+                >= BACKUP_VERSION_EXPENSE_ITEMS) {
+
+            requiredArrayList.add(
+                    "expenseItems"
+            );
+        }
+
+        String[] requiredArrays =
+                requiredArrayList.toArray(
+                        new String[0]
+                );
+
+        verifyRequiredArrays(
+                root,
+                requiredArrays
+        );
+
+        JSONObject recordCounts =
+                root.optJSONObject(
+                        "recordCounts"
+                );
+
+        if (recordCounts == null) {
+            throw new IllegalStateException(
+                    "Backup record counts are missing."
+            );
+        }
+
+        verifyDeclaredCounts(
+                root,
+                recordCounts,
+                requiredArrays
+        );
+
+        validateUniquePositiveIds(
+                root,
+                requiredArrays
+        );
+
+        validateLoanPaymentReferences(
+                root
+        );
+
+        if (backupVersion
+                >= BACKUP_VERSION_CREDIT_CARDS) {
+
+            validateCreditCardAccounts(
+                    root
+            );
+
+            validateCreditCardPaymentReferences(
+                    root
+            );
+        }
+
+        if (backupVersion
+                >= BACKUP_VERSION_EXPENSE_ITEMS) {
+
+            validateExpenseItemReferences(
+                    root
+            );
+        }
+
+        String storedChecksum =
+                root.optString(
+                                "integritySha256",
+                                ""
+                        )
+                        .trim()
+                        .toLowerCase(
+                                Locale.US
+                        );
+
+        if (!storedChecksum.matches(
+                "[0-9a-f]{64}"
+        )) {
+            throw new IllegalStateException(
+                    "Backup checksum is invalid."
+            );
+        }
+
+        if (!BackupIntegrity.verify(
+                root,
+                storedChecksum
+        )) {
+            throw new IllegalStateException(
+                    "Backup integrity verification failed."
+            );
         }
     }
 
+    private void verifyRequiredArrays(
+            @NonNull JSONObject root,
+            @NonNull String[] requiredArrays
+    ) {
+        for (String arrayName :
+                requiredArrays) {
+
+            if (root.optJSONArray(
+                    arrayName
+            ) == null) {
+
+                throw new IllegalStateException(
+                        "Backup section is missing: "
+                                + arrayName
+                );
+            }
+        }
+    }
+
+    private void verifyDeclaredCounts(
+            @NonNull JSONObject root,
+            @NonNull JSONObject recordCounts,
+            @NonNull String[] requiredArrays
+    ) throws Exception {
+
+        for (String arrayName :
+                requiredArrays) {
+
+            int expectedCount =
+                    recordCounts.optInt(
+                            arrayName,
+                            -1
+                    );
+
+            int actualCount =
+                    root.getJSONArray(
+                            arrayName
+                    ).length();
+
+            if (expectedCount != actualCount) {
+                throw new IllegalStateException(
+                        "Backup record count mismatch: "
+                                + arrayName
+                );
+            }
+        }
+    }
+
+    private void validateUniquePositiveIds(
+            @NonNull JSONObject root,
+            @NonNull String[] arrayNames
+    ) throws Exception {
+
+        for (String arrayName :
+                arrayNames) {
+
+            JSONArray array =
+                    root.getJSONArray(
+                            arrayName
+                    );
+
+            Set<Integer> ids =
+                    new HashSet<>();
+
+            for (int index = 0;
+                 index < array.length();
+                 index++) {
+
+                JSONObject item =
+                        array.optJSONObject(
+                                index
+                        );
+
+                if (item == null) {
+                    throw new IllegalStateException(
+                            "Invalid record in "
+                                    + arrayName
+                    );
+                }
+
+                int id =
+                        item.optInt(
+                                "id",
+                                0
+                        );
+
+                if (id <= 0
+                        || !ids.add(
+                        id
+                )) {
+
+                    throw new IllegalStateException(
+                            "Invalid or duplicate ID in "
+                                    + arrayName
+                    );
+                }
+            }
+        }
+    }
+
+    private void validateLoanPaymentReferences(
+            @NonNull JSONObject root
+    ) throws Exception {
+
+        Set<Integer> loanIds =
+                collectIds(
+                        root.getJSONArray(
+                                "loans"
+                        )
+                );
+
+        JSONArray payments =
+                root.getJSONArray(
+                        "loanPayments"
+                );
+
+        for (int index = 0;
+             index < payments.length();
+             index++) {
+
+            int loanId =
+                    payments
+                            .getJSONObject(
+                                    index
+                            )
+                            .optInt(
+                                    "loanId",
+                                    0
+                            );
+
+            if (!loanIds.contains(
+                    loanId
+            )) {
+                throw new IllegalStateException(
+                        "Loan payment references a missing loan."
+                );
+            }
+        }
+    }
+
+    private void validateExpenseItemReferences(
+            @NonNull JSONObject root
+    ) throws Exception {
+
+        Set<Integer> transactionIds =
+                collectIds(
+                        root.getJSONArray(
+                                "transactions"
+                        )
+                );
+
+        JSONArray expenseItems =
+                root.getJSONArray(
+                        "expenseItems"
+                );
+
+        for (int index = 0;
+             index < expenseItems.length();
+             index++) {
+
+            int transactionId =
+                    expenseItems
+                            .getJSONObject(
+                                    index
+                            )
+                            .optInt(
+                                    "transactionId",
+                                    0
+                            );
+
+            if (!transactionIds.contains(
+                    transactionId
+            )) {
+                throw new IllegalStateException(
+                        "Expense item references a missing transaction."
+                );
+            }
+        }
+    }
+
+    private void validateCreditCardPaymentReferences(
+            @NonNull JSONObject root
+    ) throws Exception {
+
+        Set<Integer> cardIds =
+                collectIds(
+                        root.getJSONArray(
+                                "creditCards"
+                        )
+                );
+
+        JSONArray payments =
+                root.getJSONArray(
+                        "creditCardPayments"
+                );
+
+        for (int index = 0;
+             index < payments.length();
+             index++) {
+
+            int creditCardId =
+                    payments
+                            .getJSONObject(
+                                    index
+                            )
+                            .optInt(
+                                    "creditCardId",
+                                    0
+                            );
+
+            if (!cardIds.contains(
+                    creditCardId
+            )) {
+                throw new IllegalStateException(
+                        "Card payment references a missing credit card."
+                );
+            }
+        }
+    }
+
+    private void validateCreditCardAccounts(
+            @NonNull JSONObject root
+    ) throws Exception {
+
+        Set<String> accountNames =
+                new HashSet<>();
+
+        JSONArray accounts =
+                root.getJSONArray(
+                        "accounts"
+                );
+
+        for (int index = 0;
+             index < accounts.length();
+             index++) {
+
+            accountNames.add(
+                    accounts
+                            .getJSONObject(
+                                    index
+                            )
+                            .optString(
+                                    "name",
+                                    ""
+                            )
+            );
+        }
+
+        JSONArray creditCards =
+                root.getJSONArray(
+                        "creditCards"
+                );
+
+        for (int index = 0;
+             index < creditCards.length();
+             index++) {
+
+            String cardAccount =
+                    creditCards
+                            .getJSONObject(
+                                    index
+                            )
+                            .optString(
+                                    "accountName",
+                                    ""
+                            );
+
+            if (!accountNames.contains(
+                    cardAccount
+            )) {
+                throw new IllegalStateException(
+                        "Credit-card account is missing from backup."
+                );
+            }
+        }
+    }
+
+    @NonNull
+    private Set<Integer> collectIds(
+            @NonNull JSONArray array
+    ) throws Exception {
+
+        Set<Integer> ids =
+                new HashSet<>();
+
+        for (int index = 0;
+             index < array.length();
+             index++) {
+
+            ids.add(
+                    array
+                            .getJSONObject(
+                                    index
+                            )
+                            .getInt(
+                                    "id"
+                            )
+            );
+        }
+
+        return ids;
+    }
+
+    @NonNull
     private BackupSummary createBackupSummary(
-            JSONObject root,
-            Uri backupUri
+            @NonNull JSONObject root,
+            @NonNull Uri backupUri
     ) {
         BackupSummary summary =
                 new BackupSummary();
@@ -1106,7 +2776,7 @@ public class BackupActivity extends AppCompatActivity {
         summary.backupVersion =
                 root.optInt(
                         "backupVersion",
-                        1
+                        BACKUP_VERSION_LEGACY
                 );
 
         summary.appVersion =
@@ -1199,6 +2869,13 @@ public class BackupActivity extends AppCompatActivity {
                         )
                 );
 
+        summary.investmentCount =
+                getArrayLength(
+                        root.optJSONArray(
+                                "investments"
+                        )
+                );
+
         summary.integrityStatus =
                 summary.backupVersion
                         >= BACKUP_VERSION_FULL_DATA
@@ -1208,391 +2885,289 @@ public class BackupActivity extends AppCompatActivity {
         return summary;
     }
 
-    private void validateCurrentBackup(
-            JSONObject root,
-            boolean includesCreditCards,
-            boolean includesExpenseItems
-    ) throws Exception {
-        int databaseVersion =
-                root.optInt(
-                        "databaseVersion",
-                        0
+    private void updateBackupStatus() {
+        if (!backupStorageManager
+                .hasUsableBackupFolder()) {
+
+            if (backupStorageManager
+                    .getSavedTreeUri() == null) {
+
+                txtBackupStatus.setText(
+                        "Backup folder अभी चुना नहीं गया है।\n"
+                                + "Create Backup दबाने पर पहली बार folder चुनें।"
                 );
 
-        if (databaseVersion <= 0
-                || databaseVersion > DATABASE_VERSION) {
-            throw new Exception(
-                    "Unsupported backup database version."
-            );
-        }
-
-        List<String> requiredArrayList =
-                new ArrayList<>();
-
-        String[] baseArrays = {
-                "transactions",
-                "categories",
-                "accounts",
-                "goals",
-                "recurringTransactions",
-                "budgets",
-                "loans",
-                "loanPayments",
-                "subscriptions"
-        };
-
-        for (String arrayName : baseArrays) {
-            requiredArrayList.add(arrayName);
-        }
-
-        if (includesCreditCards) {
-            requiredArrayList.add("creditCards");
-            requiredArrayList.add(
-                    "creditCardPayments"
-            );
-        }
-
-        if (includesExpenseItems) {
-            requiredArrayList.add("expenseItems");
-        }
-
-        String[] requiredArrays =
-                requiredArrayList.toArray(
-                        new String[0]
-                );
-
-        for (String arrayName : requiredArrays) {
-            if (root.optJSONArray(arrayName) == null) {
-                throw new Exception(
-                        "Backup section is missing: " + arrayName
+            } else {
+                txtBackupStatus.setText(
+                        "Backup folder की permission उपलब्ध नहीं है।\n"
+                                + "Create Backup या Restore Backup दबाकर "
+                                + "folder दोबारा चुनें।"
                 );
             }
-        }
 
-        JSONObject recordCounts =
-                root.optJSONObject("recordCounts");
-
-        if (recordCounts == null) {
-            throw new Exception(
-                    "Backup record counts are missing."
-            );
-        }
-
-        for (String arrayName : requiredArrays) {
-            int expectedCount =
-                    recordCounts.optInt(
-                            arrayName,
-                            -1
-                    );
-
-            int actualCount =
-                    root.getJSONArray(
-                            arrayName
-                    ).length();
-
-            if (expectedCount != actualCount) {
-                throw new Exception(
-                        "Backup record count mismatch: " + arrayName
-                );
-            }
-        }
-
-        validateUniquePositiveIds(
-                root,
-                requiredArrays
-        );
-        validateLoanPaymentReferences(root);
-
-        if (includesCreditCards) {
-            validateCreditCardAccounts(root);
-            validateCreditCardPaymentReferences(
-                    root
-            );
-        }
-
-        if (includesExpenseItems) {
-            validateExpenseItemReferences(root);
-        }
-
-        String storedChecksum =
-                root.optString(
-                        "integritySha256",
-                        ""
-                ).trim().toLowerCase(Locale.US);
-
-        if (!BackupIntegrity.verify(
-                root,
-                storedChecksum
-        )) {
-            throw new Exception(
-                    "Backup integrity verification failed."
-            );
-        }
-    }
-
-    private void validateLegacyBackup(
-            JSONObject root
-    ) throws Exception {
-        String[] requiredArrays = {
-                "transactions",
-                "categories",
-                "accounts",
-                "goals",
-                "recurringTransactions",
-                "budgets",
-                "loans"
-        };
-
-        for (String arrayName : requiredArrays) {
-            if (root.optJSONArray(arrayName) == null) {
-                throw new Exception(
-                        "Legacy backup section is missing: "
-                                + arrayName
-                );
-            }
-        }
-
-        JSONObject recordCounts =
-                root.optJSONObject("recordCounts");
-
-        if (recordCounts == null) {
             return;
         }
 
-        for (String arrayName : requiredArrays) {
-            int expectedCount =
-                    recordCounts.optInt(
-                            arrayName,
-                            -1
+        txtBackupStatus.setText(
+                "Backup की स्थिति जाँची जा रही है..."
+        );
+
+        new Thread(
+                () -> {
+                    String statusText;
+
+                    try {
+                        Uri latestBackupUri =
+                                backupStorageManager
+                                        .findLatestBackupUri();
+
+                        if (latestBackupUri == null) {
+                            statusText =
+                                    "Backup folder तैयार है\n"
+                                            + backupStorageManager
+                                            .getBackupLocationLabel()
+                                            + "\nअभी कोई backup उपलब्ध नहीं है।";
+
+                        } else {
+                            JSONObject root =
+                                    readBackupJson(
+                                            latestBackupUri
+                                    );
+
+                            validateBackupFile(
+                                    root,
+                                    latestBackupUri
+                            );
+
+                            int backupVersion =
+                                    root.optInt(
+                                            "backupVersion",
+                                            BACKUP_VERSION_LEGACY
+                                    );
+
+                            String createdAt =
+                                    getBackupDateTime(
+                                            root,
+                                            latestBackupUri
+                                    );
+
+                            long size =
+                                    backupStorageManager
+                                            .getDocumentSize(
+                                                    latestBackupUri
+                                            );
+
+                            String verificationLabel =
+                                    backupVersion
+                                            >= BACKUP_VERSION_FULL_DATA
+                                            ? "SHA-256 integrity verified"
+                                            : "Legacy v1 structure verified";
+
+                            int totalRecords =
+                                    calculateTotalRecords(
+                                            root
+                                    );
+
+                            statusText =
+                                    "Latest backup उपलब्ध है\n"
+                                            + "Version: "
+                                            + backupVersion
+                                            + "\n"
+                                            + verificationLabel
+                                            + "\n"
+                                            + createdAt
+                                            + "\n"
+                                            + formatFileSize(
+                                            size
+                                    )
+                                            + "\nRecords: "
+                                            + totalRecords
+                                            + (
+                                            backupVersion
+                                                    >= BACKUP_VERSION_INVESTMENTS
+                                                    ? "\nInvestments included"
+                                                    : "\nLegacy backup: Investments not included"
+                                    )
+                                            + "\n"
+                                            + backupStorageManager
+                                            .getBackupLocationLabel();
+                        }
+
+                    } catch (Exception exception) {
+                        statusText =
+                                "Backup file मौजूद है, लेकिन इसकी जानकारी "
+                                        + "पढ़ी नहीं जा सकी।";
+                    }
+
+                    String finalStatusText =
+                            statusText;
+
+                    runOnUiThread(
+                            () -> txtBackupStatus.setText(
+                                    finalStatusText
+                            )
                     );
-
-            int actualCount =
-                    root.getJSONArray(
-                            arrayName
-                    ).length();
-
-            if (expectedCount != actualCount) {
-                throw new Exception(
-                        "Legacy backup count mismatch: "
-                                + arrayName
-                );
-            }
-        }
+                }
+        ).start();
     }
 
-    private void validateUniquePositiveIds(
-            JSONObject root,
-            String[] arrayNames
+    @NonNull
+    private JSONObject readBackupJson(
+            @NonNull Uri backupUri
     ) throws Exception {
-        for (String arrayName : arrayNames) {
-            JSONArray array =
-                    root.getJSONArray(arrayName);
 
-            Set<Integer> ids =
-                    new HashSet<>();
+        try (
+                InputStream inputStream =
+                        backupStorageManager
+                                .openBackupInputStream(
+                                        backupUri
+                                );
 
-            for (int index = 0;
-                 index < array.length();
-                 index++) {
+                ByteArrayOutputStream outputStream =
+                        new ByteArrayOutputStream()
+        ) {
+            byte[] buffer =
+                    new byte[8192];
 
-                JSONObject item =
-                        array.optJSONObject(index);
+            int totalBytes =
+                    0;
 
-                if (item == null) {
-                    throw new Exception(
-                            "Invalid record in " + arrayName
+            int bytesRead;
+
+            while ((bytesRead =
+                    inputStream.read(
+                            buffer
+                    )) != -1) {
+
+                totalBytes +=
+                        bytesRead;
+
+                if (totalBytes
+                        > OfflineBackupEngine.MAX_BACKUP_BYTES) {
+
+                    throw new IllegalStateException(
+                            "Backup file exceeds the supported size."
                     );
                 }
 
-                int id = item.optInt("id", 0);
-
-                if (id <= 0 || !ids.add(id)) {
-                    throw new Exception(
-                            "Invalid or duplicate ID in " + arrayName
-                    );
-                }
-            }
-        }
-    }
-
-    private void validateLoanPaymentReferences(
-            JSONObject root
-    ) throws Exception {
-        Set<Integer> loanIds =
-                new HashSet<>();
-
-        JSONArray loans =
-                root.getJSONArray("loans");
-
-        for (int index = 0;
-             index < loans.length();
-             index++) {
-
-            loanIds.add(
-                    loans.getJSONObject(index)
-                            .getInt("id")
-            );
-        }
-
-        JSONArray payments =
-                root.getJSONArray("loanPayments");
-
-        for (int index = 0;
-             index < payments.length();
-             index++) {
-
-            int loanId =
-                    payments.getJSONObject(index)
-                            .optInt("loanId", 0);
-
-            if (!loanIds.contains(loanId)) {
-                throw new Exception(
-                        "Loan payment references a missing loan."
+                outputStream.write(
+                        buffer,
+                        0,
+                        bytesRead
                 );
             }
-        }
-    }
 
-    private void validateExpenseItemReferences(
-            JSONObject root
-    ) throws Exception {
-        Set<Integer> transactionIds =
-                new HashSet<>();
-
-        JSONArray transactions =
-                root.getJSONArray("transactions");
-
-        for (int index = 0;
-             index < transactions.length();
-             index++) {
-
-            transactionIds.add(
-                    transactions.getJSONObject(index)
-                            .getInt("id")
-            );
-        }
-
-        JSONArray expenseItems =
-                root.getJSONArray("expenseItems");
-
-        for (int index = 0;
-             index < expenseItems.length();
-             index++) {
-
-            JSONObject item =
-                    expenseItems.getJSONObject(index);
-
-            int transactionId =
-                    item.optInt(
-                            "transactionId",
-                            0
-                    );
-
-            if (!transactionIds.contains(
-                    transactionId
-            )) {
-                throw new Exception(
-                        "Expense item references a missing transaction."
+            if (totalBytes <= 0) {
+                throw new IllegalStateException(
+                        "Backup file is empty."
                 );
             }
+
+            return new JSONObject(
+                    outputStream.toString(
+                            StandardCharsets.UTF_8.name()
+                    )
+            );
         }
     }
 
-    private void validateCreditCardPaymentReferences(
-            JSONObject root
-    ) throws Exception {
-        Set<Integer> cardIds =
-                new HashSet<>();
-
-        JSONArray cards =
-                root.getJSONArray("creditCards");
-
-        for (int index = 0;
-             index < cards.length();
-             index++) {
-
-            cardIds.add(
-                    cards.getJSONObject(index)
-                            .getInt("id")
-            );
-        }
-
-        JSONArray payments =
-                root.getJSONArray(
+    private int calculateTotalRecords(
+            @NonNull JSONObject root
+    ) {
+        return getArrayLength(
+                root.optJSONArray(
+                        "transactions"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "expenseItems"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "categories"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "accounts"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "goals"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "recurringTransactions"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "budgets"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "loans"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "loanPayments"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "subscriptions"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "creditCards"
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
                         "creditCardPayments"
-                );
-
-        for (int index = 0;
-             index < payments.length();
-             index++) {
-
-            int cardId =
-                    payments.getJSONObject(index)
-                            .optInt(
-                                    "creditCardId",
-                                    0
-                            );
-
-            if (!cardIds.contains(cardId)) {
-                throw new Exception(
-                        "Card payment references a missing credit card."
-                );
-            }
-        }
+                )
+        )
+                + getArrayLength(
+                root.optJSONArray(
+                        "investments"
+                )
+        );
     }
 
-    private void validateCreditCardAccounts(
-            JSONObject root
-    ) throws Exception {
-        Set<String> accountNames =
-                new HashSet<>();
-
-        JSONArray accounts =
-                root.getJSONArray("accounts");
-
-        for (int index = 0;
-             index < accounts.length();
-             index++) {
-
-            accountNames.add(
-                    accounts.getJSONObject(index)
-                            .optString("name", "")
-            );
-        }
-
-        JSONArray cards =
-                root.getJSONArray("creditCards");
-
-        for (int index = 0;
-             index < cards.length();
-             index++) {
-
-            String cardAccount =
-                    cards.getJSONObject(index)
-                            .optString(
-                                    "accountName",
-                                    ""
-                            );
-
-            if (!accountNames.contains(cardAccount)) {
-                throw new Exception(
-                        "Credit card account is missing from backup."
+    @NonNull
+    private JSONArray arrayOrEmpty(
+            @NonNull JSONObject root,
+            @NonNull String field
+    ) {
+        JSONArray array =
+                root.optJSONArray(
+                        field
                 );
-            }
-        }
+
+        return array == null
+                ? new JSONArray()
+                : array;
     }
 
     private int getArrayLength(
-            JSONArray array
+            @Nullable JSONArray array
     ) {
         return array == null
                 ? 0
                 : array.length();
     }
 
+    @NonNull
     private String getBackupDateTime(
-            JSONObject root,
-            Uri backupUri
+            @NonNull JSONObject root,
+            @NonNull Uri backupUri
     ) {
         String createdAt =
                 root.optString(
@@ -1631,2012 +3206,185 @@ public class BackupActivity extends AppCompatActivity {
         return "दिनांक एवं समय उपलब्ध नहीं";
     }
 
-    private JSONObject buildBackupJson()
-            throws Exception {
-
-        JSONObject root =
-                new JSONObject();
-
-        root.put(
-                "appName",
-                "Money Manager Pro"
-        );
-
-        root.put(
-                "backupVersion",
-                BACKUP_VERSION_CURRENT
-        );
-
-        root.put(
-                "databaseVersion",
-                DATABASE_VERSION
-        );
-
-        root.put(
-                "appVersion",
-                getAppVersionName()
-        );
-
-        root.put(
-                "createdAt",
-                getCurrentDateTime()
-        );
-
-        root.put(
-                "createdAtMillis",
-                System.currentTimeMillis()
-        );
-
-        AppDatabase database =
-                DatabaseClient
-                        .getInstance(
-                                getApplicationContext()
-                        )
-                        .getAppDatabase();
-
-        BackupSnapshot snapshot =
-                new BackupSnapshot();
-
-        database.runInTransaction(() -> {
-            snapshot.transactions =
-                    database.transactionDao()
-                            .getAllTransactions();
-            snapshot.expenseItems =
-                    database.expenseItemDao()
-                            .getAllExpenseItems();
-            snapshot.categories =
-                    database.categoryDao()
-                            .getAllCategories();
-            snapshot.accounts =
-                    database.accountDao()
-                            .getAllAccounts();
-            snapshot.goals =
-                    database.goalDao()
-                            .getAllGoals();
-            snapshot.recurringTransactions =
-                    database.recurringTransactionDao()
-                            .getAllRecurringTransactions();
-            snapshot.budgets =
-                    database.budgetDao()
-                            .getAllBudgets();
-            snapshot.loans =
-                    database.loanDao()
-                            .getAllLoans();
-            snapshot.loanPayments =
-                    database.loanPaymentDao()
-                            .getAllLoanPayments();
-            snapshot.subscriptions =
-                    database.subscriptionDao()
-                            .getAllSubscriptions();
-            snapshot.creditCards =
-                    database.creditCardDao()
-                            .getAllCreditCards();
-            snapshot.creditCardPayments =
-                    database.creditCardPaymentDao()
-                            .getAllPayments();
-        });
-
-        JSONArray transactionArray =
-                createTransactionArray(
-                        snapshot.transactions
-                );
-
-        JSONArray expenseItemArray =
-                createExpenseItemArray(
-                        snapshot.expenseItems
-                );
-
-        JSONArray categoryArray =
-                createCategoryArray(
-                        snapshot.categories
-                );
-
-        JSONArray accountArray =
-                createAccountArray(
-                        snapshot.accounts
-                );
-
-        JSONArray goalArray =
-                createGoalArray(
-                        snapshot.goals
-                );
-
-        JSONArray recurringArray =
-                createRecurringArray(
-                        snapshot.recurringTransactions
-                );
-
-        JSONArray budgetArray =
-                createBudgetArray(
-                        snapshot.budgets
-                );
-
-        JSONArray loanArray =
-                createLoanArray(
-                        snapshot.loans
-                );
-
-        JSONArray loanPaymentArray =
-                createLoanPaymentArray(
-                        snapshot.loanPayments
-                );
-
-        JSONArray subscriptionArray =
-                createSubscriptionArray(
-                        snapshot.subscriptions
-                );
-
-        JSONArray creditCardArray =
-                createCreditCardArray(
-                        snapshot.creditCards
-                );
-
-        JSONArray creditCardPaymentArray =
-                createCreditCardPaymentArray(
-                        snapshot.creditCardPayments
-                );
-
-        root.put(
-                "transactions",
-                transactionArray
-        );
-
-        root.put(
-                "expenseItems",
-                expenseItemArray
-        );
-
-        root.put(
-                "categories",
-                categoryArray
-        );
-
-        root.put(
-                "accounts",
-                accountArray
-        );
-
-        root.put(
-                "goals",
-                goalArray
-        );
-
-        root.put(
-                "recurringTransactions",
-                recurringArray
-        );
-
-        root.put(
-                "budgets",
-                budgetArray
-        );
-
-        root.put(
-                "loans",
-                loanArray
-        );
-
-        root.put(
-                "loanPayments",
-                loanPaymentArray
-        );
-
-        root.put(
-                "subscriptions",
-                subscriptionArray
-        );
-
-        root.put(
-                "creditCards",
-                creditCardArray
-        );
-
-        root.put(
-                "creditCardPayments",
-                creditCardPaymentArray
-        );
-
-        JSONObject recordCounts =
-                new JSONObject();
-
-        recordCounts.put(
-                "transactions",
-                transactionArray.length()
-        );
-
-        recordCounts.put(
-                "expenseItems",
-                expenseItemArray.length()
-        );
-
-        recordCounts.put(
-                "categories",
-                categoryArray.length()
-        );
-
-        recordCounts.put(
-                "accounts",
-                accountArray.length()
-        );
-
-        recordCounts.put(
-                "goals",
-                goalArray.length()
-        );
-
-        recordCounts.put(
-                "recurringTransactions",
-                recurringArray.length()
-        );
-
-        recordCounts.put(
-                "budgets",
-                budgetArray.length()
-        );
-
-        recordCounts.put(
-                "loans",
-                loanArray.length()
-        );
-
-        recordCounts.put(
-                "loanPayments",
-                loanPaymentArray.length()
-        );
-
-        recordCounts.put(
-                "subscriptions",
-                subscriptionArray.length()
-        );
-
-        recordCounts.put(
-                "creditCards",
-                creditCardArray.length()
-        );
-
-        recordCounts.put(
-                "creditCardPayments",
-                creditCardPaymentArray.length()
-        );
-
-        root.put(
-                "recordCounts",
-                recordCounts
-        );
-
-        root.put(
-                "integrityAlgorithm",
-                "SHA-256"
-        );
-
-        root.put(
-                "integritySha256",
-                BackupIntegrity.calculateSha256(root)
-        );
-
-        return root;
-    }
-
-    private BackupContent parseBackup(
-            JSONObject root
-    ) throws Exception {
-
-        validateBackupFile(root);
-
-        BackupContent content =
-                new BackupContent();
-
-        content.transactions =
-                parseTransactions(
-                        root.optJSONArray(
-                                "transactions"
-                        )
-                );
-
-        content.expenseItems =
-                parseExpenseItems(
-                        root.optJSONArray(
-                                "expenseItems"
-                        ),
-                        root.optInt(
-                                "backupVersion",
-                                BACKUP_VERSION_LEGACY
-                        )
-                );
-
-        content.categories =
-                parseCategories(
-                        root.optJSONArray(
-                                "categories"
-                        )
-                );
-
-        content.accounts =
-                parseAccounts(
-                        root.optJSONArray(
-                                "accounts"
-                        )
-                );
-
-        content.goals =
-                parseGoals(
-                        root.optJSONArray(
-                                "goals"
-                        )
-                );
-
-        content.recurringTransactions =
-                parseRecurringTransactions(
-                        root.optJSONArray(
-                                "recurringTransactions"
-                        )
-                );
-
-        content.budgets =
-                parseBudgets(
-                        root.optJSONArray(
-                                "budgets"
-                        )
-                );
-
-        content.loans =
-                parseLoans(
-                        root.optJSONArray(
-                                "loans"
-                        )
-                );
-
-        content.loanPayments =
-                parseLoanPayments(
-                        root.optJSONArray(
-                                "loanPayments"
-                        ),
-                        root.optInt(
-                                "backupVersion",
-                                BACKUP_VERSION_LEGACY
-                        )
-                );
-
-        content.subscriptions =
-                parseSubscriptions(
-                        root.optJSONArray(
-                                "subscriptions"
-                        ),
-                        root.optInt(
-                                "backupVersion",
-                                BACKUP_VERSION_LEGACY
-                        )
-                );
-
-        int backupVersion =
-                root.optInt(
-                        "backupVersion",
-                        BACKUP_VERSION_LEGACY
-                );
-
-        content.creditCards =
-                parseCreditCards(
-                        root.optJSONArray(
-                                "creditCards"
-                        ),
-                        backupVersion
-                );
-
-        content.creditCardPayments =
-                parseCreditCardPayments(
-                        root.optJSONArray(
-                                "creditCardPayments"
-                        ),
-                        backupVersion
-                );
-
-        return content;
-    }
-
-    private JSONArray createTransactionArray(
-            List<Transaction> transactions
-    ) throws Exception {
-
-        JSONArray array =
-                new JSONArray();
-
-        for (Transaction transaction :
-                transactions) {
-
-            JSONObject object =
-                    new JSONObject();
-
-            object.put(
-                    "id",
-                    transaction.getId()
-            );
-
-            object.put(
-                    "type",
-                    transaction.getType()
-            );
-
-            object.put(
-                    "amount",
-                    transaction.getAmount()
-            );
-
-            object.put(
-                    "category",
-                    transaction.getCategory()
-            );
-
-            object.put(
-                    "account",
-                    transaction.getAccount()
-            );
-
-            object.put(
-                    "note",
-                    transaction.getNote()
-            );
-
-            object.put(
-                    "date",
-                    transaction.getDate()
-            );
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createExpenseItemArray(
-            List<ExpenseItem> expenseItems
-    ) throws Exception {
-        JSONArray array = new JSONArray();
-
-        for (ExpenseItem item : expenseItems) {
-            JSONObject object = new JSONObject();
-
-            object.put("id", item.getId());
-            object.put(
-                    "transactionId",
-                    item.getTransactionId()
-            );
-            object.put(
-                    "itemName",
-                    item.getItemName()
-            );
-            object.put(
-                    "quantity",
-                    item.getQuantity()
-            );
-            object.put("unit", item.getUnit());
-            object.put("price", item.getPrice());
-            object.put("total", item.getTotal());
-            object.put(
-                    "sortOrder",
-                    item.getSortOrder()
-            );
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createCategoryArray(
-            List<Category> categories
-    ) throws Exception {
-
-        JSONArray array =
-                new JSONArray();
-
-        for (Category category :
-                categories) {
-
-            JSONObject object =
-                    new JSONObject();
-
-            object.put(
-                    "id",
-                    category.getId()
-            );
-
-            object.put(
-                    "name",
-                    category.getName()
-            );
-
-            object.put(
-                    "type",
-                    category.getType()
-            );
-
-            object.put(
-                    "color",
-                    category.getColor()
-            );
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createAccountArray(
-            List<Account> accounts
-    ) throws Exception {
-
-        JSONArray array =
-                new JSONArray();
-
-        for (Account account :
-                accounts) {
-
-            JSONObject object =
-                    new JSONObject();
-
-            object.put(
-                    "id",
-                    account.getId()
-            );
-
-            object.put(
-                    "name",
-                    account.getName()
-            );
-
-            object.put(
-                    "type",
-                    account.getType()
-            );
-
-            object.put(
-                    "openingBalance",
-                    account.getOpeningBalance()
-            );
-
-            object.put(
-                    "color",
-                    account.getColor()
-            );
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createGoalArray(
-            List<Goal> goals
-    ) throws Exception {
-
-        JSONArray array =
-                new JSONArray();
-
-        for (Goal goal :
-                goals) {
-
-            JSONObject object =
-                    new JSONObject();
-
-            object.put(
-                    "id",
-                    goal.getId()
-            );
-
-            object.put(
-                    "name",
-                    goal.getName()
-            );
-
-            object.put(
-                    "targetAmount",
-                    goal.getTargetAmount()
-            );
-
-            object.put(
-                    "savedAmount",
-                    goal.getSavedAmount()
-            );
-
-            object.put(
-                    "targetDate",
-                    goal.getTargetDate()
-            );
-
-            object.put(
-                    "color",
-                    goal.getColor()
-            );
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createRecurringArray(
-            List<RecurringTransaction> recurringTransactions
-    ) throws Exception {
-
-        JSONArray array =
-                new JSONArray();
-
-        for (RecurringTransaction recurring :
-                recurringTransactions) {
-
-            JSONObject object =
-                    new JSONObject();
-
-            object.put(
-                    "id",
-                    recurring.getId()
-            );
-
-            object.put(
-                    "type",
-                    recurring.getType()
-            );
-
-            object.put(
-                    "amount",
-                    recurring.getAmount()
-            );
-
-            object.put(
-                    "category",
-                    recurring.getCategory()
-            );
-
-            object.put(
-                    "account",
-                    recurring.getAccount()
-            );
-
-            object.put(
-                    "note",
-                    recurring.getNote()
-            );
-
-            object.put(
-                    "frequency",
-                    recurring.getFrequency()
-            );
-
-            object.put(
-                    "startDate",
-                    recurring.getStartDate()
-            );
-
-            object.put(
-                    "nextRunDate",
-                    recurring.getNextRunDate()
-            );
-
-            object.put(
-                    "active",
-                    recurring.isActive()
-            );
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createBudgetArray(
-            List<Budget> budgets
-    ) throws Exception {
-
-        JSONArray array =
-                new JSONArray();
-
-        for (Budget budget :
-                budgets) {
-
-            JSONObject object =
-                    new JSONObject();
-
-            object.put(
-                    "id",
-                    budget.getId()
-            );
-
-            object.put(
-                    "category",
-                    budget.getCategory()
-            );
-
-            object.put(
-                    "period",
-                    budget.getPeriod()
-            );
-
-            object.put(
-                    "limitAmount",
-                    budget.getLimitAmount()
-            );
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createLoanArray(
-            List<Loan> loans
-    ) throws Exception {
-
-        JSONArray array =
-                new JSONArray();
-
-        for (Loan loan :
-                loans) {
-
-            JSONObject object =
-                    new JSONObject();
-
-            object.put(
-                    "id",
-                    loan.getId()
-            );
-
-            object.put(
-                    "personName",
-                    loan.getPersonName()
-            );
-
-            object.put(
-                    "loanType",
-                    loan.getLoanType()
-            );
-
-            object.put(
-                    "totalAmount",
-                    loan.getTotalAmount()
-            );
-
-            object.put(
-                    "outstandingAmount",
-                    loan.getOutstandingAmount()
-            );
-
-            object.put(
-                    "interestRate",
-                    loan.getInterestRate()
-            );
-
-            object.put(
-                    "emiAmount",
-                    loan.getEmiAmount()
-            );
-
-            object.put(
-                    "dueDate",
-                    loan.getDueDate()
-            );
-
-            object.put(
-                    "note",
-                    loan.getNote()
-            );
-
-            object.put(
-                    "active",
-                    loan.isActive()
-            );
-
-            object.put(
-                    "startDate",
-                    loan.getStartDate()
-            );
-
-            object.put(
-                    "tenureMonths",
-                    loan.getTenureMonths()
-            );
-
-            object.put(
-                    "historicalPaidAmount",
-                    loan.getHistoricalPaidAmount()
-            );
-
-            object.put(
-                    "historicalInstallments",
-                    loan.getHistoricalInstallments()
-            );
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createLoanPaymentArray(
-            List<LoanPayment> loanPayments
-    ) throws Exception {
-        JSONArray array = new JSONArray();
-
-        for (LoanPayment payment : loanPayments) {
-            JSONObject object = new JSONObject();
-
-            object.put("id", payment.getId());
-            object.put("loanId", payment.getLoanId());
-            object.put("amount", payment.getAmount());
-            object.put("paymentType", payment.getPaymentType());
-            object.put("account", payment.getAccount());
-            object.put("paymentDate", payment.getPaymentDate());
-            object.put("note", payment.getNote());
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createSubscriptionArray(
-            List<Subscription> subscriptions
-    ) throws Exception {
-        JSONArray array = new JSONArray();
-
-        for (Subscription subscription : subscriptions) {
-            JSONObject object = new JSONObject();
-
-            object.put("id", subscription.getId());
-            object.put("name", subscription.getName());
-            object.put("amount", subscription.getAmount());
-            object.put(
-                    "billingCycle",
-                    subscription.getBillingCycle()
-            );
-            object.put(
-                    "nextDueDate",
-                    subscription.getNextDueDate()
-            );
-            object.put("account", subscription.getAccount());
-            object.put("category", subscription.getCategory());
-            object.put(
-                    "remindDays",
-                    subscription.getRemindDays()
-            );
-            object.put("note", subscription.getNote());
-            object.put("active", subscription.isActive());
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createCreditCardArray(
-            List<CreditCard> creditCards
-    ) throws Exception {
-        JSONArray array = new JSONArray();
-
-        for (CreditCard card : creditCards) {
-            JSONObject object = new JSONObject();
-
-            object.put("id", card.getId());
-            object.put("name", card.getName());
-            object.put("lastFour", card.getLastFour());
-            object.put(
-                    "accountName",
-                    card.getAccountName()
-            );
-            object.put(
-                    "creditLimit",
-                    card.getCreditLimit()
-            );
-            object.put(
-                    "billingDay",
-                    card.getBillingDay()
-            );
-            object.put("dueDay", card.getDueDay());
-            object.put(
-                    "paymentAccount",
-                    card.getPaymentAccount()
-            );
-            object.put(
-                    "reminderDays",
-                    card.getReminderDays()
-            );
-            object.put("active", card.isActive());
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private JSONArray createCreditCardPaymentArray(
-            List<CreditCardPayment> payments
-    ) throws Exception {
-        JSONArray array = new JSONArray();
-
-        for (CreditCardPayment payment : payments) {
-            JSONObject object = new JSONObject();
-
-            object.put("id", payment.getId());
-            object.put(
-                    "creditCardId",
-                    payment.getCreditCardId()
-            );
-            object.put(
-                    "statementEndDate",
-                    payment.getStatementEndDate()
-            );
-            object.put("amount", payment.getAmount());
-            object.put(
-                    "paymentDate",
-                    payment.getPaymentDate()
-            );
-            object.put(
-                    "sourceAccount",
-                    payment.getSourceAccount()
-            );
-            object.put("note", payment.getNote());
-
-            array.put(object);
-        }
-
-        return array;
-    }
-
-    private List<Transaction> parseTransactions(
-            JSONArray array
+    private void safelyRecordOfflineSuccess(
+            @NonNull OfflineBackupEngine.BackupResult result
     ) {
-        List<Transaction> transactions =
-                new ArrayList<>();
+        try {
+            schedulePreferences.recordOfflineBackupSuccess(
+                    result.getCreatedAtMillis(),
+                    result.getBackupId(),
+                    result
+                            .getRecordCounts()
+                            .getTotalRecords(),
+                    result.getBackupByteCount()
+            );
 
-        if (array == null) {
-            return transactions;
+        } catch (Exception exception) {
+            Log.w(
+                    TAG,
+                    "Offline backup succeeded, but status could not be saved.",
+                    exception
+            );
+        }
+    }
+
+    private void safelyRecordOfflineFailure(
+            @NonNull Exception exception
+    ) {
+        try {
+            schedulePreferences.recordOfflineBackupFailure(
+                    System.currentTimeMillis(),
+                    getUsefulErrorMessage(
+                            exception
+                    )
+            );
+
+        } catch (Exception statusException) {
+            Log.w(
+                    TAG,
+                    "Offline backup failure status could not be saved.",
+                    statusException
+            );
+        }
+    }
+
+    @NonNull
+    private String text(
+            @NonNull JSONObject object,
+            @NonNull String field,
+            @NonNull String fallback
+    ) {
+        if (!object.has(
+                field
+        )
+                || object.isNull(
+                field
+        )) {
+
+            return fallback;
         }
 
-        for (int index = 0;
-             index < array.length();
-             index++) {
+        String value =
+                object.optString(
+                        field,
+                        fallback
+                );
 
-            JSONObject object =
-                    array.optJSONObject(index);
+        return value == null
+                ? fallback
+                : value;
+    }
 
-            if (object == null) {
-                continue;
+    private int booleanInteger(
+            @NonNull JSONObject object,
+            @NonNull String field,
+            boolean fallback
+    ) {
+        if (!object.has(
+                field
+        )
+                || object.isNull(
+                field
+        )) {
+
+            return fallback
+                    ? 1
+                    : 0;
+        }
+
+        Object rawValue =
+                object.opt(
+                        field
+                );
+
+        if (rawValue
+                instanceof Boolean) {
+
+            return (Boolean) rawValue
+                    ? 1
+                    : 0;
+        }
+
+        if (rawValue
+                instanceof Number) {
+
+            return ((Number) rawValue)
+                    .intValue() != 0
+                    ? 1
+                    : 0;
+        }
+
+        String textValue =
+                String.valueOf(
+                        rawValue
+                );
+
+        return "true".equalsIgnoreCase(
+                textValue
+        )
+                || "1".equals(
+                textValue
+        )
+                ? 1
+                : 0;
+    }
+
+    @NonNull
+    private String getUsefulErrorMessage(
+            @NonNull Throwable throwable
+    ) {
+        Throwable current =
+                throwable;
+
+        String usefulMessage =
+                "";
+
+        int inspectedCauses =
+                0;
+
+        while (current != null
+                && inspectedCauses < 12) {
+
+            String message =
+                    current.getMessage();
+
+            if (message != null
+                    && !message.trim().isEmpty()) {
+
+                usefulMessage =
+                        message.trim();
             }
 
-            Transaction transaction =
-                    new Transaction();
+            current =
+                    current.getCause();
 
-            transaction.setId(
-                    object.optInt(
-                            "id",
-                            0
-                    )
-            );
-
-            transaction.setType(
-                    object.optString(
-                            "type",
-                            ""
-                    )
-            );
-
-            transaction.setAmount(
-                    object.optDouble(
-                            "amount",
-                            0
-                    )
-            );
-
-            transaction.setCategory(
-                    object.optString(
-                            "category",
-                            ""
-                    )
-            );
-
-            transaction.setAccount(
-                    object.optString(
-                            "account",
-                            "Cash"
-                    )
-            );
-
-            transaction.setNote(
-                    object.optString(
-                            "note",
-                            ""
-                    )
-            );
-
-            transaction.setDate(
-                    object.optString(
-                            "date",
-                            ""
-                    )
-            );
-
-            transactions.add(
-                    transaction
-            );
+            inspectedCauses++;
         }
 
-        return transactions;
-    }
-
-    private List<ExpenseItem> parseExpenseItems(
-            JSONArray array,
-            int backupVersion
-    ) {
-        List<ExpenseItem> expenseItems =
-                new ArrayList<>();
-
-        if (backupVersion < BACKUP_VERSION_CURRENT
-                || array == null) {
-            return expenseItems;
+        if (usefulMessage.isEmpty()) {
+            return "Storage provider ने operation पूरा नहीं किया।";
         }
 
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            ExpenseItem item = new ExpenseItem();
-
-            item.setId(
-                    object.optInt("id", 0)
-            );
-            item.setTransactionId(
-                    object.optInt(
-                            "transactionId",
-                            0
-                    )
-            );
-            item.setItemName(
-                    object.optString(
-                            "itemName",
-                            ""
-                    )
-            );
-            item.setQuantity(
-                    object.optDouble(
-                            "quantity",
-                            0
-                    )
-            );
-            item.setUnit(
-                    object.optString(
-                            "unit",
-                            ""
-                    )
-            );
-            item.setPrice(
-                    object.optDouble(
-                            "price",
-                            0
-                    )
-            );
-            item.setTotal(
-                    object.optDouble(
-                            "total",
-                            0
-                    )
-            );
-            item.setSortOrder(
-                    object.optInt(
-                            "sortOrder",
-                            index
-                    )
-            );
-
-            expenseItems.add(item);
-        }
-
-        return expenseItems;
-    }
-
-    private List<Category> parseCategories(
-            JSONArray array
-    ) {
-        List<Category> categories =
-                new ArrayList<>();
-
-        if (array == null) {
-            return categories;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            Category category =
-                    new Category();
-
-            category.setId(
-                    object.optInt(
-                            "id",
-                            0
-                    )
-            );
-
-            category.setName(
-                    object.optString(
-                            "name",
-                            ""
-                    )
-            );
-
-            category.setType(
-                    object.optString(
-                            "type",
-                            ""
-                    )
-            );
-
-            category.setColor(
-                    object.optString(
-                            "color",
-                            "#1565C0"
-                    )
-            );
-
-            categories.add(category);
-        }
-
-        return categories;
-    }
-
-    private List<Account> parseAccounts(
-            JSONArray array
-    ) {
-        List<Account> accounts =
-                new ArrayList<>();
-
-        if (array == null) {
-            return accounts;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            Account account =
-                    new Account();
-
-            account.setId(
-                    object.optInt(
-                            "id",
-                            0
-                    )
-            );
-
-            account.setName(
-                    object.optString(
-                            "name",
-                            "Cash"
-                    )
-            );
-
-            account.setType(
-                    object.optString(
-                            "type",
-                            "Cash"
-                    )
-            );
-
-            account.setOpeningBalance(
-                    object.optDouble(
-                            "openingBalance",
-                            0
-                    )
-            );
-
-            account.setColor(
-                    object.optString(
-                            "color",
-                            "#2E7D32"
-                    )
-            );
-
-            accounts.add(account);
-        }
-
-        return accounts;
-    }
-
-    private List<Goal> parseGoals(
-            JSONArray array
-    ) {
-        List<Goal> goals =
-                new ArrayList<>();
-
-        if (array == null) {
-            return goals;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            Goal goal =
-                    new Goal();
-
-            goal.setId(
-                    object.optInt(
-                            "id",
-                            0
-                    )
-            );
-
-            goal.setName(
-                    object.optString(
-                            "name",
-                            ""
-                    )
-            );
-
-            goal.setTargetAmount(
-                    object.optDouble(
-                            "targetAmount",
-                            0
-                    )
-            );
-
-            goal.setSavedAmount(
-                    object.optDouble(
-                            "savedAmount",
-                            0
-                    )
-            );
-
-            goal.setTargetDate(
-                    object.optString(
-                            "targetDate",
-                            ""
-                    )
-            );
-
-            goal.setColor(
-                    object.optString(
-                            "color",
-                            "#6C63FF"
-                    )
-            );
-
-            goals.add(goal);
-        }
-
-        return goals;
-    }
-
-    private List<RecurringTransaction>
-    parseRecurringTransactions(
-            JSONArray array
-    ) {
-        List<RecurringTransaction>
-                recurringTransactions =
-                new ArrayList<>();
-
-        if (array == null) {
-            return recurringTransactions;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            RecurringTransaction recurring =
-                    new RecurringTransaction();
-
-            recurring.setId(
-                    object.optInt(
-                            "id",
-                            0
-                    )
-            );
-
-            recurring.setType(
-                    object.optString(
-                            "type",
-                            ""
-                    )
-            );
-
-            recurring.setAmount(
-                    object.optDouble(
-                            "amount",
-                            0
-                    )
-            );
-
-            recurring.setCategory(
-                    object.optString(
-                            "category",
-                            ""
-                    )
-            );
-
-            recurring.setAccount(
-                    object.optString(
-                            "account",
-                            "Cash"
-                    )
-            );
-
-            recurring.setNote(
-                    object.optString(
-                            "note",
-                            ""
-                    )
-            );
-
-            recurring.setFrequency(
-                    object.optString(
-                            "frequency",
-                            "Monthly"
-                    )
-            );
-
-            recurring.setStartDate(
-                    object.optString(
-                            "startDate",
-                            ""
-                    )
-            );
-
-            recurring.setNextRunDate(
-                    object.optString(
-                            "nextRunDate",
-                            ""
-                    )
-            );
-
-            recurring.setActive(
-                    object.optBoolean(
-                            "active",
-                            true
-                    )
-            );
-
-            recurringTransactions.add(
-                    recurring
-            );
-        }
-
-        return recurringTransactions;
-    }
-
-    private List<Budget> parseBudgets(
-            JSONArray array
-    ) {
-        List<Budget> budgets =
-                new ArrayList<>();
-
-        if (array == null) {
-            return budgets;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            Budget budget =
-                    new Budget();
-
-            budget.setId(
-                    object.optInt(
-                            "id",
-                            0
-                    )
-            );
-
-            budget.setCategory(
-                    object.optString(
-                            "category",
-                            ""
-                    )
-            );
-
-            budget.setPeriod(
-                    object.optString(
-                            "period",
-                            "Monthly"
-                    )
-            );
-
-            budget.setLimitAmount(
-                    object.optDouble(
-                            "limitAmount",
-                            0
-                    )
-            );
-
-            budgets.add(budget);
-        }
-
-        return budgets;
-    }
-
-    private List<Loan> parseLoans(
-            JSONArray array
-    ) {
-        List<Loan> loans =
-                new ArrayList<>();
-
-        if (array == null) {
-            return loans;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            Loan loan =
-                    new Loan();
-
-            loan.setId(
-                    object.optInt(
-                            "id",
-                            0
-                    )
-            );
-
-            loan.setPersonName(
-                    object.optString(
-                            "personName",
-                            ""
-                    )
-            );
-
-            loan.setLoanType(
-                    object.optString(
-                            "loanType",
-                            "Loan Taken"
-                    )
-            );
-
-            loan.setTotalAmount(
-                    object.optDouble(
-                            "totalAmount",
-                            0
-                    )
-            );
-
-            loan.setOutstandingAmount(
-                    object.optDouble(
-                            "outstandingAmount",
-                            0
-                    )
-            );
-
-            loan.setInterestRate(
-                    object.optDouble(
-                            "interestRate",
-                            0
-                    )
-            );
-
-            loan.setEmiAmount(
-                    object.optDouble(
-                            "emiAmount",
-                            0
-                    )
-            );
-
-            loan.setDueDate(
-                    object.optString(
-                            "dueDate",
-                            ""
-                    )
-            );
-
-            loan.setNote(
-                    object.optString(
-                            "note",
-                            ""
-                    )
-            );
-
-            loan.setActive(
-                    object.optBoolean(
-                            "active",
-                            true
-                    )
-            );
-
-            loan.setStartDate(
-                    object.optString(
-                            "startDate",
-                            ""
-                    )
-            );
-
-            loan.setTenureMonths(
-                    object.optInt(
-                            "tenureMonths",
-                            0
-                    )
-            );
-
-            loan.setHistoricalPaidAmount(
-                    object.optDouble(
-                            "historicalPaidAmount",
-                            0
-                    )
-            );
-
-            loan.setHistoricalInstallments(
-                    object.optInt(
-                            "historicalInstallments",
-                            0
-                    )
-            );
-
-            loans.add(loan);
-        }
-
-        return loans;
-    }
-
-    private List<LoanPayment> parseLoanPayments(
-            JSONArray array,
-            int backupVersion
-    ) {
-        List<LoanPayment> payments =
-                new ArrayList<>();
-
-        if (array == null
-                && backupVersion == BACKUP_VERSION_LEGACY) {
-            return payments;
-        }
-
-        if (array == null) {
-            return payments;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            LoanPayment payment =
-                    new LoanPayment();
-
-            payment.setId(object.optInt("id", 0));
-            payment.setLoanId(object.optInt("loanId", 0));
-            payment.setAmount(object.optDouble("amount", 0));
-            payment.setPaymentType(
-                    object.optString(
-                            "paymentType",
-                            "EMI"
-                    )
-            );
-            payment.setAccount(
-                    object.optString(
-                            "account",
-                            "Cash"
-                    )
-            );
-            payment.setPaymentDate(
-                    object.optString(
-                            "paymentDate",
-                            ""
-                    )
-            );
-            payment.setNote(
-                    object.optString(
-                            "note",
-                            ""
-                    )
-            );
-
-            payments.add(payment);
-        }
-
-        return payments;
-    }
-
-    private List<Subscription> parseSubscriptions(
-            JSONArray array,
-            int backupVersion
-    ) {
-        List<Subscription> subscriptions =
-                new ArrayList<>();
-
-        if (array == null
-                && backupVersion == BACKUP_VERSION_LEGACY) {
-            return subscriptions;
-        }
-
-        if (array == null) {
-            return subscriptions;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            Subscription subscription =
-                    new Subscription();
-
-            subscription.setId(object.optInt("id", 0));
-            subscription.setName(
-                    object.optString("name", "")
-            );
-            subscription.setAmount(
-                    object.optDouble("amount", 0)
-            );
-            subscription.setBillingCycle(
-                    object.optString(
-                            "billingCycle",
-                            "Monthly"
-                    )
-            );
-            subscription.setNextDueDate(
-                    object.optString(
-                            "nextDueDate",
-                            ""
-                    )
-            );
-            subscription.setAccount(
-                    object.optString(
-                            "account",
-                            "Cash"
-                    )
-            );
-            subscription.setCategory(
-                    object.optString(
-                            "category",
-                            ""
-                    )
-            );
-            subscription.setRemindDays(
-                    object.optInt("remindDays", 0)
-            );
-            subscription.setNote(
-                    object.optString("note", "")
-            );
-            subscription.setActive(
-                    object.optBoolean("active", true)
-            );
-
-            subscriptions.add(subscription);
-        }
-
-        return subscriptions;
-    }
-
-    private List<CreditCard> parseCreditCards(
-            JSONArray array,
-            int backupVersion
-    ) {
-        List<CreditCard> creditCards =
-                new ArrayList<>();
-
-        if (array == null
-                && backupVersion
-                < BACKUP_VERSION_CREDIT_CARDS) {
-            return creditCards;
-        }
-
-        if (array == null) {
-            return creditCards;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            CreditCard card =
-                    new CreditCard();
-
-            card.setId(object.optInt("id", 0));
-            card.setName(
-                    object.optString("name", "")
-            );
-            card.setLastFour(
-                    object.optString(
-                            "lastFour",
-                            ""
-                    )
-            );
-            card.setAccountName(
-                    object.optString(
-                            "accountName",
-                            ""
-                    )
-            );
-            card.setCreditLimit(
-                    object.optDouble(
-                            "creditLimit",
-                            0
-                    )
-            );
-            card.setBillingDay(
-                    object.optInt(
-                            "billingDay",
-                            1
-                    )
-            );
-            card.setDueDay(
-                    object.optInt("dueDay", 1)
-            );
-            card.setPaymentAccount(
-                    object.optString(
-                            "paymentAccount",
-                            "Cash"
-                    )
-            );
-            card.setReminderDays(
-                    object.optInt(
-                            "reminderDays",
-                            3
-                    )
-            );
-            card.setActive(
-                    object.optBoolean(
-                            "active",
-                            true
-                    )
-            );
-
-            creditCards.add(card);
-        }
-
-        return creditCards;
-    }
-
-    private List<CreditCardPayment>
-    parseCreditCardPayments(
-            JSONArray array,
-            int backupVersion
-    ) {
-        List<CreditCardPayment> payments =
-                new ArrayList<>();
-
-        if (array == null
-                && backupVersion
-                < BACKUP_VERSION_CREDIT_CARDS) {
-            return payments;
-        }
-
-        if (array == null) {
-            return payments;
-        }
-
-        for (int index = 0;
-             index < array.length();
-             index++) {
-
-            JSONObject object =
-                    array.optJSONObject(index);
-
-            if (object == null) {
-                continue;
-            }
-
-            CreditCardPayment payment =
-                    new CreditCardPayment();
-
-            payment.setId(
-                    object.optInt("id", 0)
-            );
-            payment.setCreditCardId(
-                    object.optInt(
-                            "creditCardId",
-                            0
-                    )
-            );
-            payment.setStatementEndDate(
-                    object.optString(
-                            "statementEndDate",
-                            ""
-                    )
-            );
-            payment.setAmount(
-                    object.optDouble(
-                            "amount",
-                            0
-                    )
-            );
-            payment.setPaymentDate(
-                    object.optString(
-                            "paymentDate",
-                            ""
-                    )
-            );
-            payment.setSourceAccount(
-                    object.optString(
-                            "sourceAccount",
-                            "Cash"
-                    )
-            );
-            payment.setNote(
-                    object.optString(
-                            "note",
-                            ""
-                    )
-            );
-
-            payments.add(payment);
-        }
-
-        return payments;
-    }
-
-    private void verifyRestoredData(
-            AppDatabase database,
-            BackupContent content
-    ) {
-        verifyCount(
-                "transactions",
-                content.transactions.size(),
-                database.transactionDao()
-                        .getAllTransactions().size()
-        );
-        verifyCount(
-                "expense items",
-                content.expenseItems.size(),
-                database.expenseItemDao()
-                        .getAllExpenseItems().size()
-        );
-        verifyCount(
-                "categories",
-                content.categories.size(),
-                database.categoryDao()
-                        .getAllCategories().size()
-        );
-        verifyCount(
-                "accounts",
-                content.accounts.isEmpty()
-                        ? 1
-                        : content.accounts.size(),
-                database.accountDao()
-                        .getAllAccounts().size()
-        );
-        verifyCount(
-                "goals",
-                content.goals.size(),
-                database.goalDao()
-                        .getAllGoals().size()
-        );
-        verifyCount(
-                "recurring transactions",
-                content.recurringTransactions.size(),
-                database.recurringTransactionDao()
-                        .getAllRecurringTransactions().size()
-        );
-        verifyCount(
-                "budgets",
-                content.budgets.size(),
-                database.budgetDao()
-                        .getAllBudgets().size()
-        );
-        verifyCount(
-                "loans",
-                content.loans.size(),
-                database.loanDao()
-                        .getAllLoans().size()
-        );
-        verifyCount(
-                "loan payments",
-                content.loanPayments.size(),
-                database.loanPaymentDao()
-                        .getAllLoanPayments().size()
-        );
-        verifyCount(
-                "subscriptions",
-                content.subscriptions.size(),
-                database.subscriptionDao()
-                        .getAllSubscriptions().size()
-        );
-        verifyCount(
-                "credit cards",
-                content.creditCards.size(),
-                database.creditCardDao()
-                        .getAllCreditCards().size()
-        );
-        verifyCount(
-                "credit card payments",
-                content.creditCardPayments.size(),
-                database.creditCardPaymentDao()
-                        .getAllPayments().size()
-        );
-    }
-
-    private void verifyCount(
-            String section,
-            int expected,
-            int actual
-    ) {
-        if (expected != actual) {
-            throw new IllegalStateException(
-                    "Restore verification failed for "
-                            + section
-            );
-        }
+        return usefulMessage;
     }
 
     private void setBackupButtonsEnabled(
             boolean enabled
     ) {
-        btnCreateBackup.setEnabled(enabled);
-        btnRestoreBackup.setEnabled(enabled);
-        btnChangeBackupFolder.setEnabled(enabled);
-    }
+        btnCreateBackup.setEnabled(
+                enabled
+        );
 
-    private String getCurrentDateTime() {
-        return formatDateTime(
-                System.currentTimeMillis()
+        btnRestoreBackup.setEnabled(
+                enabled
+        );
+
+        btnChangeBackupFolder.setEnabled(
+                enabled
         );
     }
 
+    @NonNull
     private String formatDateTime(
             long timestamp
     ) {
@@ -3644,25 +3392,29 @@ public class BackupActivity extends AppCompatActivity {
                 "dd MMM yyyy, hh:mm a",
                 Locale.getDefault()
         ).format(
-                new Date(timestamp)
+                new Date(
+                        timestamp
+                )
         );
     }
 
+    @NonNull
     private String formatFileSize(
             long sizeInBytes
     ) {
-        if (sizeInBytes < 0) {
+        if (sizeInBytes < 0L) {
             return "File size उपलब्ध नहीं";
         }
 
-        if (sizeInBytes < 1024) {
-            return sizeInBytes + " Bytes";
+        if (sizeInBytes < 1024L) {
+            return sizeInBytes
+                    + " Bytes";
         }
 
         double sizeInKb =
-                sizeInBytes / 1024.0;
+                sizeInBytes / 1024D;
 
-        if (sizeInKb < 1024) {
+        if (sizeInKb < 1024D) {
             return String.format(
                     Locale.getDefault(),
                     "%.2f KB",
@@ -3671,7 +3423,7 @@ public class BackupActivity extends AppCompatActivity {
         }
 
         double sizeInMb =
-                sizeInKb / 1024.0;
+                sizeInKb / 1024D;
 
         return String.format(
                 Locale.getDefault(),
@@ -3680,71 +3432,99 @@ public class BackupActivity extends AppCompatActivity {
         );
     }
 
-    private String getAppVersionName() {
-        try {
-            return getPackageManager()
-                    .getPackageInfo(
-                            getPackageName(),
-                            0
-                    )
-                    .versionName;
+    private interface RowArgumentsFactory {
 
-        } catch (Exception exception) {
-            return "Unknown";
-        }
+        @NonNull
+        Object[] createArguments(
+                @NonNull JSONObject object,
+                int index
+        );
     }
 
-    private static class BackupContent {
-        List<Transaction> transactions;
-        List<ExpenseItem> expenseItems;
-        List<Category> categories;
-        List<Account> accounts;
-        List<Goal> goals;
+    private static final class RestorePayload {
 
-        List<RecurringTransaction>
-                recurringTransactions;
+        private int backupVersion;
 
-        List<Budget> budgets;
-        List<Loan> loans;
-        List<LoanPayment> loanPayments;
-        List<Subscription> subscriptions;
-        List<CreditCard> creditCards;
-        List<CreditCardPayment> creditCardPayments;
+        private JSONArray transactions =
+                new JSONArray();
+
+        private JSONArray expenseItems =
+                new JSONArray();
+
+        private JSONArray categories =
+                new JSONArray();
+
+        private JSONArray accounts =
+                new JSONArray();
+
+        private JSONArray goals =
+                new JSONArray();
+
+        private JSONArray recurringTransactions =
+                new JSONArray();
+
+        private JSONArray budgets =
+                new JSONArray();
+
+        private JSONArray loans =
+                new JSONArray();
+
+        private JSONArray loanPayments =
+                new JSONArray();
+
+        private JSONArray subscriptions =
+                new JSONArray();
+
+        private JSONArray creditCards =
+                new JSONArray();
+
+        private JSONArray creditCardPayments =
+                new JSONArray();
+
+        private JSONArray investments =
+                new JSONArray();
     }
 
-    private static class BackupSnapshot {
-        List<Transaction> transactions;
-        List<ExpenseItem> expenseItems;
-        List<Category> categories;
-        List<Account> accounts;
-        List<Goal> goals;
-        List<RecurringTransaction> recurringTransactions;
-        List<Budget> budgets;
-        List<Loan> loans;
-        List<LoanPayment> loanPayments;
-        List<Subscription> subscriptions;
-        List<CreditCard> creditCards;
-        List<CreditCardPayment> creditCardPayments;
-    }
+    private static final class BackupSummary {
 
-    private static class BackupSummary {
-        String createdAt;
-        String fileSize;
-        String appVersion;
+        private String createdAt =
+                "";
 
-        int backupVersion;
-        int transactionCount;
-        int expenseItemCount;
-        int categoryCount;
-        int accountCount;
-        int goalCount;
-        int recurringCount;
-        int budgetCount;
-        int loanCount;
-        int loanPaymentCount;
-        int subscriptionCount;
-        int creditCardCount;
-        int creditCardPaymentCount;
-        String integrityStatus;
+        private String fileSize =
+                "";
+
+        private String appVersion =
+                "";
+
+        private String integrityStatus =
+                "";
+
+        private int backupVersion;
+
+        private int transactionCount;
+
+        private int expenseItemCount;
+
+        private int categoryCount;
+
+        private int accountCount;
+
+        private int goalCount;
+
+        private int recurringCount;
+
+        private int budgetCount;
+
+        private int loanCount;
+
+        private int loanPaymentCount;
+
+        private int subscriptionCount;
+
+        private int creditCardCount;
+
+        private int creditCardPaymentCount;
+
+        private int investmentCount;
     }
 }
