@@ -12,23 +12,38 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.moneymanagerpro.activities.BackupActivity;
+import com.example.moneymanagerpro.activities.SettingsActivity;
+import com.example.moneymanagerpro.security.AppInactivityLockManager;
+import com.example.moneymanagerpro.security.AutoLockSettingsController;
+import com.example.moneymanagerpro.ui.DashboardVisualEnhancer;
 
 import java.util.Map;
 import java.util.WeakHashMap;
 
 /**
- * Process initializer that attaches permanent cloud-delete actions after
- * BackupActivity.onResume().
+ * Internal process initializer for focused runtime controllers.
  *
- * A ContentProvider is used only for automatic process initialization.
- * It stores no data and exposes no queryable content.
+ * It attaches:
+ * - permanent cloud backup/account deletion actions,
+ * - global inactivity auto-lock monitoring,
+ * - configurable auto-lock controls on Settings,
+ * - distinct light colors and updated assistant label on Dashboard.
+ *
+ * The ContentProvider stores no data and exposes no queryable content.
  */
 public final class CloudDeleteActionsInitializer
         extends ContentProvider {
 
     private final Map<Activity, CloudDeleteActionsController>
-            controllers =
+            cloudDeleteControllers =
             new WeakHashMap<>();
+
+    private final Map<Activity, AutoLockSettingsController>
+            autoLockSettingsControllers =
+            new WeakHashMap<>();
+
+    @Nullable
+    private AppInactivityLockManager inactivityLockManager;
 
     @Override
     public boolean onCreate() {
@@ -40,6 +55,11 @@ public final class CloudDeleteActionsInitializer
                 (Application) getContext()
                         .getApplicationContext();
 
+        inactivityLockManager =
+                new AppInactivityLockManager(
+                        application
+                );
+
         application.registerActivityLifecycleCallbacks(
                 new Application.ActivityLifecycleCallbacks() {
                     @Override
@@ -47,7 +67,7 @@ public final class CloudDeleteActionsInitializer
                             @NonNull Activity activity,
                             @Nullable Bundle savedInstanceState
                     ) {
-                        // No action required.
+                        // Runtime controllers attach after Activity.onResume().
                     }
 
                     @Override
@@ -61,42 +81,45 @@ public final class CloudDeleteActionsInitializer
                     public void onActivityResumed(
                             @NonNull Activity activity
                     ) {
-                        if (!(activity instanceof BackupActivity)) {
-                            return;
-                        }
-
-                        CloudDeleteActionsController controller =
-                                controllers.get(
-                                        activity
-                                );
-
-                        if (controller == null) {
-                            controller =
-                                    new CloudDeleteActionsController(
-                                            activity
-                                    );
-
-                            controllers.put(
-                                    activity,
-                                    controller
+                        if (inactivityLockManager != null) {
+                            inactivityLockManager.onActivityResumed(
+                                    activity
                             );
                         }
 
-                        controller.attach();
+                        DashboardVisualEnhancer.apply(
+                                activity
+                        );
+
+                        if (activity instanceof BackupActivity) {
+                            attachCloudDeleteController(
+                                    activity
+                            );
+                        }
+
+                        if (activity instanceof SettingsActivity) {
+                            attachAutoLockSettingsController(
+                                    activity
+                            );
+                        }
                     }
 
                     @Override
                     public void onActivityPaused(
                             @NonNull Activity activity
                     ) {
-                        // No action required.
+                        if (inactivityLockManager != null) {
+                            inactivityLockManager.onActivityPaused(
+                                    activity
+                            );
+                        }
                     }
 
                     @Override
                     public void onActivityStopped(
                             @NonNull Activity activity
                     ) {
-                        // No action required.
+                        // Background duration is evaluated at next resume.
                     }
 
                     @Override
@@ -111,14 +134,74 @@ public final class CloudDeleteActionsInitializer
                     public void onActivityDestroyed(
                             @NonNull Activity activity
                     ) {
-                        controllers.remove(
+                        cloudDeleteControllers.remove(
                                 activity
                         );
+
+                        autoLockSettingsControllers.remove(
+                                activity
+                        );
+
+                        DashboardVisualEnhancer.remove(
+                                activity
+                        );
+
+                        if (inactivityLockManager != null) {
+                            inactivityLockManager.onActivityDestroyed(
+                                    activity
+                            );
+                        }
                     }
                 }
         );
 
         return true;
+    }
+
+    private void attachCloudDeleteController(
+            @NonNull Activity activity
+    ) {
+        CloudDeleteActionsController controller =
+                cloudDeleteControllers.get(
+                        activity
+                );
+
+        if (controller == null) {
+            controller =
+                    new CloudDeleteActionsController(
+                            activity
+                    );
+
+            cloudDeleteControllers.put(
+                    activity,
+                    controller
+            );
+        }
+
+        controller.attach();
+    }
+
+    private void attachAutoLockSettingsController(
+            @NonNull Activity activity
+    ) {
+        AutoLockSettingsController controller =
+                autoLockSettingsControllers.get(
+                        activity
+                );
+
+        if (controller == null) {
+            controller =
+                    new AutoLockSettingsController(
+                            activity
+                    );
+
+            autoLockSettingsControllers.put(
+                    activity,
+                    controller
+            );
+        }
+
+        controller.attach();
     }
 
     @Nullable

@@ -17,9 +17,7 @@
         android:paddingStart="16dp"
         android:paddingTop="14dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="36dp">
-
-        <!-- BACK BUTTON -->
+        android:paddingBottom="38dp">
 
         <TextView
             android:id="@+id/btnBack"
@@ -37,13 +35,11 @@
             android:textSize="15sp"
             android:textStyle="bold" />
 
-        <!-- PAGE TITLE -->
-
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="7dp"
-            android:text="Smart Finance Advisor"
+            android:text="Smart Transaction Assistant"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
 
         <TextView
@@ -51,10 +47,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:lineSpacingExtra="2dp"
-            android:text="Understand your current money habits through private insights calculated from your own finance data."
+            android:text="Ask questions, detect possible duplicates, review unusual expenses and receive private offline spending guidance."
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
-
-        <!-- INTRODUCTION CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -74,10 +68,10 @@
                 android:padding="17dp">
 
                 <com.google.android.material.card.MaterialCardView
-                    android:layout_width="50dp"
-                    android:layout_height="50dp"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
                     app:cardBackgroundColor="@color/app_surface"
-                    app:cardCornerRadius="15dp"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:strokeColor="@color/purple_outline"
                     app:strokeWidth="1dp">
@@ -88,7 +82,7 @@
                         android:gravity="center"
                         android:text="✦"
                         android:textColor="@color/purple"
-                        android:textSize="22sp"
+                        android:textSize="23sp"
                         android:textStyle="bold" />
 
                 </com.google.android.material.card.MaterialCardView>
@@ -103,19 +97,29 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Personal Money Intelligence"
+                        android:text="Private Money Intelligence"
                         android:textColor="@color/purple"
                         android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtAssistantPeriod"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="Analysing local transactions..."
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="The advisor reviews this month’s income, expenses, savings and spending concentration."
+                        android:text="No transaction data is uploaded to an AI service."
                         android:textColor="@color/app_text_secondary"
-                        android:textSize="11sp" />
+                        android:textSize="9sp" />
 
                 </LinearLayout>
 
@@ -123,30 +127,285 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- SCORE HEADING -->
-
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="25dp"
-            android:text="Money Health Score"
+            android:text="Money Health"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:text="A score from 0 to 100 based on your current monthly activity"
+            android:text="Current-month income, expense and saving position"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
-
-        <!-- SCORE CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             app:cardBackgroundColor="@color/app_surface"
-            app:cardCornerRadius="22dp"
+            app:cardCornerRadius="21dp"
+            app:cardElevation="1dp"
+            app:strokeColor="@color/app_outline_soft"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        app:cardBackgroundColor="@color/purple_surface"
+                        app:cardCornerRadius="46dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/purple_outline"
+                        app:strokeWidth="2dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/txtHealthScore"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="—"
+                                android:textColor="@color/purple"
+                                android:textSize="38sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="OUT OF 100"
+                                android:textColor="@color/app_text_secondary"
+                                android:textSize="7sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Financial condition"
+                            android:textColor="@color/app_text_secondary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtHealthLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:lineSpacingExtra="2dp"
+                            android:text="Calculating money health"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="17sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:lineSpacingExtra="2dp"
+                            android:text="Score uses saving rate, category concentration, monthly trend and smart alerts."
+                            android:textColor="@color/app_text_secondary"
+                            android:textSize="9sp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp"
+                        android:layout_height="92dp"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        app:cardBackgroundColor="@color/success_surface"
+                        app:cardCornerRadius="15dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/success_outline"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="8dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="INCOME"
+                                android:textColor="@color/app_text_secondary"
+                                android:textSize="8sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/txtAssistantIncome"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:ellipsize="end"
+                                android:gravity="center"
+                                android:maxLines="1"
+                                android:text="₹0.00"
+                                android:textColor="@color/success"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp"
+                        android:layout_height="92dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        app:cardBackgroundColor="@color/expense_surface"
+                        app:cardCornerRadius="15dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/expense_outline"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="8dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="EXPENSE"
+                                android:textColor="@color/app_text_secondary"
+                                android:textSize="8sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/txtAssistantExpense"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:ellipsize="end"
+                                android:gravity="center"
+                                android:maxLines="1"
+                                android:text="₹0.00"
+                                android:textColor="@color/expense"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp"
+                        android:layout_height="92dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        app:cardBackgroundColor="@color/info_surface"
+                        app:cardCornerRadius="15dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/info_outline"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="8dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="SAVING"
+                                android:textColor="@color/app_text_secondary"
+                                android:textSize="8sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/txtAssistantSaving"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:ellipsize="end"
+                                android:gravity="center"
+                                android:maxLines="1"
+                                android:text="₹0.00"
+                                android:textColor="@color/secondary"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="25dp"
+            android:text="Ask Your Transactions"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="Hindi or English questions are answered from your local records"
+            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@color/app_surface"
+            app:cardCornerRadius="20dp"
             app:cardElevation="1dp"
             app:strokeColor="@color/purple_outline"
             app:strokeWidth="1dp">
@@ -154,84 +413,118 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="17dp">
+                android:orientation="vertical"
+                android:padding="15dp">
 
-                <!-- SCORE BADGE -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/inputAssistantQuery"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Ask: इस महीने कितना खर्च हुआ?"
+                    app:boxBackgroundColor="@color/app_surface"
+                    app:boxCornerRadiusBottomEnd="15dp"
+                    app:boxCornerRadiusBottomStart="15dp"
+                    app:boxCornerRadiusTopEnd="15dp"
+                    app:boxCornerRadiusTopStart="15dp"
+                    app:boxStrokeColor="@color/purple">
 
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="108dp"
-                    android:layout_height="108dp"
-                    app:cardBackgroundColor="@color/purple_surface"
-                    app:cardCornerRadius="54dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/purple_outline"
-                    app:strokeWidth="2dp">
-
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etAssistantQuery"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:orientation="vertical">
+                        android:layout_height="wrap_content"
+                        android:imeOptions="actionDone"
+                        android:importantForAutofill="no"
+                        android:inputType="textCapSentences|textMultiLine"
+                        android:maxLines="3"
+                        android:minLines="2"
+                        android:textColor="@color/app_text_primary"
+                        android:textSize="14sp" />
 
-                        <TextView
-                            android:id="@+id/txtScore"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="center"
-                            android:text="0"
-                            android:textColor="@color/purple"
-                            android:textSize="43sp"
-                            android:textStyle="bold" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:gravity="center"
-                            android:text="OUT OF 100"
-                            android:textColor="@color/app_text_secondary"
-                            android:textSize="8sp"
-                            android:textStyle="bold" />
-
-                    </LinearLayout>
-
-                </com.google.android.material.card.MaterialCardView>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAskAssistant"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="11dp"
+                    android:text="Ask Smart Assistant"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="@color/purple"
+                    app:cornerRadius="16dp" />
 
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="17dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Your Financial Condition"
-                        android:textColor="@color/app_text_secondary"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnQuickExpense"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginEnd="5dp"
+                        android:layout_weight="1"
+                        android:text="This month expense"
+                        android:textAllCaps="false"
+                        android:textColor="@color/secondary"
+                        android:textSize="10sp"
+                        app:cornerRadius="14dp"
+                        app:strokeColor="@color/info_outline" />
 
-                    <TextView
-                        android:id="@+id/txtScoreLabel"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="Add entries to calculate score"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="17sp"
-                        android:textStyle="bold" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnQuickCategory"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="5dp"
+                        android:layout_weight="1"
+                        android:text="Highest category"
+                        android:textAllCaps="false"
+                        android:textColor="@color/purple"
+                        android:textSize="10sp"
+                        app:cornerRadius="14dp"
+                        app:strokeColor="@color/purple_outline" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="Higher scores generally indicate healthier spending and saving behaviour."
-                        android:textColor="@color/app_text_secondary"
-                        android:textSize="10sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnQuickDuplicates"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginEnd="5dp"
+                        android:layout_weight="1"
+                        android:text="Check duplicates"
+                        android:textAllCaps="false"
+                        android:textColor="@color/orange"
+                        android:textSize="10sp"
+                        app:cornerRadius="14dp"
+                        app:strokeColor="@color/warning_outline" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnQuickUnusual"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="5dp"
+                        android:layout_weight="1"
+                        android:text="Unusual expenses"
+                        android:textAllCaps="false"
+                        android:textColor="@color/expense"
+                        android:textSize="10sp"
+                        app:cornerRadius="14dp"
+                        app:strokeColor="@color/error_outline" />
 
                 </LinearLayout>
 
@@ -239,23 +532,60 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- MONTHLY POSITION -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardAssistantAnswer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="11dp"
+            app:cardBackgroundColor="@color/purple_surface"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/purple_outline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="15dp">
+
+                <TextView
+                    android:id="@+id/txtAssistantAnswerTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Assistant is getting ready"
+                    android:textColor="@color/purple"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtAssistantAnswer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:lineSpacingExtra="3dp"
+                    android:text="You can ask a question after the transaction analysis is complete."
+                    android:textColor="@color/app_text_secondary"
+                    android:textIsSelectable="true"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="25dp"
-            android:text="Current Month Position"
+            android:text="Smart Detection"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:text="Income, expense and remaining savings calculated for this month"
+            android:text="Automatic review of repeated and high-value entries"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
-
-        <!-- INCOME AND EXPENSE -->
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -266,13 +596,13 @@
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
-                android:layout_height="118dp"
-                android:layout_marginEnd="5dp"
+                android:layout_height="112dp"
+                android:layout_marginEnd="4dp"
                 android:layout_weight="1"
-                app:cardBackgroundColor="@color/success_surface"
-                app:cardCornerRadius="18dp"
+                app:cardBackgroundColor="@color/warning_surface"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/success_outline"
+                app:strokeColor="@color/warning_outline"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -280,38 +610,26 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="10dp">
+                    android:padding="8dp">
 
                     <TextView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
+                        android:id="@+id/txtDuplicateCount"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:text="↑"
-                        android:textColor="@color/success"
-                        android:textSize="18sp"
+                        android:text="—"
+                        android:textColor="@color/orange"
+                        android:textSize="25sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
+                        android:layout_marginTop="4dp"
                         android:gravity="center"
-                        android:text="Income"
+                        android:text="Possible duplicates"
                         android:textColor="@color/app_text_secondary"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/txtAdvisorIncome"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:ellipsize="end"
-                        android:gravity="center"
-                        android:maxLines="1"
-                        android:text="₹0.00"
-                        android:textColor="@color/success"
-                        android:textSize="16sp"
+                        android:textSize="9sp"
                         android:textStyle="bold" />
 
                 </LinearLayout>
@@ -320,13 +638,14 @@
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
-                android:layout_height="118dp"
-                android:layout_marginStart="5dp"
+                android:layout_height="112dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
                 android:layout_weight="1"
-                app:cardBackgroundColor="@color/expense_surface"
-                app:cardCornerRadius="18dp"
+                app:cardBackgroundColor="@color/error_surface"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/expense_outline"
+                app:strokeColor="@color/error_outline"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -334,38 +653,70 @@
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="10dp">
+                    android:padding="8dp">
 
                     <TextView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
+                        android:id="@+id/txtUnusualCount"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:text="↓"
+                        android:text="—"
                         android:textColor="@color/expense"
-                        android:textSize="18sp"
+                        android:textSize="25sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
+                        android:layout_marginTop="4dp"
                         android:gravity="center"
-                        android:text="Expense"
+                        android:text="Unusual expenses"
                         android:textColor="@color/app_text_secondary"
-                        android:textSize="10sp"
+                        android:textSize="9sp"
                         android:textStyle="bold" />
 
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="0dp"
+                android:layout_height="112dp"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="@color/info_surface"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/info_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
                     <TextView
-                        android:id="@+id/txtAdvisorExpense"
+                        android:id="@+id/txtTopCategory"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
                         android:ellipsize="end"
                         android:gravity="center"
-                        android:maxLines="1"
-                        android:text="₹0.00"
-                        android:textColor="@color/expense"
-                        android:textSize="16sp"
+                        android:maxLines="2"
+                        android:text="—"
+                        android:textColor="@color/secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center"
+                        android:text="Top category"
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="9sp"
                         android:textStyle="bold" />
 
                 </LinearLayout>
@@ -374,240 +725,125 @@
 
         </LinearLayout>
 
-        <!-- SAVINGS CARD -->
-
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="11dp"
             app:cardBackgroundColor="@color/info_surface"
-            app:cardCornerRadius="18dp"
+            app:cardCornerRadius="17dp"
             app:cardElevation="0dp"
             app:strokeColor="@color/info_outline"
             app:strokeWidth="1dp">
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/txtAssistantOverview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="15dp">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="46dp"
-                    android:layout_height="46dp"
-                    app:cardBackgroundColor="@color/app_surface"
-                    app:cardCornerRadius="14dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/info_outline"
-                    app:strokeWidth="1dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="₹"
-                        android:textColor="@color/secondary"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Current Monthly Saving"
-                        android:textColor="@color/app_text_secondary"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/txtAdvisorSaving"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="₹0.00"
-                        android:textColor="@color/secondary"
-                        android:textSize="23sp"
-                        android:textStyle="bold" />
-
-                </LinearLayout>
-
-            </LinearLayout>
+                android:lineSpacingExtra="3dp"
+                android:padding="15dp"
+                android:text="Income, expenses and categories are being analysed."
+                android:textColor="@color/app_text_secondary"
+                android:textSize="11sp" />
 
         </com.google.android.material.card.MaterialCardView>
-
-        <!-- OVERVIEW HEADING -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="25dp"
-            android:text="Monthly Overview"
+            android:text="Review Alerts"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:text="A quick explanation of your current financial activity"
+            android:text="These are review suggestions, not automatic deletions or fraud decisions"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
 
-        <!-- OVERVIEW CARD -->
-
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
+            android:id="@+id/assistantAlertContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            app:cardBackgroundColor="@color/warning_surface"
-            app:cardCornerRadius="17dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/warning_outline"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="14dp">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    app:cardBackgroundColor="@color/app_surface"
-                    app:cardCornerRadius="13dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/warning_outline"
-                    app:strokeWidth="1dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="◎"
-                        android:textColor="@color/warning"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <TextView
-                    android:id="@+id/txtAdvisorOverview"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="11dp"
-                    android:layout_weight="1"
-                    android:lineSpacingExtra="3dp"
-                    android:text="Your monthly financial overview will appear here."
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- RECOMMENDATIONS HEADING -->
+            android:orientation="vertical" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="25dp"
-            android:text="Personal Suggestions"
+            android:layout_marginTop="16dp"
+            android:text="Personal Recommendations"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:text="Recommendations generated from savings, spending categories and monthly trends"
+            android:text="Suggestions generated from monthly saving and spending patterns"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
-
-        <!-- DYNAMIC RECOMMENDATIONS -->
 
         <LinearLayout
             android:id="@+id/recommendationContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="vertical">
+            android:layout_marginTop="12dp"
+            android:orientation="vertical" />
 
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                app:cardBackgroundColor="@color/app_surface"
-                app:cardCornerRadius="17dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline_soft"
-                app:strokeWidth="1dp">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="9dp"
+            android:orientation="horizontal">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:lineSpacingExtra="3dp"
-                    android:paddingStart="22dp"
-                    android:paddingTop="26dp"
-                    android:paddingEnd="22dp"
-                    android:paddingBottom="26dp"
-                    android:text="Analysing your recent transactions..."
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="13sp" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRefreshAssistant"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="54dp"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:text="Refresh Analysis"
+                android:textAllCaps="false"
+                android:textColor="@color/purple"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                app:cornerRadius="16dp"
+                app:strokeColor="@color/purple_outline" />
 
-            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOpenTransactions"
+                android:layout_width="0dp"
+                android:layout_height="54dp"
+                android:layout_marginStart="5dp"
+                android:layout_weight="1"
+                android:text="Open Transactions"
+                android:textAllCaps="false"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/secondary"
+                app:cornerRadius="16dp" />
 
         </LinearLayout>
-
-        <!-- PRIVACY NOTE -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:cardBackgroundColor="@color/app_surface_soft"
+            android:layout_marginTop="13dp"
+            app:cardBackgroundColor="@color/warning_surface"
             app:cardCornerRadius="15dp"
             app:cardElevation="0dp"
-            app:strokeColor="@color/app_outline_soft"
+            app:strokeColor="@color/warning_outline"
             app:strokeWidth="1dp">
 
-            <LinearLayout
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="13dp">
-
-                <TextView
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
-                    android:gravity="center"
-                    android:text="✓"
-                    android:textColor="@color/success"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:lineSpacingExtra="2dp"
-                    android:text="Advisor insights are calculated locally from your saved transactions. They are general guidance, not professional financial advice."
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="10sp" />
-
-            </LinearLayout>
+                android:lineSpacingExtra="2dp"
+                android:padding="13dp"
+                android:text="Smart results are based only on entered transaction data. Verify important financial decisions and review a flagged entry before editing or deleting it."
+                android:textColor="@color/app_text_secondary"
+                android:textSize="10sp" />
 
         </com.google.android.material.card.MaterialCardView>
 
