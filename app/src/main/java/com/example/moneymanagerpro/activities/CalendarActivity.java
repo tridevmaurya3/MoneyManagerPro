@@ -266,7 +266,7 @@ public class CalendarActivity extends AppCompatActivity {
         end.add(Calendar.DAY_OF_MONTH, 30);
         List<FinanceEvent> upcoming = new ArrayList<>();
         for (FinanceEvent event : allEvents) {
-            if (!event.date.before(today.getTime()) && !event.date.after(end.getTime()) && !"Transaction".equals(event.type)) {
+            if (!event.date.before(today.getTime()) && !event.date.after(end.getTime()) && !isTransactionType(event.type)) {
                 upcoming.add(event);
             }
         }
@@ -285,14 +285,14 @@ public class CalendarActivity extends AppCompatActivity {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(13), dp(11), dp(13), dp(11));
         LinearLayout header = row();
-        TextView title = text(event.title, 13, R.color.app_text_primary, true);
+        TextView title = text(event.title, 13, colorForType(event.type), true);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
         header.addView(text(event.type, 10, colorForType(event.type), true));
         content.addView(header);
         String detail = formatDate(event.date);
-        if (event.amount > 0) detail += "  •  " + money(event.amount);
+        if (event.amount > 0) detail += "  •  " + signedMoney(event);
         if (showCountdown) detail += "  •  " + countdown(event.date);
-        TextView detailView = text(detail, 10, R.color.app_text_secondary, false);
+        TextView detailView = text(detail, 10, colorForType(event.type), true);
         detailView.setPadding(0, dp(4), 0, 0);
         content.addView(detailView);
         if (!event.detail.isEmpty()) {
@@ -311,7 +311,13 @@ public class CalendarActivity extends AppCompatActivity {
             if (date == null) continue;
             String type = item.getType() == null ? "" : item.getType();
             String title = ("INCOME".equalsIgnoreCase(type) ? "Income" : "Expense") + " • " + safe(item.getCategory(), "Transaction");
-            out.add(new FinanceEvent(date, "Transaction", title, item.getAmount(), safe(item.getNote(), "")));
+            out.add(new FinanceEvent(
+                    date,
+                    "INCOME".equalsIgnoreCase(type) ? "Income" : "Expense",
+                    title,
+                    item.getAmount(),
+                    safe(item.getNote(), "")
+            ));
         }
     }
 
@@ -458,27 +464,45 @@ public class CalendarActivity extends AppCompatActivity {
     }
 
     private int colorForType(String type) {
-        if ("Bill".equals(type)) return R.color.orange;
-        if ("EMI".equals(type)) return R.color.expense;
-        if ("Card".equals(type)) return R.color.purple;
-        if ("Goal".equals(type)) return R.color.secondary;
-        return R.color.success;
+        if (isNegativeType(type)) return R.color.expense;
+        if (isPositiveType(type)) return R.color.income;
+        return R.color.secondary;
     }
 
     private int surfaceForType(String type) {
-        if ("Bill".equals(type)) return R.color.warning_surface;
-        if ("EMI".equals(type)) return R.color.expense_surface;
-        if ("Card".equals(type)) return R.color.purple_surface;
-        if ("Goal".equals(type)) return R.color.info_surface;
-        return R.color.success_surface;
+        if (isNegativeType(type)) return R.color.expense_surface;
+        if (isPositiveType(type)) return R.color.income_surface;
+        return R.color.info_surface;
     }
 
     private int outlineForType(String type) {
-        if ("Bill".equals(type)) return R.color.warning_outline;
-        if ("EMI".equals(type)) return R.color.expense_outline;
-        if ("Card".equals(type)) return R.color.purple_outline;
-        if ("Goal".equals(type)) return R.color.info_outline;
-        return R.color.success_outline;
+        if (isNegativeType(type)) return R.color.expense_outline;
+        if (isPositiveType(type)) return R.color.income_outline;
+        return R.color.info_outline;
+    }
+
+    private boolean isNegativeType(String type) {
+        return "Expense".equals(type)
+                || "Bill".equals(type)
+                || "EMI".equals(type)
+                || "Card".equals(type);
+    }
+
+    private boolean isPositiveType(String type) {
+        return "Income".equals(type)
+                || "Refund".equals(type)
+                || "Credit".equals(type);
+    }
+
+    private boolean isTransactionType(String type) {
+        return "Income".equals(type) || "Expense".equals(type);
+    }
+
+    private String signedMoney(FinanceEvent event) {
+        String sign = isNegativeType(event.type)
+                ? "−"
+                : isPositiveType(event.type) ? "+" : "";
+        return sign + money(event.amount);
     }
 
     private String money(double amount) {
