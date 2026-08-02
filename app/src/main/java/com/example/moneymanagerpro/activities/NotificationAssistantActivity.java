@@ -2,15 +2,18 @@ package com.example.moneymanagerpro.activities;
 
 import android.content.ComponentName;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,24 +26,35 @@ import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.notification.FinancialNotificationListenerService;
+import com.example.moneymanagerpro.notification.FinancialNotificationParser;
 import com.example.moneymanagerpro.notification.FinancialNotificationStore;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Play-safe notification inbox. It never requests or uses SMS permissions. */
+/** Play-safe financial notification inbox. No SMS permissions are used. */
 public class NotificationAssistantActivity extends AppCompatActivity {
 
+    private static final String FILTER_PENDING = "PENDING";
+    private static final String FILTER_SAVED = "SAVED";
+    private static final String FILTER_IGNORED = "IGNORED";
+
     private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
+
     private LinearLayout inboxContainer;
     private TextView statusText;
     private TextView summaryText;
+    private TextView activeFilterText;
+    private SwitchMaterial captureSwitch;
+    private String activeFilter = FILTER_PENDING;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,106 +79,162 @@ public class NotificationAssistantActivity extends AppCompatActivity {
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), dp(14), dp(16), dp(28));
-        scrollView.addView(root, new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        LinearLayout root = vertical();
+        root.setPadding(dp(16), dp(14), dp(16), dp(30));
+        scrollView.addView(root, matchWrap());
 
-        LinearLayout top = new LinearLayout(this);
-        top.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout top = horizontal();
         top.setGravity(Gravity.CENTER_VERTICAL);
-        TextView back = text("‹", 28, R.color.app_text_primary, true);
+        TextView back = text("‹", 30, R.color.app_text_primary, true);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> finish());
-        top.addView(back, new LinearLayout.LayoutParams(dp(42), dp(42)));
-        TextView pageTitle = text("Financial Notifications", 20, R.color.app_text_primary, true);
-        top.addView(pageTitle, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        top.addView(back, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        top.addView(text("Financial Notifications", 21, R.color.app_text_primary, true),
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(top);
 
-        MaterialCardView privacyCard = card(R.color.info_surface, R.color.info_outline);
-        LinearLayout privacy = verticalContent();
-        privacy.addView(text("Play-safe Notification Assistant", 16, R.color.secondary, true));
-        privacy.addView(text(
-                "Reads only financial notification text after your permission. No SMS access, no personal-message scan and no cloud upload.",
+        MaterialCardView setupCard = card(R.color.info_surface, R.color.info_outline);
+        LinearLayout setup = cardContent();
+        setup.addView(text("Play-safe Notification Assistant", 16, R.color.secondary, true));
+        setup.addView(text(
+                "Bank, UPI, wallet and card notifications are parsed only on this phone. No SMS access, no personal-message scan and no cloud upload.",
                 11,
                 R.color.app_text_secondary,
                 false
         ));
-        statusText = text("Checking Notification Access…", 12, R.color.app_text_primary, true);
-        addTopMargin(privacy, statusText, 10);
 
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        MaterialButton accessButton = button("Open Notification Settings");
-        accessButton.setOnClickListener(v -> openNotificationSettings());
-        actions.addView(accessButton, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        MaterialButton refreshButton = button("Refresh");
-        LinearLayout.LayoutParams refreshParams = new LinearLayout.LayoutParams(0, dp(48), .55f);
-        refreshParams.setMargins(dp(8), 0, 0, 0);
-        refreshButton.setLayoutParams(refreshParams);
-        refreshButton.setOnClickListener(v -> refresh());
-        actions.addView(refreshButton);
-        addTopMargin(privacy, actions, 12);
-        privacyCard.addView(privacy);
-        addCard(root, privacyCard, 12);
+        statusText = text("Checking Notification Access…", 12, R.color.app_text_primary, true);
+        addTop(setup, statusText, 10);
+
+        LinearLayout setupActions = horizontal();
+        MaterialButton settingsButton = button("Open Notification Settings");
+        settingsButton.setOnClickListener(v -> openNotificationSettings());
+        setupActions.addView(settingsButton, new LinearLayout.LayoutParams(0, dp(48), 1f));
+
+        MaterialButton testButton = button("Add Test Alert");
+        LinearLayout.LayoutParams testParams = new LinearLayout.LayoutParams(0, dp(48), .62f);
+        testParams.setMargins(dp(8), 0, 0, 0);
+        testButton.setLayoutParams(testParams);
+        testButton.setOnClickListener(v -> addTestAlert());
+        setupActions.addView(testButton);
+        addTop(setup, setupActions, 12);
+
+        captureSwitch = new SwitchMaterial(this);
+        captureSwitch.setText("Capture new financial notifications");
+        captureSwitch.setTextSize(12);
+        captureSwitch.setOnCheckedChangeListener((buttonView, checked) -> {
+            FinancialNotificationStore.setCaptureEnabled(this, checked);
+            if (!buttonView.isPressed()) return;
+            Toast.makeText(
+                    this,
+                    checked ? "Notification capture enabled" : "Notification capture paused",
+                    Toast.LENGTH_SHORT
+            ).show();
+        });
+        addTop(setup, captureSwitch, 10);
+        setupCard.addView(setup);
+        addCard(root, setupCard, 12);
 
         summaryText = text("Pending 0  •  Saved 0  •  Ignored 0", 13, R.color.app_text_primary, true);
-        addTopMargin(root, summaryText, 14);
+        addTop(root, summaryText, 14);
 
-        TextView sectionTitle = text("Notification Inbox", 17, R.color.app_text_primary, true);
-        addTopMargin(root, sectionTitle, 14);
-        TextView hint = text("Review every detected transaction before saving it.", 10, R.color.app_text_secondary, false);
-        root.addView(hint);
+        LinearLayout filters = horizontal();
+        filters.setGravity(Gravity.CENTER_VERTICAL);
+        addFilterButton(filters, "Pending", FILTER_PENDING);
+        addFilterButton(filters, "Saved", FILTER_SAVED);
+        addFilterButton(filters, "Ignored", FILTER_IGNORED);
+        addTop(root, filters, 12);
 
-        inboxContainer = new LinearLayout(this);
-        inboxContainer.setOrientation(LinearLayout.VERTICAL);
-        addTopMargin(root, inboxContainer, 10);
+        activeFilterText = text("Pending notifications", 17, R.color.app_text_primary, true);
+        addTop(root, activeFilterText, 14);
+        root.addView(text("Review, edit and confirm before anything is saved.", 10, R.color.app_text_secondary, false));
+
+        inboxContainer = vertical();
+        addTop(root, inboxContainer, 10);
+
+        MaterialButton clearButton = button("Clear current list");
+        clearButton.setOnClickListener(v -> confirmClearCurrentList());
+        addTop(root, clearButton, 8);
+
         return scrollView;
     }
 
+    private void addFilterButton(LinearLayout parent, String label, String filter) {
+        MaterialButton button = smallButton(label);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(42), 1f);
+        if (parent.getChildCount() > 0) params.setMargins(dp(6), 0, 0, 0);
+        button.setLayoutParams(params);
+        button.setOnClickListener(v -> {
+            activeFilter = filter;
+            refresh();
+        });
+        parent.addView(button);
+    }
+
     private void refresh() {
-        boolean enabled = isNotificationAccessEnabled();
-        statusText.setText(enabled
-                ? "Notification Access: ON — waiting for financial notifications"
-                : "Notification Access: OFF — tap below to enable it");
+        boolean accessEnabled = isNotificationAccessEnabled();
+        boolean captureEnabled = FinancialNotificationStore.isCaptureEnabled(this);
+
+        captureSwitch.setChecked(captureEnabled);
+        statusText.setText(accessEnabled
+                ? (captureEnabled
+                ? "Notification Access: ON — capture is active"
+                : "Notification Access: ON — capture is paused")
+                : "Notification Access: OFF — enable it to receive alerts");
         statusText.setTextColor(ContextCompat.getColor(
                 this,
-                enabled ? R.color.success : R.color.expense
+                accessEnabled && captureEnabled ? R.color.success : R.color.expense
         ));
 
-        List<FinancialNotificationStore.Item> items = FinancialNotificationStore.getAll(this);
-        int pending = 0, saved = 0, ignored = 0;
-        for (FinancialNotificationStore.Item item : items) {
-            if ("SAVED".equals(item.status)) saved++;
-            else if ("IGNORED".equals(item.status)) ignored++;
+        List<FinancialNotificationStore.Item> all = FinancialNotificationStore.getAll(this);
+        int pending = 0;
+        int saved = 0;
+        int ignored = 0;
+        for (FinancialNotificationStore.Item item : all) {
+            if (FILTER_SAVED.equals(item.status)) saved++;
+            else if (FILTER_IGNORED.equals(item.status)) ignored++;
             else pending++;
         }
         summaryText.setText("Pending " + pending + "  •  Saved " + saved + "  •  Ignored " + ignored);
 
+        activeFilterText.setText(
+                FILTER_SAVED.equals(activeFilter)
+                        ? "Saved notifications"
+                        : FILTER_IGNORED.equals(activeFilter)
+                        ? "Ignored notifications"
+                        : "Pending notifications"
+        );
+
+        List<FinancialNotificationStore.Item> items =
+                FinancialNotificationStore.getByStatus(this, activeFilter);
+
         inboxContainer.removeAllViews();
         if (items.isEmpty()) {
-            MaterialCardView empty = card(R.color.app_surface_soft, R.color.app_outline);
-            LinearLayout content = verticalContent();
-            content.addView(text("No financial notifications yet", 14, R.color.app_text_primary, true));
-            content.addView(text(
-                    enabled
-                            ? "A supported bank, UPI, wallet or card notification will appear here for confirmation."
-                            : "Enable Notification Access first. The app will not request SMS permission.",
-                    10,
-                    R.color.app_text_secondary,
-                    false
-            ));
-            empty.addView(content);
-            addCard(inboxContainer, empty, 0);
+            addEmptyState(accessEnabled);
             return;
         }
 
         for (FinancialNotificationStore.Item item : items) {
             inboxContainer.addView(createItemCard(item));
         }
+    }
+
+    private void addEmptyState(boolean accessEnabled) {
+        MaterialCardView empty = card(R.color.app_surface_soft, R.color.app_outline);
+        LinearLayout content = cardContent();
+        content.addView(text("Nothing here yet", 14, R.color.app_text_primary, true));
+        content.addView(text(
+                FILTER_PENDING.equals(activeFilter)
+                        ? (accessEnabled
+                        ? "A supported financial alert will appear here. Use Add Test Alert to verify the complete flow now."
+                        : "Enable Notification Access first, then use Add Test Alert for a safe local test.")
+                        : "This list is currently empty.",
+                10,
+                R.color.app_text_secondary,
+                false
+        ));
+        empty.addView(content);
+        addCard(inboxContainer, empty, 0);
     }
 
     private View createItemCard(@NonNull FinancialNotificationStore.Item item) {
@@ -174,49 +244,82 @@ public class NotificationAssistantActivity extends AppCompatActivity {
         int accent = income ? R.color.success : R.color.expense;
 
         MaterialCardView card = card(surface, outline);
-        LinearLayout content = verticalContent();
+        LinearLayout content = cardContent();
 
-        LinearLayout amountRow = new LinearLayout(this);
-        amountRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout amountRow = horizontal();
         amountRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView amount = text(
-                (income ? "+₹" : "-₹") + String.format(Locale.getDefault(), "%.2f", item.amount),
-                18,
-                accent,
-                true
-        );
-        amountRow.addView(amount, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView state = text(item.status, 10, accent, true);
-        amountRow.addView(state);
+        amountRow.addView(text(
+                        (income ? "+₹" : "-₹") + money(item.amount),
+                        18,
+                        accent,
+                        true
+                ),
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        amountRow.addView(text(item.status, 10, accent, true));
         content.addView(amountRow);
 
         TextView merchant = text(item.merchant, 14, R.color.app_text_primary, true);
-        addTopMargin(content, merchant, 5);
-        content.addView(text(item.category + "  •  " + item.type, 10, R.color.app_text_secondary, false));
+        addTop(content, merchant, 5);
+        content.addView(text(
+                item.category + "  •  " + item.account + "  •  " + item.source,
+                10,
+                R.color.app_text_secondary,
+                false
+        ));
         content.addView(text(formatDate(item.postedAt), 9, R.color.app_text_secondary, false));
 
-        TextView source = text(item.title + (item.body.isEmpty() ? "" : "\n" + item.body), 9, R.color.app_text_secondary, false);
-        source.setMaxLines(3);
-        addTopMargin(content, source, 7);
+        String metadata = buildMetadata(item);
+        if (!metadata.isEmpty()) {
+            TextView meta = text(metadata, 9, R.color.app_text_secondary, false);
+            addTop(content, meta, 5);
+        }
 
-        LinearLayout buttons = new LinearLayout(this);
-        buttons.setOrientation(LinearLayout.HORIZONTAL);
+        TextView sourceText = text(
+                item.title + (item.body.isEmpty() ? "" : "\n" + item.body),
+                9,
+                R.color.app_text_secondary,
+                false
+        );
+        sourceText.setMaxLines(3);
+        addTop(content, sourceText, 7);
+
+        LinearLayout buttons = horizontal();
         buttons.setGravity(Gravity.END);
-        MaterialButton review = smallButton("Review");
-        review.setOnClickListener(v -> showReview(item));
-        buttons.addView(review);
-        MaterialButton ignore = smallButton("Ignore");
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42));
-        p.setMargins(dp(6), 0, 0, 0);
-        ignore.setLayoutParams(p);
-        ignore.setOnClickListener(v -> {
-            FinancialNotificationStore.updateStatus(this, item.id, "IGNORED");
-            refresh();
-        });
-        buttons.addView(ignore);
-        addTopMargin(content, buttons, 10);
 
+        MaterialButton review = smallButton(
+                FILTER_PENDING.equals(item.status) ? "Review & Save" : "View / Edit"
+        );
+        review.setOnClickListener(v -> showReviewEditor(item));
+        buttons.addView(review);
+
+        if (FILTER_PENDING.equals(item.status)) {
+            MaterialButton ignore = smallButton("Ignore");
+            LinearLayout.LayoutParams ignoreParams =
+                    new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42));
+            ignoreParams.setMargins(dp(6), 0, 0, 0);
+            ignore.setLayoutParams(ignoreParams);
+            ignore.setOnClickListener(v -> {
+                FinancialNotificationStore.updateStatus(this, item.id, FILTER_IGNORED);
+                refresh();
+            });
+            buttons.addView(ignore);
+        } else if (FILTER_IGNORED.equals(item.status)) {
+            MaterialButton restore = smallButton("Restore");
+            LinearLayout.LayoutParams restoreParams =
+                    new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42));
+            restoreParams.setMargins(dp(6), 0, 0, 0);
+            restore.setLayoutParams(restoreParams);
+            restore.setOnClickListener(v -> {
+                FinancialNotificationStore.updateStatus(this, item.id, FILTER_PENDING);
+                activeFilter = FILTER_PENDING;
+                refresh();
+            });
+            buttons.addView(restore);
+        }
+
+        addTop(content, buttons, 10);
         card.addView(content);
+
         LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -226,61 +329,211 @@ public class NotificationAssistantActivity extends AppCompatActivity {
         return card;
     }
 
-    private void showReview(@NonNull FinancialNotificationStore.Item item) {
-        String details = ("INCOME".equals(item.type) ? "Credit" : "Debit")
-                + "\nAmount: ₹" + String.format(Locale.getDefault(), "%.2f", item.amount)
-                + "\nCategory: " + item.category
-                + "\nAccount: Cash"
-                + (item.lastFour.isEmpty() ? "" : "\nAccount/Card: ••••" + item.lastFour)
-                + (item.reference.isEmpty() ? "" : "\nReference: " + item.reference)
-                + "\n\nNothing is saved until you confirm.";
+    private String buildMetadata(FinancialNotificationStore.Item item) {
+        List<String> parts = new ArrayList<>();
+        if (!item.lastFour.isEmpty()) parts.add("••••" + item.lastFour);
+        if (!item.reference.isEmpty()) parts.add("Ref " + item.reference);
+        if (!item.vpa.isEmpty()) parts.add(item.vpa);
+        return android.text.TextUtils.join("  •  ", parts);
+    }
 
-        new AlertDialog.Builder(this)
-                .setTitle(item.merchant)
-                .setMessage(details)
-                .setPositiveButton("Save Transaction", (dialog, which) -> saveTransaction(item))
-                .setNeutralButton("Delete", (dialog, which) -> {
-                    FinancialNotificationStore.delete(this, item.id);
-                    refresh();
-                })
+    private void showReviewEditor(@NonNull FinancialNotificationStore.Item item) {
+        LinearLayout form = vertical();
+        form.setPadding(dp(20), dp(8), dp(20), 0);
+
+        Spinner typeSpinner = spinner(new String[]{"EXPENSE", "INCOME"});
+        typeSpinner.setSelection("INCOME".equals(item.type) ? 1 : 0);
+        addField(form, "Transaction Type", typeSpinner);
+
+        EditText amountInput = editText("Amount", String.valueOf(item.amount));
+        amountInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        addField(form, "Amount", amountInput);
+
+        EditText merchantInput = editText("Merchant / Sender", item.merchant);
+        addField(form, "Merchant / Sender", merchantInput);
+
+        EditText categoryInput = editText("Category", item.category);
+        addField(form, "Category", categoryInput);
+
+        EditText accountInput = editText("Account", item.account);
+        addField(form, "Account", accountInput);
+
+        EditText noteInput = editText("Note", item.userNote);
+        addField(form, "Additional Note", noteInput);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Review Financial Alert")
+                .setView(form)
+                .setPositiveButton(
+                        FILTER_SAVED.equals(item.status) ? "Save Changes" : "Save Transaction",
+                        null
+                )
+                .setNeutralButton("Delete Alert", null)
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                double amount;
+                try {
+                    amount = Double.parseDouble(amountInput.getText().toString().trim());
+                } catch (Exception exception) {
+                    amountInput.setError("Enter a valid amount");
+                    return;
+                }
+
+                String merchant = merchantInput.getText().toString().trim();
+                String category = categoryInput.getText().toString().trim();
+                String account = accountInput.getText().toString().trim();
+                String note = noteInput.getText().toString().trim();
+
+                if (amount <= 0d) {
+                    amountInput.setError("Amount must be greater than zero");
+                    return;
+                }
+                if (merchant.isEmpty()) {
+                    merchantInput.setError("Enter merchant or sender");
+                    return;
+                }
+                if (category.isEmpty()) {
+                    categoryInput.setError("Enter category");
+                    return;
+                }
+                if (account.isEmpty()) {
+                    accountInput.setError("Enter account");
+                    return;
+                }
+
+                String type = String.valueOf(typeSpinner.getSelectedItem());
+                FinancialNotificationStore.updateDetails(
+                        this,
+                        item.id,
+                        type,
+                        amount,
+                        merchant,
+                        category,
+                        account,
+                        note
+                );
+
+                FinancialNotificationStore.Item updated =
+                        FinancialNotificationStore.find(this, item.id);
+
+                if (updated == null) {
+                    dialog.dismiss();
+                    refresh();
+                    return;
+                }
+
+                if (FILTER_SAVED.equals(item.status)) {
+                    Toast.makeText(this, "Alert details updated", Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                    refresh();
+                } else {
+                    dialog.dismiss();
+                    saveTransaction(updated);
+                }
+            });
+
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v ->
+                    new AlertDialog.Builder(this)
+                            .setTitle("Delete this alert?")
+                            .setMessage("This removes only the local notification record.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Delete", (confirmDialog, which) -> {
+                                FinancialNotificationStore.delete(this, item.id);
+                                dialog.dismiss();
+                                refresh();
+                            })
+                            .show()
+            );
+        });
+
+        dialog.show();
     }
 
     private void saveTransaction(@NonNull FinancialNotificationStore.Item item) {
-        if ("SAVED".equals(item.status)) {
-            Toast.makeText(this, "This notification is already saved", Toast.LENGTH_SHORT).show();
+        if (FILTER_SAVED.equals(item.status)) {
+            Toast.makeText(this, "This alert is already saved", Toast.LENGTH_SHORT).show();
             return;
         }
+
         databaseExecutor.execute(() -> {
             try {
                 Transaction transaction = new Transaction();
                 transaction.setType(item.type);
                 transaction.setAmount(item.amount);
                 transaction.setCategory(item.category);
-                transaction.setAccount("Cash");
-                transaction.setDate(new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(item.postedAt)));
-                transaction.setNote(
-                        "Imported from financial notification: " + item.merchant
-                                + (item.reference.isEmpty() ? "" : " | Ref " + item.reference)
-                );
-                DatabaseClient.getInstance(this)
+                transaction.setAccount(item.account);
+                transaction.setDate(new SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                        .format(new Date(item.postedAt)));
+
+                StringBuilder note = new StringBuilder("Financial notification: ")
+                        .append(item.merchant);
+                if (!item.source.isEmpty()) note.append(" | ").append(item.source);
+                if (!item.reference.isEmpty()) note.append(" | Ref ").append(item.reference);
+                if (!item.vpa.isEmpty()) note.append(" | UPI ").append(item.vpa);
+                if (!item.userNote.isEmpty()) note.append(" | ").append(item.userNote);
+                transaction.setNote(note.toString());
+
+                DatabaseClient.getInstance(getApplicationContext())
                         .getAppDatabase()
                         .transactionDao()
                         .insert(transaction);
-                FinancialNotificationStore.updateStatus(this, item.id, "SAVED");
+
+                FinancialNotificationStore.updateStatus(this, item.id, FILTER_SAVED);
+
                 runOnUiThread(() -> {
-                    Toast.makeText(this, "Transaction saved", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Transaction saved successfully", Toast.LENGTH_SHORT).show();
+                    activeFilter = FILTER_PENDING;
                     refresh();
                 });
             } catch (Exception exception) {
                 runOnUiThread(() -> Toast.makeText(
                         this,
-                        "Transaction could not be saved",
+                        "Transaction could not be saved: " + exception.getClass().getSimpleName(),
                         Toast.LENGTH_LONG
                 ).show());
             }
         });
+    }
+
+    private void addTestAlert() {
+        String title = "Money received";
+        String body = "INR 1250.00 credited to A/c XX4582 via UPI from TESTUSER@upi. Ref 123456789012";
+        FinancialNotificationParser.ParsedNotification parsed =
+                FinancialNotificationParser.parse(
+                        "com.example.testbank",
+                        title,
+                        body,
+                        System.currentTimeMillis()
+                );
+
+        if (parsed == null) {
+            Toast.makeText(this, "Test parser failed", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        boolean added = FinancialNotificationStore.add(this, parsed);
+        activeFilter = FILTER_PENDING;
+        refresh();
+        Toast.makeText(
+                this,
+                added ? "Test financial alert added" : "Identical test alert already exists",
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+
+    private void confirmClearCurrentList() {
+        new AlertDialog.Builder(this)
+                .setTitle("Clear " + activeFilter.toLowerCase(Locale.ROOT) + " alerts?")
+                .setMessage("This removes only notification inbox records. Saved transactions remain unchanged.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Clear", (dialog, which) -> {
+                    FinancialNotificationStore.clearStatus(this, activeFilter);
+                    refresh();
+                })
+                .show();
     }
 
     private void openNotificationSettings() {
@@ -292,10 +545,41 @@ public class NotificationAssistantActivity extends AppCompatActivity {
     }
 
     private boolean isNotificationAccessEnabled() {
-        String enabled = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+        String enabled = Settings.Secure.getString(
+                getContentResolver(),
+                "enabled_notification_listeners"
+        );
         if (enabled == null) return false;
         ComponentName component = new ComponentName(this, FinancialNotificationListenerService.class);
         return enabled.contains(component.flattenToString()) || enabled.contains(getPackageName());
+    }
+
+    private Spinner spinner(String[] values) {
+        Spinner spinner = new Spinner(this);
+        spinner.setAdapter(new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_dropdown_item,
+                values
+        ));
+        return spinner;
+    }
+
+    private EditText editText(String hint, String value) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setText(value == null ? "" : value);
+        input.setSingleLine(true);
+        input.setTextSize(14);
+        return input;
+    }
+
+    private void addField(LinearLayout form, String label, View input) {
+        TextView title = text(label, 11, R.color.app_text_secondary, true);
+        addTop(form, title, form.getChildCount() == 0 ? 0 : 10);
+        form.addView(input, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(48)
+        ));
     }
 
     private MaterialCardView card(int background, int stroke) {
@@ -308,10 +592,21 @@ public class NotificationAssistantActivity extends AppCompatActivity {
         return card;
     }
 
-    private LinearLayout verticalContent() {
+    private LinearLayout cardContent() {
+        LinearLayout layout = vertical();
+        layout.setPadding(dp(14), dp(14), dp(14), dp(14));
+        return layout;
+    }
+
+    private LinearLayout vertical() {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(dp(14), dp(14), dp(14), dp(14));
+        return layout;
+    }
+
+    private LinearLayout horizontal() {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.HORIZONTAL);
         return layout;
     }
 
@@ -345,25 +640,38 @@ public class NotificationAssistantActivity extends AppCompatActivity {
     }
 
     private void addCard(LinearLayout parent, View child, int topMargin) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
+        LinearLayout.LayoutParams params = matchWrap();
         params.setMargins(0, dp(topMargin), 0, 0);
         parent.addView(child, params);
     }
 
-    private void addTopMargin(LinearLayout parent, View child, int margin) {
+    private void addTop(LinearLayout parent, View child, int margin) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                child.getLayoutParams() == null ? ViewGroup.LayoutParams.MATCH_PARENT : child.getLayoutParams().width,
-                child.getLayoutParams() == null ? ViewGroup.LayoutParams.WRAP_CONTENT : child.getLayoutParams().height
+                child.getLayoutParams() == null
+                        ? ViewGroup.LayoutParams.MATCH_PARENT
+                        : child.getLayoutParams().width,
+                child.getLayoutParams() == null
+                        ? ViewGroup.LayoutParams.WRAP_CONTENT
+                        : child.getLayoutParams().height
         );
         params.setMargins(0, dp(margin), 0, 0);
         parent.addView(child, params);
     }
 
+    private LinearLayout.LayoutParams matchWrap() {
+        return new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+    }
+
     private String formatDate(long time) {
-        return new SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(new Date(time));
+        return new SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
+                .format(new Date(time));
+    }
+
+    private String money(double amount) {
+        return String.format(Locale.getDefault(), "%.2f", amount);
     }
 
     private int dp(int value) {
