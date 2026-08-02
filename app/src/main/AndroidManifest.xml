@@ -33,6 +33,12 @@
             android:exported="false"
             android:initOrder="90" />
 
+        <provider
+            android:name=".notification.NotificationAssistantInitializer"
+            android:authorities="${applicationId}.notification_assistant_initializer"
+            android:exported="false"
+            android:initOrder="80" />
+
         <activity android:name=".activities.UserProfileActivity" android:exported="false" />
         <activity android:name=".activities.AuthenticationActivity" android:exported="false" />
         <activity android:name=".activities.HelpActivity" android:exported="false" />
