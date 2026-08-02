@@ -22,6 +22,12 @@
             android:value="barcode_ui" />
 
         <provider
+            android:name=".ui.NotificationAndPinUiInitializer"
+            android:authorities="${applicationId}.notification_pin_ui_initializer"
+            android:exported="false"
+            android:initOrder="120" />
+
+        <provider
             android:name=".cloud.CloudDeleteActionsInitializer"
             android:authorities="${applicationId}.cloud_delete_initializer"
             android:exported="false"
