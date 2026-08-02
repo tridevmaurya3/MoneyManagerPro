@@ -17,6 +17,7 @@ import com.example.moneymanagerpro.activities.DashboardActivity;
 import com.example.moneymanagerpro.activities.SettingsActivity;
 import com.example.moneymanagerpro.credit.AdvancedCreditCardManagerController;
 import com.example.moneymanagerpro.dashboard.AdvancedDashboardInsightsController;
+import com.example.moneymanagerpro.dashboard.DashboardObligationsController;
 import com.example.moneymanagerpro.dashboard.SmartDashboard2Controller;
 import com.example.moneymanagerpro.security.AppInactivityLockManager;
 import com.example.moneymanagerpro.security.AutoLockSettingsController;
@@ -41,6 +42,8 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
     private final Map<Activity, SmartDashboard2Controller> smartDashboardControllers =
             new WeakHashMap<>();
     private final Map<Activity, AdvancedDashboardInsightsController> advancedDashboardControllers =
+            new WeakHashMap<>();
+    private final Map<Activity, DashboardObligationsController> obligationControllers =
             new WeakHashMap<>();
     private final Map<Activity, AdvancedCreditCardManagerController> creditCardControllers =
             new WeakHashMap<>();
@@ -83,6 +86,7 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
                         if (activity instanceof DashboardActivity) {
                             attachSmartDashboardController(activity);
                             attachAdvancedDashboardController(activity);
+                            attachObligationsController(activity);
                             activity.getWindow().getDecorView().postDelayed(
                                     () -> DashboardMotionPolish.apply(activity),
                                     140L
@@ -128,6 +132,7 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
                         autoLockSettingsControllers.remove(activity);
                         smartDashboardControllers.remove(activity);
                         advancedDashboardControllers.remove(activity);
+                        obligationControllers.remove(activity);
                         creditCardControllers.remove(activity);
                         DashboardVisualEnhancer.remove(activity);
                         DashboardMotionPolish.remove(activity);
@@ -174,6 +179,15 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
         if (controller == null) {
             controller = new AdvancedDashboardInsightsController(activity);
             advancedDashboardControllers.put(activity, controller);
+        }
+        controller.attach();
+    }
+
+    private void attachObligationsController(@NonNull Activity activity) {
+        DashboardObligationsController controller = obligationControllers.get(activity);
+        if (controller == null) {
+            controller = new DashboardObligationsController(activity);
+            obligationControllers.put(activity, controller);
         }
         controller.attach();
     }
