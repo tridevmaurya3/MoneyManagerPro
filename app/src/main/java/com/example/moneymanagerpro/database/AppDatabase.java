@@ -46,7 +46,7 @@ import com.example.moneymanagerpro.model.Transaction;
                 CreditCardPayment.class,
                 ExpenseItem.class
         },
-        version = 11,
+        version = 12,
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -296,4 +296,14 @@ public abstract class AppDatabase extends RoomDatabase {
             );
         }
     };
+
+    public static final Migration MIGRATION_11_12 = new Migration(11, 12) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(
+                    "ALTER TABLE accounts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0"
+            );
+        }
+    };
+
 }
