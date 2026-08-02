@@ -3,6 +3,8 @@ package com.example.moneymanagerpro.activities;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.Gravity;
@@ -34,6 +36,7 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
 
     private LinearLayout listContainer;
     private LinearLayout filterContainer;
+    private LinearLayout redactionContainer;
     private TextView summaryText;
     private EditText searchInput;
     private String filter = "ALL";
@@ -98,6 +101,11 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
 
         privacyCard.addView(privacy);
         addTop(root, privacyCard, 16);
+
+        redactionContainer = new LinearLayout(this);
+        redactionContainer.setOrientation(LinearLayout.VERTICAL);
+        redactionContainer.setVisibility(View.GONE);
+        addTop(root, redactionContainer, 10);
 
         summaryText = text("0 alerts", 15, R.color.app_text_primary, true);
         addTop(root, summaryText, 16);
@@ -204,6 +212,8 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
     private void refresh() {
         if (listContainer == null) return;
 
+        updateRedactionNotice();
+
         List<SmsAlertStore.Item> items = SmsAlertStore.getAll(this);
         String query = searchInput == null
                 ? ""
@@ -231,9 +241,9 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
         if (shown == 0) {
             MaterialCardView empty = card(R.color.app_surface_soft, R.color.app_outline);
             LinearLayout emptyContent = content();
-            emptyContent.addView(text("No SMS alerts found", 16, R.color.app_text_primary, true));
+            emptyContent.addView(text("No readable SMS alerts found", 16, R.color.app_text_primary, true));
             emptyContent.addView(text(
-                    "Enable Notification Access and wait for your SMS app to show a message notification.",
+                    "Keep Notification Access enabled and allow your SMS app to show message previews. Android may still hide OTP or other sensitive content.",
                     11,
                     R.color.app_text_secondary,
                     false
@@ -241,6 +251,83 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
             empty.addView(emptyContent);
             listContainer.addView(empty);
         }
+    }
+
+    private void updateRedactionNotice() {
+        if (redactionContainer == null) return;
+
+        int count = SmsAlertStore.getRedactedCount(this);
+        if (count <= 0) {
+            redactionContainer.removeAllViews();
+            redactionContainer.setVisibility(View.GONE);
+            return;
+        }
+
+        redactionContainer.removeAllViews();
+        redactionContainer.setVisibility(View.VISIBLE);
+
+        String sourcePackage = SmsAlertStore.getLastRedactedPackage(this);
+        long lastAt = SmsAlertStore.getLastRedactedAt(this);
+
+        MaterialCardView warningCard = card(R.color.warning_surface, R.color.warning_outline);
+        LinearLayout warningContent = content();
+        warningContent.addView(text(
+                "Android hid sensitive SMS content",
+                16,
+                R.color.text_warning,
+                true
+        ));
+
+        String countText = count == 1
+                ? "1 SMS notification was received, but its message text was hidden before Money Manager Pro could read it."
+                : count + " SMS notifications were received, but their message text was hidden before Money Manager Pro could read it.";
+
+        TextView explanation = text(
+                countText + " This commonly happens with OTP or privacy-protected notifications on newer Android versions.",
+                11,
+                R.color.app_text_secondary,
+                false
+        );
+        addTop(warningContent, explanation, 5);
+
+        if (lastAt > 0L) {
+            TextView time = text(
+                    "Last hidden alert: " + formatDate(lastAt),
+                    10,
+                    R.color.app_text_secondary,
+                    false
+            );
+            addTop(warningContent, time, 5);
+        }
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+
+        MaterialButton appSettings = filledButton(
+                "SMS App Settings",
+                R.color.button_secondary
+        );
+        appSettings.setEnabled(!sourcePackage.trim().isEmpty());
+        appSettings.setOnClickListener(v -> openSmsAppSettings(sourcePackage));
+        actions.addView(appSettings, new LinearLayout.LayoutParams(0, dp(46), 1f));
+
+        MaterialButton dismiss = outlinedButton(
+                "Dismiss",
+                R.color.text_warning,
+                R.color.warning_surface,
+                R.color.warning_outline
+        );
+        dismiss.setOnClickListener(v -> {
+            SmsAlertStore.clearRedactedNotice(this);
+            refresh();
+        });
+        LinearLayout.LayoutParams dismissParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
+        dismissParams.setMargins(dp(8), 0, 0, 0);
+        actions.addView(dismiss, dismissParams);
+        addTop(warningContent, actions, 10);
+
+        warningCard.addView(warningContent);
+        redactionContainer.addView(warningCard);
     }
 
     private View createAlertCard(SmsAlertStore.Item item) {
@@ -340,6 +427,26 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
             startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
         } catch (Exception exception) {
             startActivity(new Intent(Settings.ACTION_SETTINGS));
+        }
+    }
+
+    private void openSmsAppSettings(String packageName) {
+        if (packageName == null || packageName.trim().isEmpty()) return;
+
+        try {
+            Intent intent;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName);
+            } else {
+                intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(Uri.parse("package:" + packageName));
+            }
+            startActivity(intent);
+        } catch (Exception exception) {
+            Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            fallback.setData(Uri.parse("package:" + packageName));
+            startActivity(fallback);
         }
     }
 
