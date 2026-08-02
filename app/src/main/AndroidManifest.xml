@@ -24,6 +24,12 @@
             android:value="barcode_ui" />
 
         <provider
+            android:name=".account.CreditCardAccountSyncInitializer"
+            android:authorities="${applicationId}.credit_card_account_sync_initializer"
+            android:exported="false"
+            android:initOrder="150" />
+
+        <provider
             android:name=".ui.MoreToolsNavigationInitializer"
             android:authorities="${applicationId}.more_tools_navigation_initializer"
             android:exported="false"
