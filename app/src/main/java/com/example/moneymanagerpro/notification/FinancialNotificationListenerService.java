@@ -22,7 +22,6 @@ public class FinancialNotificationListenerService extends NotificationListenerSe
         }
 
         if (getPackageName().equals(statusBarNotification.getPackageName())) return;
-        if (!FinancialNotificationStore.isCaptureEnabled(this)) return;
 
         Notification notification = statusBarNotification.getNotification();
         Bundle extras = notification.extras;
@@ -42,6 +41,18 @@ public class FinancialNotificationListenerService extends NotificationListenerSe
 
         if (body.isEmpty()) return;
 
+        if (looksLikeSmsApp(statusBarNotification.getPackageName())) {
+            SmsAlertStore.add(
+                    this,
+                    statusBarNotification.getPackageName(),
+                    title,
+                    body,
+                    statusBarNotification.getPostTime()
+            );
+        }
+
+        if (!FinancialNotificationStore.isCaptureEnabled(this)) return;
+
         FinancialNotificationParser.ParsedNotification parsed =
                 FinancialNotificationParser.parse(
                         statusBarNotification.getPackageName(),
@@ -53,6 +64,16 @@ public class FinancialNotificationListenerService extends NotificationListenerSe
         if (parsed != null) {
             FinancialNotificationStore.add(this, parsed);
         }
+    }
+
+    private boolean looksLikeSmsApp(String packageName) {
+        String value = packageName == null ? "" : packageName.toLowerCase();
+        return value.contains("messaging")
+                || value.contains("message")
+                || value.contains("mms")
+                || value.contains("sms")
+                || value.equals("com.google.android.apps.messaging")
+                || value.equals("com.samsung.android.messaging");
     }
 
     private String joinLines(@Nullable CharSequence[] lines) {
