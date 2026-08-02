@@ -22,6 +22,12 @@
             android:value="barcode_ui" />
 
         <provider
+            android:name=".ui.MoreToolsNavigationInitializer"
+            android:authorities="${applicationId}.more_tools_navigation_initializer"
+            android:exported="false"
+            android:initOrder="130" />
+
+        <provider
             android:name=".ui.NotificationAndPinUiInitializer"
             android:authorities="${applicationId}.notification_pin_ui_initializer"
             android:exported="false"
