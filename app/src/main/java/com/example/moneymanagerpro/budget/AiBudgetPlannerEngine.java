@@ -43,7 +43,7 @@ public final class AiBudgetPlannerEngine {
     ) {
         Calendar now = Calendar.getInstance();
         Calendar analysisStart = (Calendar) now.clone();
-        analysisStart.add(Calendar.MONTH, -3);
+        analysisStart.add(Calendar.MONTH, -2);
         analysisStart.set(Calendar.DAY_OF_MONTH, 1);
         analysisStart.set(Calendar.HOUR_OF_DAY, 0);
         analysisStart.set(Calendar.MINUTE, 0);
@@ -53,7 +53,7 @@ public final class AiBudgetPlannerEngine {
         Map<String, Double> categoryTotals = new LinkedHashMap<>();
         double totalIncome = 0.0d;
         double totalExpense = 0.0d;
-        int analysedMonths = 3;
+        final int analysedMonths = 3;
         int validTransactions = 0;
 
         if (transactions != null) {
