@@ -1,14 +1,11 @@
 package com.example.moneymanagerpro.notification;
 
 import android.app.Notification;
-import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 
-import androidx.annotation.Nullable;
-
 /**
- * Reads posted notification title/text only after the user explicitly grants
+ * Reads notification content only after the user explicitly grants
  * Notification Access. No SMS permission is used and nothing is uploaded.
  */
 public class FinancialNotificationListenerService extends NotificationListenerService {
@@ -21,32 +18,34 @@ public class FinancialNotificationListenerService extends NotificationListenerSe
             return;
         }
 
-        if (getPackageName().equals(statusBarNotification.getPackageName())) return;
+        String sourcePackage = statusBarNotification.getPackageName();
+        if (getPackageName().equals(sourcePackage)) return;
 
         Notification notification = statusBarNotification.getNotification();
-        Bundle extras = notification.extras;
+        NotificationTextExtractor.Result extracted =
+                NotificationTextExtractor.extract(notification);
 
-        String title = firstNonEmpty(
-                valueOf(extras.getCharSequence(Notification.EXTRA_TITLE_BIG)),
-                valueOf(extras.getCharSequence(Notification.EXTRA_TITLE)),
-                valueOf(extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
-        );
+        boolean smsApp = looksLikeSmsApp(sourcePackage);
 
-        String body = firstNonEmpty(
-                valueOf(extras.getCharSequence(Notification.EXTRA_BIG_TEXT)),
-                joinLines(extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)),
-                valueOf(extras.getCharSequence(Notification.EXTRA_TEXT)),
-                valueOf(extras.getCharSequence(Notification.EXTRA_INFO_TEXT))
-        );
+        if (extracted.redacted) {
+            if (smsApp) {
+                SmsAlertStore.recordRedacted(
+                        this,
+                        sourcePackage,
+                        statusBarNotification.getPostTime()
+                );
+            }
+            return;
+        }
 
-        if (body.isEmpty()) return;
+        if (extracted.body.isEmpty()) return;
 
-        if (looksLikeSmsApp(statusBarNotification.getPackageName())) {
+        if (smsApp) {
             SmsAlertStore.add(
                     this,
-                    statusBarNotification.getPackageName(),
-                    title,
-                    body,
+                    sourcePackage,
+                    extracted.title,
+                    extracted.body,
                     statusBarNotification.getPostTime()
             );
         }
@@ -55,9 +54,9 @@ public class FinancialNotificationListenerService extends NotificationListenerSe
 
         FinancialNotificationParser.ParsedNotification parsed =
                 FinancialNotificationParser.parse(
-                        statusBarNotification.getPackageName(),
-                        title,
-                        body,
+                        sourcePackage,
+                        extracted.title,
+                        extracted.body,
                         statusBarNotification.getPostTime()
                 );
 
@@ -74,28 +73,5 @@ public class FinancialNotificationListenerService extends NotificationListenerSe
                 || value.contains("sms")
                 || value.equals("com.google.android.apps.messaging")
                 || value.equals("com.samsung.android.messaging");
-    }
-
-    private String joinLines(@Nullable CharSequence[] lines) {
-        if (lines == null || lines.length == 0) return "";
-        StringBuilder builder = new StringBuilder();
-        for (CharSequence line : lines) {
-            String value = valueOf(line);
-            if (value.isEmpty()) continue;
-            if (builder.length() > 0) builder.append(' ');
-            builder.append(value);
-        }
-        return builder.toString().trim();
-    }
-
-    private String firstNonEmpty(String... values) {
-        for (String value : values) {
-            if (value != null && !value.trim().isEmpty()) return value.trim();
-        }
-        return "";
-    }
-
-    private String valueOf(@Nullable CharSequence value) {
-        return value == null ? "" : value.toString().replace('\n', ' ').trim();
     }
 }
