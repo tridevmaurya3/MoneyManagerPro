@@ -1,13 +1,13 @@
 package com.example.moneymanagerpro.dashboard;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -15,7 +15,9 @@ import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.activities.CalendarActivity;
 import com.example.moneymanagerpro.activities.DashboardActivity;
+import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -23,8 +25,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Keeps the permanent dashboard summary visible while placing the long feature
- * panels behind a compact, single-open accordion selector.
+ * Keeps the original Dashboard summary and Quick Actions visible, then places
+ * every long intelligence panel directly below its own expandable row.
  */
 public final class DashboardAccordionController {
 
@@ -37,6 +39,7 @@ public final class DashboardAccordionController {
     private final Activity activity;
     private final List<Section> sections = new ArrayList<>();
     private LinearLayout dashboardColumn;
+    private LinearLayout hub;
     private int attachAttempt;
     private Section openSection;
 
@@ -54,9 +57,9 @@ public final class DashboardAccordionController {
         View root = activity.findViewById(android.R.id.content);
         if (!(root instanceof ViewGroup)) return;
 
-        View existingHub = ((ViewGroup) root).findViewWithTag(HUB_TAG);
-        if (existingHub != null) {
-            refreshSectionReferences((ViewGroup) root);
+        View existing = ((ViewGroup) root).findViewWithTag(HUB_TAG);
+        if (existing instanceof LinearLayout) {
+            hub = (LinearLayout) existing;
             return;
         }
 
@@ -68,147 +71,173 @@ public final class DashboardAccordionController {
 
         if (dashboardColumn == null || smart == null || trends == null
                 || obligations == null || goalDebt == null) {
-            if (attachAttempt++ < 15) {
-                root.postDelayed(this::attach, 160L);
-            }
+            if (attachAttempt++ < 18) root.postDelayed(this::attach, 160L);
             return;
         }
 
-        View quickActions = findQuickActionsBlock(dashboardColumn);
-        sections.clear();
-        if (quickActions != null) {
-            sections.add(new Section("Quick Actions", "Add or manage money", quickActions, "⚡"));
-        }
-        sections.add(new Section("Smart Overview", "Cash flow and budget health", smart, "◈"));
-        sections.add(new Section("Trends", "Charts and category spending", trends, "↗"));
-        sections.add(new Section("Bills & Net Worth", "Upcoming dues and position", obligations, "₹"));
-        sections.add(new Section("Goal & Debt", "Payoff and savings planner", goalDebt, "◎"));
-
+        normalizePanel(smart);
+        normalizePanel(trends);
+        normalizePanel(obligations);
         normalizeGoalDebtCard(goalDebt);
-        moveQuickActionsBeforeSmartPanel(quickActions, smart);
-        addHubBeforeFirstSection();
+
+        sections.clear();
+        sections.add(new Section("Smart Overview", "Cash flow and budget health", "▥", smart,
+                R.color.success, R.color.success_surface, R.color.success_outline));
+        sections.add(new Section("Trends & Insights", "Cash-flow chart and category spending", "↗", trends,
+                R.color.secondary, R.color.info_surface, R.color.info_outline));
+        sections.add(new Section("Bills & Net Worth", "Upcoming dues and financial position", "▣", obligations,
+                R.color.expense, R.color.error_surface, R.color.error_outline));
+        sections.add(new Section("Goal & Debt Planner", "Debt payoff and savings forecasts", "◎", goalDebt,
+                R.color.purple, R.color.purple_surface, R.color.purple_outline));
+        sections.add(new Section("Calendar & Alerts", "Transactions, EMI, card dues and deadlines", "▦",
+                buildCalendarLauncher(), R.color.expense, R.color.error_surface, R.color.error_outline));
+
+        buildHubAfterMoreFinancialTools();
         closeAll(false);
     }
 
-    private void refreshSectionReferences(@NonNull ViewGroup root) {
-        for (Section section : sections) {
-            if (section.content != null && section.content.getParent() != null) continue;
-            if (section.tag != null) section.content = root.findViewWithTag(section.tag);
-        }
-    }
+    private void buildHubAfterMoreFinancialTools() {
+        if (dashboardColumn == null) return;
 
-    private void addHubBeforeFirstSection() {
-        if (dashboardColumn == null || sections.isEmpty()) return;
-
-        int insertionIndex = dashboardColumn.getChildCount();
-        for (Section section : sections) {
-            if (section.content != null && section.content.getParent() == dashboardColumn) {
-                insertionIndex = Math.min(insertionIndex, dashboardColumn.indexOfChild(section.content));
-            }
-        }
-
-        LinearLayout hub = new LinearLayout(activity);
+        hub = new LinearLayout(activity);
         hub.setTag(HUB_TAG);
         hub.setOrientation(LinearLayout.VERTICAL);
-        hub.setPadding(0, dp(4), 0, dp(4));
+        hub.setPadding(0, dp(2), 0, dp(8));
         LinearLayout.LayoutParams hubParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        hubParams.setMargins(0, dp(14), 0, dp(4));
+        hubParams.setMargins(0, dp(14), 0, dp(6));
         hub.setLayoutParams(hubParams);
 
-        TextView title = text("Dashboard Tools", 18, R.color.app_text_primary, true);
-        hub.addView(title);
-        TextView subtitle = text(
-                "Tap one section to open it. Opening another section automatically closes the previous one.",
-                10,
-                R.color.app_text_secondary,
-                false
-        );
-        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
+        hub.addView(text("Dashboard Tools", 19, R.color.app_text_primary, true));
+        TextView subtitle = text("Tap a section below to expand it", 10, R.color.app_text_secondary, false);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(-1, -2);
         subtitleParams.setMargins(0, dp(2), 0, dp(8));
         subtitle.setLayoutParams(subtitleParams);
         hub.addView(subtitle);
 
-        HorizontalScrollView scroll = new HorizontalScrollView(activity);
-        scroll.setHorizontalScrollBarEnabled(false);
-        scroll.setFillViewport(false);
-        LinearLayout buttonRow = new LinearLayout(activity);
-        buttonRow.setOrientation(LinearLayout.HORIZONTAL);
-        buttonRow.setPadding(0, 0, dp(4), 0);
-
         for (Section section : sections) {
-            MaterialButton button = new MaterialButton(activity);
-            section.button = button;
-            button.setText(section.icon + "  " + section.title);
-            button.setAllCaps(false);
-            button.setTextSize(11);
-            button.setMinHeight(0);
-            button.setMinimumHeight(0);
-            button.setInsetTop(0);
-            button.setInsetBottom(0);
-            button.setCornerRadius(dp(14));
-            button.setPadding(dp(13), 0, dp(13), 0);
-            button.setStrokeWidth(dp(1));
-            button.setOnClickListener(view -> toggle(section));
-            LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    dp(42)
-            );
-            buttonParams.setMargins(0, 0, dp(7), 0);
-            buttonRow.addView(button, buttonParams);
-            applyButtonState(section, false);
+            detach(section.content);
+            section.header = buildSectionHeader(section);
+            hub.addView(section.header);
+            hub.addView(section.content);
         }
 
-        scroll.addView(buttonRow);
-        hub.addView(scroll);
-        dashboardColumn.addView(hub, Math.max(0, insertionIndex));
+        int insertionIndex = dashboardColumn.getChildCount();
+        View moreTools = activity.findViewById(R.id.btnMoreFeatures);
+        View moreToolsBlock = moreTools == null ? null : directChildOf(dashboardColumn, moreTools);
+        if (moreToolsBlock != null) {
+            insertionIndex = dashboardColumn.indexOfChild(moreToolsBlock) + 1;
+        } else {
+            for (Section section : sections) {
+                if (section.content.getParent() == dashboardColumn) {
+                    insertionIndex = Math.min(insertionIndex, dashboardColumn.indexOfChild(section.content));
+                }
+            }
+        }
+        dashboardColumn.addView(hub, Math.max(0, Math.min(insertionIndex, dashboardColumn.getChildCount())));
+    }
+
+    @NonNull
+    private MaterialCardView buildSectionHeader(@NonNull Section section) {
+        MaterialCardView card = new MaterialCardView(activity);
+        card.setCardBackgroundColor(Color.WHITE);
+        card.setStrokeColor(color(section.outlineColor));
+        card.setStrokeWidth(dp(1));
+        card.setRadius(dp(14));
+        card.setCardElevation(0f);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setRippleColor(ColorStateList.valueOf(withAlpha(color(section.accentColor), 32)));
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, dp(54));
+        cardParams.setMargins(0, 0, 0, dp(6));
+        card.setLayoutParams(cardParams);
+
+        LinearLayout row = new LinearLayout(activity);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(10), dp(6), dp(12), dp(6));
+
+        TextView icon = text(section.icon, 16, section.accentColor, true);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackgroundTintList(ColorStateList.valueOf(color(section.surfaceColor)));
+        row.addView(icon, new LinearLayout.LayoutParams(dp(36), dp(36)));
+
+        LinearLayout labels = new LinearLayout(activity);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1f);
+        labelParams.setMargins(dp(10), 0, dp(8), 0);
+        labels.setLayoutParams(labelParams);
+        labels.addView(text(section.title, 13, R.color.app_text_primary, true));
+        labels.addView(text(section.subtitle, 9, R.color.app_text_secondary, false));
+        row.addView(labels);
+
+        section.arrow = text("⌄", 21, R.color.app_text_secondary, true);
+        section.arrow.setGravity(Gravity.CENTER);
+        row.addView(section.arrow, new LinearLayout.LayoutParams(dp(30), dp(36)));
+        card.addView(row);
+        card.setOnClickListener(v -> toggle(section));
+        BubbleTouchAnimator.apply(card);
+        return card;
+    }
+
+    @NonNull
+    private View buildCalendarLauncher() {
+        MaterialCardView card = new MaterialCardView(activity);
+        card.setCardBackgroundColor(color(R.color.error_surface));
+        card.setStrokeColor(color(R.color.error_outline));
+        card.setStrokeWidth(dp(1));
+        card.setRadius(dp(16));
+        card.setCardElevation(0f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, 0, 0, dp(8));
+        card.setLayoutParams(params);
+
+        LinearLayout content = new LinearLayout(activity);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(14), dp(13), dp(14), dp(13));
+        content.addView(text("Unified Finance Calendar", 15, R.color.expense, true));
+        TextView detail = text(
+                "View income, expenses, recurring bills, EMI, credit-card dues, goals and the next 30-day alert center.",
+                10, R.color.app_text_secondary, false
+        );
+        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
+        detailParams.setMargins(0, dp(4), 0, dp(10));
+        detail.setLayoutParams(detailParams);
+        content.addView(detail);
+
+        MaterialButton open = new MaterialButton(activity);
+        open.setText("Open Calendar & Alerts");
+        open.setAllCaps(false);
+        open.setTextSize(12);
+        open.setCornerRadius(dp(14));
+        open.setOnClickListener(v -> activity.startActivity(new Intent(activity, CalendarActivity.class)));
+        BubbleTouchAnimator.apply(open);
+        content.addView(open, new LinearLayout.LayoutParams(-1, dp(48)));
+        card.addView(content);
+        return card;
     }
 
     private void toggle(@NonNull Section target) {
-        if (openSection == target && target.content != null
-                && target.content.getVisibility() == View.VISIBLE) {
-            closeAll(true);
-            return;
-        }
-
-        for (Section section : sections) {
-            boolean shouldOpen = section == target;
-            setSectionVisible(section, shouldOpen, true);
-        }
-        openSection = target;
+        boolean alreadyOpen = openSection == target && target.content.getVisibility() == View.VISIBLE;
+        for (Section section : sections) setSectionVisible(section, !alreadyOpen && section == target, true);
+        openSection = alreadyOpen ? null : target;
     }
 
     private void closeAll(boolean animate) {
-        for (Section section : sections) {
-            setSectionVisible(section, false, animate);
-        }
+        for (Section section : sections) setSectionVisible(section, false, animate);
         openSection = null;
     }
 
-    private void setSectionVisible(
-            @NonNull Section section,
-            boolean visible,
-            boolean animate
-    ) {
+    private void setSectionVisible(@NonNull Section section, boolean visible, boolean animate) {
         View content = section.content;
-        if (content == null) return;
         content.animate().cancel();
-
         if (visible) {
             content.setVisibility(View.VISIBLE);
             if (animate) {
                 content.setAlpha(0f);
                 content.setTranslationY(-dp(8));
-                content.animate()
-                        .alpha(1f)
-                        .translationY(0f)
-                        .setDuration(210L)
-                        .start();
+                content.animate().alpha(1f).translationY(0f).setDuration(210L).start();
             } else {
                 content.setAlpha(1f);
                 content.setTranslationY(0f);
@@ -218,60 +247,37 @@ public final class DashboardAccordionController {
             content.setAlpha(1f);
             content.setTranslationY(0f);
         }
-        applyButtonState(section, visible);
+        if (section.arrow != null) {
+            section.arrow.setText(visible ? "⌃" : "⌄");
+            section.arrow.setTextColor(color(visible ? section.accentColor : R.color.app_text_secondary));
+        }
+        if (section.header != null) {
+            section.header.setCardBackgroundColor(color(visible ? section.surfaceColor : R.color.app_surface));
+            section.header.setStrokeColor(color(visible ? section.accentColor : section.outlineColor));
+        }
     }
 
-    private void applyButtonState(@NonNull Section section, boolean selected) {
-        if (section.button == null) return;
-        int background = selected ? color(R.color.secondary) : Color.parseColor("#F7FAF8");
-        int foreground = selected ? Color.WHITE : color(R.color.secondary);
-        int stroke = selected ? color(R.color.secondary) : Color.parseColor("#C9D8CE");
-        section.button.setBackgroundTintList(ColorStateList.valueOf(background));
-        section.button.setTextColor(foreground);
-        section.button.setStrokeColor(ColorStateList.valueOf(stroke));
-    }
-
-    private void moveQuickActionsBeforeSmartPanel(View quickActions, View smartPanel) {
-        if (quickActions == null || smartPanel == null || dashboardColumn == null) return;
-        if (quickActions.getParent() != dashboardColumn || smartPanel.getParent() != dashboardColumn) return;
-        int smartIndex = dashboardColumn.indexOfChild(smartPanel);
-        int quickIndex = dashboardColumn.indexOfChild(quickActions);
-        if (quickIndex > smartIndex) {
-            dashboardColumn.removeView(quickActions);
-            dashboardColumn.addView(quickActions, Math.max(0, smartIndex));
+    private void normalizePanel(@NonNull View panel) {
+        if (panel.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) panel.getLayoutParams();
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+            params.setMargins(0, 0, 0, dp(8));
+            panel.setLayoutParams(params);
         }
     }
 
     private void normalizeGoalDebtCard(@NonNull View goalDebt) {
-        if (goalDebt.getLayoutParams() instanceof LinearLayout.LayoutParams) {
-            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) goalDebt.getLayoutParams();
-            params.width = ViewGroup.LayoutParams.MATCH_PARENT;
-            params.setMargins(0, dp(8), 0, dp(12));
-            goalDebt.setLayoutParams(params);
-        }
+        normalizePanel(goalDebt);
+        goalDebt.setMinimumHeight(dp(150));
         if (goalDebt instanceof MaterialCardView) {
             MaterialCardView card = (MaterialCardView) goalDebt;
             card.setRadius(dp(18));
             card.setCardElevation(dp(1));
         }
-        goalDebt.setMinimumHeight(dp(150));
     }
 
-    private View findQuickActionsBlock(@NonNull LinearLayout column) {
-        View addIncome = activity.findViewById(R.id.btnAddIncome);
-        View moreFeatures = activity.findViewById(R.id.btnMoreFeatures);
-        if (addIncome == null) return null;
-
-        View direct = directChildOf(column, addIncome);
-        View directMore = moreFeatures == null ? null : directChildOf(column, moreFeatures);
-        if (direct != null && direct == directMore) return direct;
-
-        View common = lowestCommonAncestor(addIncome, moreFeatures);
-        if (common != null) {
-            View directCommon = directChildOf(column, common);
-            if (directCommon != null) return directCommon;
-        }
-        return direct;
+    private void detach(@NonNull View view) {
+        if (view.getParent() instanceof ViewGroup) ((ViewGroup) view.getParent()).removeView(view);
     }
 
     private View directChildOf(@NonNull ViewGroup parent, @NonNull View descendant) {
@@ -284,31 +290,13 @@ public final class DashboardAccordionController {
         return null;
     }
 
-    private View lowestCommonAncestor(View first, View second) {
-        if (first == null || second == null) return null;
-        List<View> ancestors = new ArrayList<>();
-        View current = first;
-        while (current != null) {
-            ancestors.add(current);
-            current = current.getParent() instanceof View ? (View) current.getParent() : null;
-        }
-        current = second;
-        while (current != null) {
-            if (ancestors.contains(current)) return current;
-            current = current.getParent() instanceof View ? (View) current.getParent() : null;
-        }
-        return null;
-    }
-
     private LinearLayout findDashboardColumn(@NonNull ViewGroup parent) {
         for (int i = 0; i < parent.getChildCount(); i++) {
             View child = parent.getChildAt(i);
             if (child instanceof LinearLayout) {
                 LinearLayout layout = (LinearLayout) child;
                 if (layout.getOrientation() == LinearLayout.VERTICAL
-                        && layout.findViewWithTag(SMART_TAG) != null) {
-                    return layout;
-                }
+                        && layout.findViewWithTag(SMART_TAG) != null) return layout;
             }
             if (child instanceof ViewGroup) {
                 LinearLayout found = findDashboardColumn((ViewGroup) child);
@@ -318,18 +306,22 @@ public final class DashboardAccordionController {
         return null;
     }
 
-    private TextView text(String value, int size, int colorRes, boolean bold) {
+    private TextView text(String value, float size, int colorRes, boolean bold) {
         TextView view = new TextView(activity);
         view.setText(value);
         view.setTextSize(size);
         view.setTextColor(color(colorRes));
-        view.setGravity(Gravity.START);
-        if (bold) view.setTypeface(view.getTypeface(), Typeface.BOLD);
+        view.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        view.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
         return view;
     }
 
-    private int color(int resId) {
-        return ContextCompat.getColor(activity, resId);
+    private int color(int resource) {
+        return ContextCompat.getColor(activity, resource);
+    }
+
+    private int withAlpha(int base, int alpha) {
+        return Color.argb(alpha, Color.red(base), Color.green(base), Color.blue(base));
     }
 
     private int dp(int value) {
@@ -339,18 +331,23 @@ public final class DashboardAccordionController {
     private static final class Section {
         final String title;
         final String subtitle;
-        View content;
         final String icon;
-        final String tag;
-        MaterialButton button;
+        final View content;
+        final int accentColor;
+        final int surfaceColor;
+        final int outlineColor;
+        MaterialCardView header;
+        TextView arrow;
 
-        Section(String title, String subtitle, View content, String icon) {
+        Section(String title, String subtitle, String icon, View content,
+                int accentColor, int surfaceColor, int outlineColor) {
             this.title = title;
             this.subtitle = subtitle;
-            this.content = content;
             this.icon = icon;
-            this.tag = content != null && content.getTag() instanceof String
-                    ? (String) content.getTag() : null;
+            this.content = content;
+            this.accentColor = accentColor;
+            this.surfaceColor = surfaceColor;
+            this.outlineColor = outlineColor;
         }
     }
 }

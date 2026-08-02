@@ -12,9 +12,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.moneymanagerpro.activities.BackupActivity;
+import com.example.moneymanagerpro.activities.CalendarActivity;
 import com.example.moneymanagerpro.activities.CreditCardActivity;
 import com.example.moneymanagerpro.activities.DashboardActivity;
 import com.example.moneymanagerpro.activities.SettingsActivity;
+import com.example.moneymanagerpro.calendar.CalendarSignedColorController;
 import com.example.moneymanagerpro.credit.AdvancedCreditCardManagerController;
 import com.example.moneymanagerpro.dashboard.AdvancedDashboardInsightsController;
 import com.example.moneymanagerpro.dashboard.DashboardAccordionController;
@@ -39,6 +41,7 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
     private final Map<Activity, SmartGoalDebtDashboardController> smartPlannerControllers = new WeakHashMap<>();
     private final Map<Activity, DashboardAccordionController> accordionControllers = new WeakHashMap<>();
     private final Map<Activity, AdvancedCreditCardManagerController> creditCardControllers = new WeakHashMap<>();
+    private final Map<Activity, CalendarSignedColorController> calendarColorControllers = new WeakHashMap<>();
 
     @Nullable
     private AppInactivityLockManager inactivityLockManager;
@@ -81,6 +84,7 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
                     );
                 }
 
+                if (activity instanceof CalendarActivity) attachCalendarColorController(activity);
                 if (activity instanceof CreditCardActivity) attachCreditCardController(activity);
                 if (activity instanceof BackupActivity) attachCloudDeleteController(activity);
                 if (activity instanceof SettingsActivity) attachAutoLockSettingsController(activity);
@@ -111,6 +115,8 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
                 smartPlannerControllers.remove(activity);
                 accordionControllers.remove(activity);
                 creditCardControllers.remove(activity);
+                CalendarSignedColorController calendarController = calendarColorControllers.remove(activity);
+                if (calendarController != null) calendarController.detach();
                 DashboardVisualEnhancer.remove(activity);
                 DashboardMotionPolish.remove(activity);
                 if (inactivityLockManager != null) inactivityLockManager.onActivityDestroyed(activity);
@@ -188,6 +194,15 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
         if (controller == null) {
             controller = new AdvancedCreditCardManagerController(activity);
             creditCardControllers.put(activity, controller);
+        }
+        controller.attach();
+    }
+
+    private void attachCalendarColorController(@NonNull Activity activity) {
+        CalendarSignedColorController controller = calendarColorControllers.get(activity);
+        if (controller == null) {
+            controller = new CalendarSignedColorController(activity);
+            calendarColorControllers.put(activity, controller);
         }
         controller.attach();
     }
