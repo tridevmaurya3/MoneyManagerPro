@@ -89,7 +89,12 @@ public final class CreditCardStatementImporter {
                     transaction.setType("INCOME");
                     transaction.setCategory("Credit Card Payment");
                     payments[0]++;
-                } else if (containsAny(lower, "credit", "cr")) {
+                } else if (containsAny(
+                        row.kind.toLowerCase(Locale.ROOT),
+                        "credit",
+                        " cr",
+                        "cr "
+                )) {
                     transaction.setType("INCOME");
                     transaction.setCategory("Credit Card Credit");
                 } else {
