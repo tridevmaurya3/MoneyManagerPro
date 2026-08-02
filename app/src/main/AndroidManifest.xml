@@ -59,6 +59,7 @@
         <activity android:name=".activities.CalendarActivity" android:exported="false" />
         <activity android:name=".activities.MoreFeaturesActivity" android:exported="false" />
         <activity android:name=".activities.NotificationAssistantActivity" android:exported="false" />
+        <activity android:name=".activities.SmsAlertInboxActivity" android:exported="false" />
         <activity android:name=".activities.SmartGoalDebtPlannerActivity" android:exported="false" />
         <activity android:name=".activities.LoanActivity" android:exported="false" />
         <activity android:name=".activities.BudgetActivity" android:exported="false" />
