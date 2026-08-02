@@ -36,6 +36,12 @@
             android:initOrder="145" />
 
         <provider
+            android:name=".ui.GlobalSignedFinanceColorInitializer"
+            android:authorities="${applicationId}.global_signed_finance_colors"
+            android:exported="false"
+            android:initOrder="142" />
+
+        <provider
             android:name=".ui.MoreToolsNavigationInitializer"
             android:authorities="${applicationId}.more_tools_navigation_initializer"
             android:exported="false"
