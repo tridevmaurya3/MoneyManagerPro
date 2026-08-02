@@ -512,7 +512,7 @@ public class AdvancedFinanceDataActivity extends AppCompatActivity {
         MaterialCardView card = new MaterialCardView(this);
         card.setRadius(dp(18));
         card.setStrokeWidth(dp(1));
-        card.setStrokeColor(getColor(R.color.app_outline));
+        card.setStrokeColor(getColor(R.color.purple_outline));
         card.setCardElevation(0);
         LinearLayout.LayoutParams cardParams =
                 new LinearLayout.LayoutParams(
