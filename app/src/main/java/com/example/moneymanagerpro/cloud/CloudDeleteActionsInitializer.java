@@ -27,6 +27,7 @@ import com.example.moneymanagerpro.security.AppInactivityLockManager;
 import com.example.moneymanagerpro.security.AutoLockSettingsController;
 import com.example.moneymanagerpro.ui.DashboardMotionPolish;
 import com.example.moneymanagerpro.ui.DashboardVisualEnhancer;
+import com.example.moneymanagerpro.ui.DuplicatePageHeadingController;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -42,6 +43,7 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
     private final Map<Activity, DashboardAccordionController> accordionControllers = new WeakHashMap<>();
     private final Map<Activity, AdvancedCreditCardManagerController> creditCardControllers = new WeakHashMap<>();
     private final Map<Activity, CalendarSignedColorController> calendarColorControllers = new WeakHashMap<>();
+    private final Map<Activity, DuplicatePageHeadingController> duplicateHeadingControllers = new WeakHashMap<>();
 
     @Nullable
     private AppInactivityLockManager inactivityLockManager;
@@ -82,6 +84,11 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
                             () -> DashboardMotionPolish.apply(activity),
                             140L
                     );
+                } else {
+                    activity.getWindow().getDecorView().postDelayed(
+                            () -> attachDuplicateHeadingController(activity),
+                            180L
+                    );
                 }
 
                 if (activity instanceof CalendarActivity) attachCalendarColorController(activity);
@@ -115,6 +122,7 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
                 smartPlannerControllers.remove(activity);
                 accordionControllers.remove(activity);
                 creditCardControllers.remove(activity);
+                duplicateHeadingControllers.remove(activity);
                 CalendarSignedColorController calendarController = calendarColorControllers.remove(activity);
                 if (calendarController != null) calendarController.detach();
                 DashboardVisualEnhancer.remove(activity);
@@ -203,6 +211,15 @@ public final class CloudDeleteActionsInitializer extends ContentProvider {
         if (controller == null) {
             controller = new CalendarSignedColorController(activity);
             calendarColorControllers.put(activity, controller);
+        }
+        controller.attach();
+    }
+
+    private void attachDuplicateHeadingController(@NonNull Activity activity) {
+        DuplicatePageHeadingController controller = duplicateHeadingControllers.get(activity);
+        if (controller == null) {
+            controller = new DuplicatePageHeadingController(activity);
+            duplicateHeadingControllers.put(activity, controller);
         }
         controller.attach();
     }
