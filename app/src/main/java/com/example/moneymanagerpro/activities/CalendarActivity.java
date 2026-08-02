@@ -1,31 +1,43 @@
 package com.example.moneymanagerpro.activities;
 
+import android.content.Intent;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.credit.CreditCardCycleCalculator;
+import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
+import com.example.moneymanagerpro.model.CreditCard;
+import com.example.moneymanagerpro.model.Goal;
+import com.example.moneymanagerpro.model.Loan;
+import com.example.moneymanagerpro.model.RecurringTransaction;
+import com.example.moneymanagerpro.model.Subscription;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
-import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -34,1804 +46,487 @@ import java.util.Map;
 
 public class CalendarActivity extends AppCompatActivity {
 
-    private TextView txtMonthTitle;
-    private TextView txtMonthIncome;
-    private TextView txtMonthExpense;
-    private TextView txtMonthNet;
-    private TextView txtNoCalendarData;
-
-    private MaterialButton btnPreviousMonth;
-    private MaterialButton btnNextMonth;
-
+    private final Calendar selectedMonth = Calendar.getInstance();
+    private TextView monthTitle;
+    private TextView alertSummary;
+    private TextView emptyAlerts;
     private GridLayout calendarGrid;
-
-    private Calendar selectedMonth;
-
-    private int calendarRequestVersion = 0;
+    private LinearLayout alertContainer;
+    private MaterialButton previousButton;
+    private MaterialButton nextButton;
+    private int loadVersion;
+    private List<FinanceEvent> allEvents = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_calendar);
-
-        bindViews();
-        prepareCalendar();
+        selectedMonth.set(Calendar.DAY_OF_MONTH, 1);
+        clearTime(selectedMonth);
+        setContentView(buildScreen());
+        bindActions();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        loadCalendarData();
+        loadData();
     }
 
-    private void bindViews() {
-        txtMonthTitle =
-                findViewById(R.id.txtMonthTitle);
+    @NonNull
+    private View buildScreen() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(color(R.color.app_background));
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(16), dp(18), dp(16), dp(32));
+        scroll.addView(root);
 
-        txtMonthIncome =
-                findViewById(R.id.txtMonthIncome);
+        TextView back = text("←  Back", 13, R.color.secondary, true);
+        back.setPadding(0, dp(4), 0, dp(10));
+        back.setOnClickListener(v -> finish());
+        root.addView(back);
+        root.addView(text("Unified Finance Calendar", 25, R.color.app_text_primary, true));
+        TextView subtitle = text("Transactions, bills, subscriptions, EMI, card dues and goals in one place", 11, R.color.app_text_secondary, false);
+        subtitle.setPadding(0, dp(3), 0, dp(14));
+        root.addView(subtitle);
 
-        txtMonthExpense =
-                findViewById(R.id.txtMonthExpense);
+        MaterialCardView selector = card(R.color.info_surface, R.color.info_outline);
+        LinearLayout selectorRow = row();
+        selectorRow.setPadding(dp(10), dp(9), dp(10), dp(9));
+        previousButton = button("‹");
+        nextButton = button("›");
+        monthTitle = text("", 17, R.color.secondary, true);
+        monthTitle.setGravity(Gravity.CENTER);
+        selectorRow.addView(previousButton, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        selectorRow.addView(monthTitle, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        selectorRow.addView(nextButton, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        selector.addView(selectorRow);
+        root.addView(selector);
 
-        txtMonthNet =
-                findViewById(R.id.txtMonthNet);
+        LinearLayout legend = row();
+        legend.setPadding(0, dp(12), 0, dp(8));
+        addLegend(legend, "Txn", R.color.success);
+        addLegend(legend, "Bill", R.color.orange);
+        addLegend(legend, "EMI", R.color.expense);
+        addLegend(legend, "Card", R.color.purple);
+        addLegend(legend, "Goal", R.color.secondary);
+        root.addView(legend);
 
-        txtNoCalendarData =
-                findViewById(R.id.txtNoCalendarData);
+        LinearLayout weekdays = row();
+        for (String name : new String[]{"S", "M", "T", "W", "T", "F", "S"}) {
+            TextView day = text(name, 11, R.color.app_text_secondary, true);
+            day.setGravity(Gravity.CENTER);
+            weekdays.addView(day, new LinearLayout.LayoutParams(0, dp(30), 1f));
+        }
+        root.addView(weekdays);
 
-        btnPreviousMonth =
-                findViewById(R.id.btnPreviousMonth);
+        calendarGrid = new GridLayout(this);
+        calendarGrid.setColumnCount(7);
+        calendarGrid.setAlignmentMode(GridLayout.ALIGN_BOUNDS);
+        root.addView(calendarGrid);
 
-        btnNextMonth =
-                findViewById(R.id.btnNextMonth);
+        TextView centerTitle = text("Notification Center", 19, R.color.app_text_primary, true);
+        LinearLayout.LayoutParams centerTitleParams = new LinearLayout.LayoutParams(-1, -2);
+        centerTitleParams.setMargins(0, dp(22), 0, 0);
+        centerTitle.setLayoutParams(centerTitleParams);
+        root.addView(centerTitle);
+        alertSummary = text("Loading upcoming alerts...", 11, R.color.app_text_secondary, false);
+        alertSummary.setPadding(0, dp(3), 0, dp(9));
+        root.addView(alertSummary);
 
-        calendarGrid =
-                findViewById(R.id.calendarGrid);
+        LinearLayout quickRow = row();
+        MaterialButton bills = actionButton("Manage Bills");
+        bills.setOnClickListener(v -> startActivity(new Intent(this, RecurringActivity.class)));
+        MaterialButton cards = actionButton("Credit Cards");
+        cards.setOnClickListener(v -> startActivity(new Intent(this, CreditCardActivity.class)));
+        quickRow.addView(bills, weightedButtonParams(true));
+        quickRow.addView(cards, weightedButtonParams(false));
+        root.addView(quickRow);
+
+        alertContainer = new LinearLayout(this);
+        alertContainer.setOrientation(LinearLayout.VERTICAL);
+        root.addView(alertContainer);
+        emptyAlerts = text("No upcoming financial alerts in the next 30 days.", 12, R.color.app_text_secondary, false);
+        emptyAlerts.setGravity(Gravity.CENTER);
+        emptyAlerts.setPadding(dp(12), dp(28), dp(12), dp(28));
+        root.addView(emptyAlerts);
+        return scroll;
     }
 
-    private void prepareCalendar() {
-        selectedMonth =
-                Calendar.getInstance();
-
-        selectedMonth.set(
-                Calendar.DAY_OF_MONTH,
-                1
-        );
-
-        clearTime(selectedMonth);
-
-        btnPreviousMonth.setOnClickListener(view -> {
-            selectedMonth.add(
-                    Calendar.MONTH,
-                    -1
-            );
-
-            loadCalendarData();
-        });
-
-        btnNextMonth.setOnClickListener(view -> {
-            selectedMonth.add(
-                    Calendar.MONTH,
-                    1
-            );
-
-            loadCalendarData();
-        });
-
-        BubbleTouchAnimator.apply(
-                btnPreviousMonth
-        );
-
-        BubbleTouchAnimator.apply(
-                btnNextMonth
-        );
+    private void bindActions() {
+        previousButton.setOnClickListener(v -> { selectedMonth.add(Calendar.MONTH, -1); renderMonth(); });
+        nextButton.setOnClickListener(v -> { selectedMonth.add(Calendar.MONTH, 1); renderMonth(); });
+        BubbleTouchAnimator.apply(previousButton);
+        BubbleTouchAnimator.apply(nextButton);
     }
 
-    private void loadCalendarData() {
-        Calendar monthToLoad =
-                (Calendar) selectedMonth.clone();
-
-        int currentRequest =
-                ++calendarRequestVersion;
-
-        updateMonthTitle(monthToLoad);
-        setLoadingState(true);
-
+    private void loadData() {
+        final int version = ++loadVersion;
+        setButtonsEnabled(false);
         new Thread(() -> {
             try {
-                List<Transaction> transactions =
-                        DatabaseClient
-                                .getInstance(
-                                        getApplicationContext()
-                                )
-                                .getAppDatabase()
-                                .transactionDao()
-                                .getAllTransactions();
-
-                MonthData monthData =
-                        calculateMonthData(
-                                transactions,
-                                monthToLoad
-                        );
-
+                AppDatabase db = DatabaseClient.getInstance(getApplicationContext()).getAppDatabase();
+                List<FinanceEvent> events = new ArrayList<>();
+                addTransactionEvents(events, db.transactionDao().getAllTransactions());
+                addRecurringEvents(events, db.recurringTransactionDao().getAllRecurringTransactions());
+                addSubscriptionEvents(events, db.subscriptionDao().getActiveSubscriptions());
+                addLoanEvents(events, db.loanDao().getActiveLoans());
+                addCardEvents(events, db.creditCardDao().getActiveCreditCards());
+                addGoalEvents(events, db.goalDao().getAllGoals());
+                Collections.sort(events, Comparator.comparingLong(e -> e.date.getTime()));
                 runOnUiThread(() -> {
-                    if (currentRequest
-                            != calendarRequestVersion) {
-
-                        return;
-                    }
-
-                    showCalendar(
-                            monthToLoad,
-                            monthData
-                    );
-
-                    setLoadingState(false);
+                    if (version != loadVersion || isFinishing() || isDestroyed()) return;
+                    allEvents = events;
+                    renderMonth();
+                    renderAlerts();
+                    setButtonsEnabled(true);
                 });
-
             } catch (Exception exception) {
                 runOnUiThread(() -> {
-                    if (currentRequest
-                            != calendarRequestVersion) {
-
-                        return;
-                    }
-
-                    showCalendar(
-                            monthToLoad,
-                            new MonthData()
-                    );
-
-                    setLoadingState(false);
-
-                    Toast.makeText(
-                            CalendarActivity.this,
-                            "Unable to load calendar data",
-                            Toast.LENGTH_SHORT
-                    ).show();
+                    setButtonsEnabled(true);
+                    Toast.makeText(this, "Unable to load unified calendar", Toast.LENGTH_SHORT).show();
                 });
             }
         }).start();
     }
 
-    private MonthData calculateMonthData(
-            List<Transaction> transactions,
-            Calendar monthToLoad
-    ) {
-        MonthData result =
-                new MonthData();
-
-        if (transactions == null) {
-            return result;
-        }
-
-        int selectedYear =
-                monthToLoad.get(
-                        Calendar.YEAR
-                );
-
-        int selectedMonthNumber =
-                monthToLoad.get(
-                        Calendar.MONTH
-                );
-
-        for (Transaction transaction : transactions) {
-            if (transaction == null) {
-                continue;
-            }
-
-            Date transactionDate =
-                    parseTransactionDate(
-                            transaction.getDate()
-                    );
-
-            if (transactionDate == null) {
-                continue;
-            }
-
-            Calendar transactionCalendar =
-                    Calendar.getInstance();
-
-            transactionCalendar.setTime(
-                    transactionDate
-            );
-
-            boolean sameMonth =
-                    transactionCalendar.get(
-                            Calendar.YEAR
-                    ) == selectedYear
-                            && transactionCalendar.get(
-                            Calendar.MONTH
-                    ) == selectedMonthNumber;
-
-            if (!sameMonth) {
-                continue;
-            }
-
-            double amount =
-                    transaction.getAmount();
-
-            if (Double.isNaN(amount)
-                    || Double.isInfinite(amount)) {
-
-                continue;
-            }
-
-            int day =
-                    transactionCalendar.get(
-                            Calendar.DAY_OF_MONTH
-                    );
-
-            DailyTotal dailyTotal =
-                    result.dailyTotals.get(day);
-
-            if (dailyTotal == null) {
-                dailyTotal =
-                        new DailyTotal();
-
-                result.dailyTotals.put(
-                        day,
-                        dailyTotal
-                );
-            }
-
-            String type =
-                    safeText(
-                            transaction.getType(),
-                            ""
-                    );
-
-            if ("INCOME".equalsIgnoreCase(type)) {
-                dailyTotal.income += amount;
-                dailyTotal.incomeCount++;
-
-                result.monthIncome += amount;
-
-            } else if ("EXPENSE".equalsIgnoreCase(type)) {
-                dailyTotal.expense += amount;
-                dailyTotal.expenseCount++;
-
-                result.monthExpense += amount;
-            }
-        }
-
-        return result;
-    }
-
-    private void showCalendar(
-            Calendar month,
-            MonthData monthData
-    ) {
-        updateMonthTitle(month);
-
-        txtMonthIncome.setText(
-                formatAmount(
-                        monthData.monthIncome
-                )
-        );
-
-        txtMonthExpense.setText(
-                formatAmount(
-                        monthData.monthExpense
-                )
-        );
-
-        double monthNet =
-                monthData.monthIncome
-                        - monthData.monthExpense;
-
-        txtMonthNet.setText(
-                formatSignedAmount(
-                        monthNet
-                )
-        );
-
-        int netColor;
-
-        if (monthNet > 0) {
-            netColor =
-                    getColorValue(
-                            R.color.success
-                    );
-
-        } else if (monthNet < 0) {
-            netColor =
-                    getColorValue(
-                            R.color.expense
-                    );
-
-        } else {
-            netColor =
-                    getColorValue(
-                            R.color.app_text_secondary
-                    );
-        }
-
-        txtMonthNet.setTextColor(
-                netColor
-        );
-
+    private void renderMonth() {
+        monthTitle.setText(new SimpleDateFormat("MMMM yyyy", Locale.ENGLISH).format(selectedMonth.getTime()));
         calendarGrid.removeAllViews();
-
-        boolean hasData =
-                !monthData.dailyTotals.isEmpty();
-
-        txtNoCalendarData.setVisibility(
-                hasData
-                        ? View.GONE
-                        : View.VISIBLE
-        );
-
-        Calendar firstDay =
-                (Calendar) month.clone();
-
-        firstDay.set(
-                Calendar.DAY_OF_MONTH,
-                1
-        );
-
-        int firstDayPosition =
-                firstDay.get(
-                        Calendar.DAY_OF_WEEK
-                ) - 1;
-
-        int totalDays =
-                firstDay.getActualMaximum(
-                        Calendar.DAY_OF_MONTH
-                );
-
-        for (int index = 0;
-             index < firstDayPosition;
-             index++) {
-
-            addEmptyCell();
-        }
-
-        for (int day = 1;
-             day <= totalDays;
-             day++) {
-
-            DailyTotal dailyTotal =
-                    monthData.dailyTotals.get(day);
-
-            if (dailyTotal == null) {
-                dailyTotal =
-                        new DailyTotal();
+        Map<Integer, List<FinanceEvent>> byDay = new HashMap<>();
+        int year = selectedMonth.get(Calendar.YEAR);
+        int month = selectedMonth.get(Calendar.MONTH);
+        for (FinanceEvent event : allEvents) {
+            Calendar c = Calendar.getInstance();
+            c.setTime(event.date);
+            if (c.get(Calendar.YEAR) == year && c.get(Calendar.MONTH) == month) {
+                byDay.computeIfAbsent(c.get(Calendar.DAY_OF_MONTH), ignored -> new ArrayList<>()).add(event);
             }
-
-            addDayCell(
-                    day,
-                    dailyTotal,
-                    month
-            );
         }
-
-        int totalUsedCells =
-                firstDayPosition
-                        + totalDays;
-
-        int remainingCells =
-                totalUsedCells % 7 == 0
-                        ? 0
-                        : 7 - (
-                        totalUsedCells % 7
-                );
-
-        for (int index = 0;
-             index < remainingCells;
-             index++) {
-
-            addEmptyCell();
-        }
+        Calendar first = (Calendar) selectedMonth.clone();
+        first.set(Calendar.DAY_OF_MONTH, 1);
+        int offset = first.get(Calendar.DAY_OF_WEEK) - 1;
+        for (int i = 0; i < offset; i++) addEmptyCell();
+        int max = first.getActualMaximum(Calendar.DAY_OF_MONTH);
+        for (int day = 1; day <= max; day++) addDayCell(day, byDay.get(day));
+        int used = offset + max;
+        int remainder = used % 7;
+        if (remainder != 0) for (int i = remainder; i < 7; i++) addEmptyCell();
     }
 
-    private void updateMonthTitle(
-            Calendar month
-    ) {
-        String title =
-                new SimpleDateFormat(
-                        "MMMM yyyy",
-                        Locale.ENGLISH
-                ).format(
-                        month.getTime()
-                );
-
-        txtMonthTitle.setText(title);
+    private void addDayCell(int day, List<FinanceEvent> events) {
+        boolean hasEvents = events != null && !events.isEmpty();
+        MaterialCardView card = card(hasEvents ? R.color.info_surface : R.color.app_surface,
+                hasEvents ? R.color.info_outline : R.color.app_outline_soft);
+        GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+        params.width = 0;
+        params.height = dp(72);
+        params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+        params.setMargins(dp(2), dp(2), dp(2), dp(2));
+        card.setLayoutParams(params);
+        card.setRadius(dp(12));
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setGravity(Gravity.CENTER);
+        TextView number = text(String.valueOf(day), 13, R.color.app_text_primary, true);
+        number.setGravity(Gravity.CENTER);
+        content.addView(number);
+        if (hasEvents) {
+            TextView count = text(events.size() + " item" + (events.size() == 1 ? "" : "s"), 8, colorForType(events.get(0).type), true);
+            count.setGravity(Gravity.CENTER);
+            count.setPadding(0, dp(4), 0, 0);
+            content.addView(count);
+            card.setOnClickListener(v -> showDayEvents(day, events));
+            BubbleTouchAnimator.apply(card);
+        }
+        card.addView(content);
+        calendarGrid.addView(card);
     }
 
-    private void setLoadingState(
-            boolean loading
-    ) {
-        btnPreviousMonth.setEnabled(!loading);
-        btnNextMonth.setEnabled(!loading);
-
-        btnPreviousMonth.setAlpha(
-                loading
-                        ? 0.55f
-                        : 1f
-        );
-
-        btnNextMonth.setAlpha(
-                loading
-                        ? 0.55f
-                        : 1f
-        );
-    }
-
-    private void addEmptyCell() {
-        View emptyCell =
-                new View(this);
-
-        emptyCell.setLayoutParams(
-                createGridParams()
-        );
-
-        calendarGrid.addView(
-                emptyCell
-        );
-    }
-
-    private void addDayCell(
-            int day,
-            DailyTotal total,
-            Calendar month
-    ) {
-        boolean hasIncome =
-                total.incomeCount > 0;
-
-        boolean hasExpense =
-                total.expenseCount > 0;
-
-        boolean hasData =
-                hasIncome || hasExpense;
-
-        boolean today =
-                isToday(
-                        day,
-                        month
-                );
-
-        double netAmount =
-                total.income
-                        - total.expense;
-
-        int cardBackgroundColor;
-        int cardOutlineColor;
-        int amountColor;
-        int amountBackgroundColor;
-
-        if (hasIncome && hasExpense) {
-            cardBackgroundColor =
-                    getColorValue(
-                            R.color.warning_surface
-                    );
-
-            cardOutlineColor =
-                    getColorValue(
-                            R.color.warning_outline
-                    );
-
-            amountColor =
-                    getColorValue(
-                            R.color.warning
-                    );
-
-            amountBackgroundColor =
-                    getColorValue(
-                            R.color.app_surface
-                    );
-
-        } else if (hasIncome) {
-            cardBackgroundColor =
-                    getColorValue(
-                            R.color.success_surface
-                    );
-
-            cardOutlineColor =
-                    getColorValue(
-                            R.color.success_outline
-                    );
-
-            amountColor =
-                    getColorValue(
-                            R.color.success
-                    );
-
-            amountBackgroundColor =
-                    getColorValue(
-                            R.color.app_surface
-                    );
-
-        } else if (hasExpense) {
-            cardBackgroundColor =
-                    getColorValue(
-                            R.color.expense_surface
-                    );
-
-            cardOutlineColor =
-                    getColorValue(
-                            R.color.expense_outline
-                    );
-
-            amountColor =
-                    getColorValue(
-                            R.color.expense
-                    );
-
-            amountBackgroundColor =
-                    getColorValue(
-                            R.color.app_surface
-                    );
-
-        } else if (today) {
-            cardBackgroundColor =
-                    getColorValue(
-                            R.color.info_surface
-                    );
-
-            cardOutlineColor =
-                    getColorValue(
-                            R.color.primary
-                    );
-
-            amountColor =
-                    getColorValue(
-                            R.color.primary
-                    );
-
-            amountBackgroundColor =
-                    getColorValue(
-                            R.color.app_surface
-                    );
-
-        } else {
-            cardBackgroundColor =
-                    getColorValue(
-                            R.color.app_surface
-                    );
-
-            cardOutlineColor =
-                    getColorValue(
-                            R.color.app_outline_soft
-                    );
-
-            amountColor =
-                    getColorValue(
-                            R.color.app_text_secondary
-                    );
-
-            amountBackgroundColor =
-                    getColorValue(
-                            R.color.app_surface_soft
-                    );
-        }
-
-        MaterialCardView dayCard =
-                new MaterialCardView(this);
-
-        dayCard.setLayoutParams(
-                createGridParams()
-        );
-
-        dayCard.setCardBackgroundColor(
-                cardBackgroundColor
-        );
-
-        dayCard.setRadius(
-                dpToPx(13)
-        );
-
-        dayCard.setCardElevation(0);
-
-        dayCard.setStrokeWidth(
-                today
-                        ? dpToPx(2)
-                        : dpToPx(1)
-        );
-
-        dayCard.setStrokeColor(
-                today
-                        ? getColorValue(
-                        R.color.primary
-                )
-                        : cardOutlineColor
-        );
-
-        dayCard.setClickable(hasData);
-        dayCard.setFocusable(hasData);
-
-        dayCard.setAlpha(
-                hasData || today
-                        ? 1f
-                        : 0.88f
-        );
-
-        LinearLayout content =
-                new LinearLayout(this);
-
-        content.setLayoutParams(
-                new MaterialCardView.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                )
-        );
-
-        content.setOrientation(
-                LinearLayout.VERTICAL
-        );
-
-        content.setGravity(
-                Gravity.CENTER
-        );
-
-        content.setPadding(
-                dpToPx(2),
-                dpToPx(5),
-                dpToPx(2),
-                dpToPx(5)
-        );
-
-        TextView dayNumber =
-                new TextView(this);
-
-        dayNumber.setText(
-                String.valueOf(day)
-        );
-
-        dayNumber.setGravity(
-                Gravity.CENTER
-        );
-
-        dayNumber.setTextSize(13);
-        dayNumber.setTypeface(
-                Typeface.DEFAULT,
-                Typeface.BOLD
-        );
-
-        dayNumber.setTextColor(
-                getDayNumberColor(
-                        day,
-                        month,
-                        today
-                )
-        );
-
-        TextView amountView =
-                new TextView(this);
-
-        amountView.setGravity(
-                Gravity.CENTER
-        );
-
-        amountView.setTextSize(8);
-        amountView.setTypeface(
-                Typeface.DEFAULT,
-                Typeface.BOLD
-        );
-
-        amountView.setTextColor(
-                amountColor
-        );
-
-        amountView.setSingleLine(true);
-
-        LinearLayout.LayoutParams amountParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        dpToPx(22)
-                );
-
-        amountParams.setMargins(
-                0,
-                dpToPx(4),
-                0,
-                0
-        );
-
-        amountView.setLayoutParams(
-                amountParams
-        );
-
-        if (hasIncome && hasExpense) {
-            amountView.setText(
-                    "↕ "
-                            + formatCompactSigned(
-                            netAmount
-                    )
-            );
-
-        } else if (hasIncome) {
-            amountView.setText(
-                    "↑ "
-                            + formatCompact(
-                            total.income
-                    )
-            );
-
-        } else if (hasExpense) {
-            amountView.setText(
-                    "↓ "
-                            + formatCompact(
-                            total.expense
-                    )
-            );
-
-        } else if (today) {
-            amountView.setText("Today");
-
-        } else {
-            amountView.setText("");
-        }
-
-        if (hasData || today) {
-            amountView.setPadding(
-                    dpToPx(5),
-                    0,
-                    dpToPx(5),
-                    0
-            );
-
-            amountView.setBackground(
-                    createRoundedDrawable(
-                            amountBackgroundColor,
-                            cardOutlineColor,
-                            10
-                    )
-            );
-        }
-
-        content.addView(
-                dayNumber
-        );
-
-        content.addView(
-                amountView
-        );
-
-        dayCard.addView(
-                content
-        );
-
-        if (hasData) {
-            BubbleTouchAnimator.apply(
-                    dayCard
-            );
-
-            DailyTotal selectedTotal =
-                    total;
-
-            dayCard.setOnClickListener(view ->
-                    showDaySummaryDialog(
-                            day,
-                            selectedTotal,
-                            month
-                    )
-            );
-        }
-
-        calendarGrid.addView(
-                dayCard
-        );
-    }
-
-    private int getDayNumberColor(
-            int day,
-            Calendar month,
-            boolean today
-    ) {
-        if (today) {
-            return getColorValue(
-                    R.color.primary
-            );
-        }
-
-        Calendar date =
-                (Calendar) month.clone();
-
-        date.set(
-                Calendar.DAY_OF_MONTH,
-                day
-        );
-
-        int dayOfWeek =
-                date.get(
-                        Calendar.DAY_OF_WEEK
-                );
-
-        if (dayOfWeek
-                == Calendar.SUNDAY) {
-
-            return getColorValue(
-                    R.color.expense
-            );
-        }
-
-        if (dayOfWeek
-                == Calendar.SATURDAY) {
-
-            return getColorValue(
-                    R.color.secondary
-            );
-        }
-
-        return getColorValue(
-                R.color.app_text_primary
-        );
-    }
-
-    private void showDaySummaryDialog(
-            int day,
-            DailyTotal total,
-            Calendar month
-    ) {
-        Calendar selectedDate =
-                (Calendar) month.clone();
-
-        selectedDate.set(
-                Calendar.DAY_OF_MONTH,
-                day
-        );
-
-        String visibleDate =
-                new SimpleDateFormat(
-                        "EEEE, dd MMMM yyyy",
-                        Locale.ENGLISH
-                ).format(
-                        selectedDate.getTime()
-                );
-
-        double netAmount =
-                total.income
-                        - total.expense;
-
-        int netColor;
-
-        if (netAmount > 0) {
-            netColor =
-                    getColorValue(
-                            R.color.success
-                    );
-
-        } else if (netAmount < 0) {
-            netColor =
-                    getColorValue(
-                            R.color.expense
-                    );
-
-        } else {
-            netColor =
-                    getColorValue(
-                            R.color.warning
-                    );
-        }
-
-        LinearLayout dialogContent =
-                new LinearLayout(this);
-
-        dialogContent.setOrientation(
-                LinearLayout.VERTICAL
-        );
-
-        dialogContent.setPadding(
-                dpToPx(22),
-                dpToPx(5),
-                dpToPx(22),
-                dpToPx(6)
-        );
-
-        MaterialCardView netCard =
-                createNetSummaryCard(
-                        netAmount,
-                        netColor
-                );
-
-        dialogContent.addView(
-                netCard
-        );
-
-        LinearLayout amountRow =
-                new LinearLayout(this);
-
-        amountRow.setOrientation(
-                LinearLayout.HORIZONTAL
-        );
-
-        amountRow.setBaselineAligned(false);
-
-        LinearLayout.LayoutParams amountRowParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        amountRowParams.setMargins(
-                0,
-                dpToPx(12),
-                0,
-                0
-        );
-
-        amountRow.setLayoutParams(
-                amountRowParams
-        );
-
-        MaterialCardView incomeCard =
-                createDialogMetricCard(
-                        "Income",
-                        formatAmount(
-                                total.income
-                        ),
-                        total.incomeCount
-                                + " transaction(s)",
-                        getColorValue(
-                                R.color.success
-                        ),
-                        getColorValue(
-                                R.color.success_surface
-                        ),
-                        getColorValue(
-                                R.color.success_outline
-                        ),
-                        "↑"
-                );
-
-        LinearLayout.LayoutParams incomeParams =
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1f
-                );
-
-        incomeParams.setMargins(
-                0,
-                0,
-                dpToPx(5),
-                0
-        );
-
-        incomeCard.setLayoutParams(
-                incomeParams
-        );
-
-        MaterialCardView expenseCard =
-                createDialogMetricCard(
-                        "Expense",
-                        formatAmount(
-                                total.expense
-                        ),
-                        total.expenseCount
-                                + " transaction(s)",
-                        getColorValue(
-                                R.color.expense
-                        ),
-                        getColorValue(
-                                R.color.expense_surface
-                        ),
-                        getColorValue(
-                                R.color.expense_outline
-                        ),
-                        "↓"
-                );
-
-        LinearLayout.LayoutParams expenseParams =
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1f
-                );
-
-        expenseParams.setMargins(
-                dpToPx(5),
-                0,
-                0,
-                0
-        );
-
-        expenseCard.setLayoutParams(
-                expenseParams
-        );
-
-        amountRow.addView(
-                incomeCard
-        );
-
-        amountRow.addView(
-                expenseCard
-        );
-
-        dialogContent.addView(
-                amountRow
-        );
-
-        MaterialCardView activityCard =
-                createActivityCard(
-                        total
-                );
-
-        LinearLayout.LayoutParams activityParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        activityParams.setMargins(
-                0,
-                dpToPx(12),
-                0,
-                0
-        );
-
-        activityCard.setLayoutParams(
-                activityParams
-        );
-
-        dialogContent.addView(
-                activityCard
-        );
-
+    private void showDayEvents(int day, List<FinanceEvent> events) {
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(8), dp(4), dp(8), dp(4));
+        for (FinanceEvent event : events) list.addView(buildEventCard(event, false));
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(list);
         new AlertDialog.Builder(this)
-                .setTitle(visibleDate)
-                .setView(dialogContent)
-                .setPositiveButton(
-                        "Close",
-                        null
-                )
+                .setTitle(day + " " + new SimpleDateFormat("MMMM yyyy", Locale.ENGLISH).format(selectedMonth.getTime()))
+                .setView(scroll)
+                .setPositiveButton("Close", null)
                 .show();
     }
 
-    private MaterialCardView createNetSummaryCard(
-            double netAmount,
-            int netColor
-    ) {
-        int surfaceColor;
-
-        int outlineColor;
-
-        if (netAmount > 0) {
-            surfaceColor =
-                    getColorValue(
-                            R.color.success_surface
-                    );
-
-            outlineColor =
-                    getColorValue(
-                            R.color.success_outline
-                    );
-
-        } else if (netAmount < 0) {
-            surfaceColor =
-                    getColorValue(
-                            R.color.expense_surface
-                    );
-
-            outlineColor =
-                    getColorValue(
-                            R.color.expense_outline
-                    );
-
-        } else {
-            surfaceColor =
-                    getColorValue(
-                            R.color.warning_surface
-                    );
-
-            outlineColor =
-                    getColorValue(
-                            R.color.warning_outline
-                    );
-        }
-
-        MaterialCardView card =
-                new MaterialCardView(this);
-
-        card.setCardBackgroundColor(
-                surfaceColor
-        );
-
-        card.setRadius(
-                dpToPx(16)
-        );
-
-        card.setCardElevation(0);
-        card.setStrokeWidth(dpToPx(1));
-        card.setStrokeColor(outlineColor);
-
-        LinearLayout content =
-                new LinearLayout(this);
-
-        content.setOrientation(
-                LinearLayout.HORIZONTAL
-        );
-
-        content.setGravity(
-                Gravity.CENTER_VERTICAL
-        );
-
-        content.setPadding(
-                dpToPx(14),
-                dpToPx(13),
-                dpToPx(14),
-                dpToPx(13)
-        );
-
-        TextView icon =
-                createText(
-                        "±",
-                        20,
-                        netColor,
-                        true
-                );
-
-        icon.setGravity(
-                Gravity.CENTER
-        );
-
-        LinearLayout.LayoutParams iconParams =
-                new LinearLayout.LayoutParams(
-                        dpToPx(42),
-                        dpToPx(42)
-                );
-
-        icon.setLayoutParams(
-                iconParams
-        );
-
-        content.addView(
-                icon
-        );
-
-        LinearLayout textContainer =
-                new LinearLayout(this);
-
-        textContainer.setOrientation(
-                LinearLayout.VERTICAL
-        );
-
-        LinearLayout.LayoutParams textParams =
-                new LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1f
-                );
-
-        textParams.setMargins(
-                dpToPx(10),
-                0,
-                0,
-                0
-        );
-
-        textContainer.setLayoutParams(
-                textParams
-        );
-
-        TextView label =
-                createText(
-                        "Daily Net Cash Flow",
-                        10,
-                        getColorValue(
-                                R.color.app_text_secondary
-                        ),
-                        true
-                );
-
-        TextView amount =
-                createText(
-                        formatSignedAmount(
-                                netAmount
-                        ),
-                        20,
-                        netColor,
-                        true
-                );
-
-        LinearLayout.LayoutParams amountParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        amountParams.setMargins(
-                0,
-                dpToPx(3),
-                0,
-                0
-        );
-
-        amount.setLayoutParams(
-                amountParams
-        );
-
-        textContainer.addView(
-                label
-        );
-
-        textContainer.addView(
-                amount
-        );
-
-        content.addView(
-                textContainer
-        );
-
-        card.addView(
-                content
-        );
-
-        return card;
-    }
-
-    private MaterialCardView createDialogMetricCard(
-            String label,
-            String amount,
-            String description,
-            int accentColor,
-            int backgroundColor,
-            int outlineColor,
-            String iconText
-    ) {
-        MaterialCardView card =
-                new MaterialCardView(this);
-
-        card.setCardBackgroundColor(
-                backgroundColor
-        );
-
-        card.setRadius(
-                dpToPx(15)
-        );
-
-        card.setCardElevation(0);
-        card.setStrokeWidth(dpToPx(1));
-        card.setStrokeColor(outlineColor);
-
-        LinearLayout content =
-                new LinearLayout(this);
-
-        content.setOrientation(
-                LinearLayout.VERTICAL
-        );
-
-        content.setGravity(
-                Gravity.CENTER
-        );
-
-        content.setPadding(
-                dpToPx(8),
-                dpToPx(12),
-                dpToPx(8),
-                dpToPx(12)
-        );
-
-        TextView icon =
-                createText(
-                        iconText,
-                        17,
-                        accentColor,
-                        true
-                );
-
-        icon.setGravity(
-                Gravity.CENTER
-        );
-
-        TextView labelView =
-                createText(
-                        label,
-                        10,
-                        getColorValue(
-                                R.color.app_text_secondary
-                        ),
-                        true
-                );
-
-        LinearLayout.LayoutParams labelParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        labelParams.setMargins(
-                0,
-                dpToPx(3),
-                0,
-                0
-        );
-
-        labelView.setLayoutParams(
-                labelParams
-        );
-
-        TextView amountView =
-                createText(
-                        amount,
-                        14,
-                        accentColor,
-                        true
-                );
-
-        amountView.setGravity(
-                Gravity.CENTER
-        );
-
-        LinearLayout.LayoutParams amountParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        amountParams.setMargins(
-                0,
-                dpToPx(4),
-                0,
-                0
-        );
-
-        amountView.setLayoutParams(
-                amountParams
-        );
-
-        TextView descriptionView =
-                createText(
-                        description,
-                        9,
-                        getColorValue(
-                                R.color.app_text_secondary
-                        ),
-                        false
-                );
-
-        descriptionView.setGravity(
-                Gravity.CENTER
-        );
-
-        LinearLayout.LayoutParams descriptionParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        descriptionParams.setMargins(
-                0,
-                dpToPx(3),
-                0,
-                0
-        );
-
-        descriptionView.setLayoutParams(
-                descriptionParams
-        );
-
-        content.addView(icon);
-        content.addView(labelView);
-        content.addView(amountView);
-        content.addView(descriptionView);
-
-        card.addView(content);
-
-        return card;
-    }
-
-    private MaterialCardView createActivityCard(
-            DailyTotal total
-    ) {
-        MaterialCardView card =
-                new MaterialCardView(this);
-
-        card.setCardBackgroundColor(
-                getColorValue(
-                        R.color.app_surface_soft
-                )
-        );
-
-        card.setRadius(
-                dpToPx(14)
-        );
-
-        card.setCardElevation(0);
-        card.setStrokeWidth(dpToPx(1));
-
-        card.setStrokeColor(
-                getColorValue(
-                        R.color.app_outline_soft
-                )
-        );
-
-        LinearLayout content =
-                new LinearLayout(this);
-
-        content.setOrientation(
-                LinearLayout.VERTICAL
-        );
-
-        content.setPadding(
-                dpToPx(13),
-                dpToPx(11),
-                dpToPx(13),
-                dpToPx(11)
-        );
-
-        TextView title =
-                createText(
-                        "Daily Activity",
-                        11,
-                        getColorValue(
-                                R.color.app_text_primary
-                        ),
-                        true
-                );
-
-        int totalTransactions =
-                total.incomeCount
-                        + total.expenseCount;
-
-        TextView description =
-                createText(
-                        totalTransactions
-                                + " total transaction(s) recorded on this date.",
-                        10,
-                        getColorValue(
-                                R.color.app_text_secondary
-                        ),
-                        false
-                );
-
-        description.setLineSpacing(
-                dpToPx(2),
-                1f
-        );
-
-        LinearLayout.LayoutParams descriptionParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        descriptionParams.setMargins(
-                0,
-                dpToPx(4),
-                0,
-                0
-        );
-
-        description.setLayoutParams(
-                descriptionParams
-        );
-
-        content.addView(
-                title
-        );
-
-        content.addView(
-                description
-        );
-
-        card.addView(
-                content
-        );
-
-        return card;
-    }
-
-    private GridLayout.LayoutParams createGridParams() {
-        GridLayout.LayoutParams params =
-                new GridLayout.LayoutParams();
-
-        params.rowSpec =
-                GridLayout.spec(
-                        GridLayout.UNDEFINED
-                );
-
-        params.columnSpec =
-                GridLayout.spec(
-                        GridLayout.UNDEFINED,
-                        1f
-                );
-
-        params.width = 0;
-        params.height = dpToPx(72);
-
-        params.setMargins(
-                dpToPx(2),
-                dpToPx(2),
-                dpToPx(2),
-                dpToPx(2)
-        );
-
-        return params;
-    }
-
-    private boolean isToday(
-            int day,
-            Calendar month
-    ) {
-        Calendar today =
-                Calendar.getInstance();
-
-        return today.get(
-                Calendar.YEAR
-        ) == month.get(
-                Calendar.YEAR
-        )
-                && today.get(
-                Calendar.MONTH
-        ) == month.get(
-                Calendar.MONTH
-        )
-                && today.get(
-                Calendar.DAY_OF_MONTH
-        ) == day;
-    }
-
-    private Date parseTransactionDate(
-            String value
-    ) {
-        if (value == null
-                || value.trim().isEmpty()) {
-
-            return null;
-        }
-
-        String cleanValue =
-                value.trim();
-
-        String[] patterns = {
-                "yyyy-MM-dd HH:mm:ss.SSS",
-                "yyyy-MM-dd HH:mm:ss",
-                "yyyy-MM-dd HH:mm",
-                "yyyy-MM-dd'T'HH:mm:ss.SSS",
-                "yyyy-MM-dd'T'HH:mm:ss",
-                "yyyy-MM-dd'T'HH:mm",
-                "yyyy-MM-dd",
-                "dd MMMM yyyy HH:mm:ss",
-                "dd MMMM yyyy HH:mm",
-                "dd MMM yyyy HH:mm:ss",
-                "dd MMM yyyy HH:mm",
-                "dd MMMM yyyy",
-                "dd MMM yyyy",
-                "dd/MM/yyyy HH:mm:ss",
-                "dd/MM/yyyy HH:mm",
-                "dd/MM/yyyy"
-        };
-
-        for (String pattern : patterns) {
-            try {
-                SimpleDateFormat format =
-                        new SimpleDateFormat(
-                                pattern,
-                                Locale.ENGLISH
-                        );
-
-                format.setLenient(false);
-
-                Date parsedDate =
-                        format.parse(
-                                cleanValue
-                        );
-
-                if (parsedDate != null) {
-                    return parsedDate;
-                }
-
-            } catch (Exception ignored) {
-                // Try the next supported date format.
+    private void renderAlerts() {
+        alertContainer.removeAllViews();
+        Calendar today = Calendar.getInstance();
+        clearTime(today);
+        Calendar end = (Calendar) today.clone();
+        end.add(Calendar.DAY_OF_MONTH, 30);
+        List<FinanceEvent> upcoming = new ArrayList<>();
+        for (FinanceEvent event : allEvents) {
+            if (!event.date.before(today.getTime()) && !event.date.after(end.getTime()) && !"Transaction".equals(event.type)) {
+                upcoming.add(event);
             }
         }
+        alertSummary.setText(upcoming.size() + " upcoming obligation" + (upcoming.size() == 1 ? "" : "s") + " in the next 30 days");
+        emptyAlerts.setVisibility(upcoming.isEmpty() ? View.VISIBLE : View.GONE);
+        for (int i = 0; i < Math.min(upcoming.size(), 12); i++) alertContainer.addView(buildEventCard(upcoming.get(i), true));
+    }
 
+    @NonNull
+    private View buildEventCard(FinanceEvent event, boolean showCountdown) {
+        MaterialCardView card = card(surfaceForType(event.type), outlineForType(event.type));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, dp(5), 0, dp(5));
+        card.setLayoutParams(params);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(13), dp(11), dp(13), dp(11));
+        LinearLayout header = row();
+        TextView title = text(event.title, 13, R.color.app_text_primary, true);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
+        header.addView(text(event.type, 10, colorForType(event.type), true));
+        content.addView(header);
+        String detail = formatDate(event.date);
+        if (event.amount > 0) detail += "  •  " + money(event.amount);
+        if (showCountdown) detail += "  •  " + countdown(event.date);
+        TextView detailView = text(detail, 10, R.color.app_text_secondary, false);
+        detailView.setPadding(0, dp(4), 0, 0);
+        content.addView(detailView);
+        if (!event.detail.isEmpty()) {
+            TextView note = text(event.detail, 10, R.color.app_text_secondary, false);
+            note.setPadding(0, dp(3), 0, 0);
+            content.addView(note);
+        }
+        card.addView(content);
+        return card;
+    }
+
+    private void addTransactionEvents(List<FinanceEvent> out, List<Transaction> items) {
+        if (items == null) return;
+        for (Transaction item : items) {
+            Date date = parseDate(item.getDate());
+            if (date == null) continue;
+            String type = item.getType() == null ? "" : item.getType();
+            String title = ("INCOME".equalsIgnoreCase(type) ? "Income" : "Expense") + " • " + safe(item.getCategory(), "Transaction");
+            out.add(new FinanceEvent(date, "Transaction", title, item.getAmount(), safe(item.getNote(), "")));
+        }
+    }
+
+    private void addRecurringEvents(List<FinanceEvent> out, List<RecurringTransaction> items) {
+        if (items == null) return;
+        for (RecurringTransaction item : items) {
+            if (!item.isActive()) continue;
+            Date date = parseDate(item.getNextRunDate());
+            if (date != null) out.add(new FinanceEvent(date, "Bill", safe(item.getCategory(), "Recurring payment"), item.getAmount(), safe(item.getNote(), item.getFrequency())));
+        }
+    }
+
+    private void addSubscriptionEvents(List<FinanceEvent> out, List<Subscription> items) {
+        if (items == null) return;
+        for (Subscription item : items) {
+            Date date = parseDate(item.getNextDueDate());
+            if (date != null) out.add(new FinanceEvent(date, "Bill", safe(item.getName(), "Subscription"), item.getAmount(), safe(item.getBillingCycle(), "Subscription")));
+        }
+    }
+
+    private void addLoanEvents(List<FinanceEvent> out, List<Loan> items) {
+        if (items == null) return;
+        for (Loan item : items) {
+            if (!item.isActive() || !"Loan Taken".equalsIgnoreCase(item.getLoanType())) continue;
+            Date date = parseDate(item.getDueDate());
+            if (date != null) out.add(new FinanceEvent(date, "EMI", safe(item.getPersonName(), "Loan EMI"), item.getEmiAmount(), "Outstanding " + money(item.getOutstandingAmount())));
+        }
+    }
+
+    private void addCardEvents(List<FinanceEvent> out, List<CreditCard> items) {
+        if (items == null) return;
+        Calendar reference = Calendar.getInstance();
+        for (CreditCard item : items) {
+            CreditCardCycleCalculator.Cycle cycle = CreditCardCycleCalculator.calculate(item, reference);
+            Date date = parseDate(cycle.dueDate);
+            if (date != null) out.add(new FinanceEvent(date, "Card", safe(item.getName(), "Credit Card") + " •••• " + safe(item.getLastFour(), ""), 0, "Payment account: " + safe(item.getPaymentAccount(), "Cash")));
+        }
+    }
+
+    private void addGoalEvents(List<FinanceEvent> out, List<Goal> items) {
+        if (items == null) return;
+        for (Goal item : items) {
+            if (item.getSavedAmount() >= item.getTargetAmount()) continue;
+            Date date = parseDate(item.getTargetDate());
+            if (date != null) out.add(new FinanceEvent(date, "Goal", safe(item.getName(), "Savings Goal"), item.getTargetAmount() - item.getSavedAmount(), "Remaining target"));
+        }
+    }
+
+    private Date parseDate(String value) {
+        if (value == null || value.trim().isEmpty()) return null;
+        String[] patterns = {"yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd", "dd-MM-yyyy HH:mm", "dd-MM-yyyy", "dd/MM/yyyy HH:mm", "dd/MM/yyyy"};
+        for (String pattern : patterns) {
+            SimpleDateFormat format = new SimpleDateFormat(pattern, Locale.US);
+            format.setLenient(false);
+            ParsePosition position = new ParsePosition(0);
+            Date date = format.parse(value.trim(), position);
+            if (date != null && position.getIndex() == value.trim().length()) {
+                Calendar c = Calendar.getInstance();
+                c.setTime(date);
+                clearTime(c);
+                return c.getTime();
+            }
+        }
         return null;
     }
 
-    private TextView createText(
-            String text,
-            float textSize,
-            int textColor,
-            boolean bold
-    ) {
-        TextView textView =
-                new TextView(this);
+    private String countdown(Date date) {
+        Calendar today = Calendar.getInstance();
+        clearTime(today);
+        long days = (date.getTime() - today.getTimeInMillis()) / 86400000L;
+        if (days == 0) return "Due today";
+        if (days == 1) return "Due tomorrow";
+        return days + " days left";
+    }
 
-        textView.setText(text);
-        textView.setTextSize(textSize);
-        textView.setTextColor(textColor);
+    private void addEmptyCell() {
+        View empty = new View(this);
+        GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+        params.width = 0;
+        params.height = dp(72);
+        params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+        params.setMargins(dp(2), dp(2), dp(2), dp(2));
+        empty.setLayoutParams(params);
+        calendarGrid.addView(empty);
+    }
 
-        if (bold) {
-            textView.setTypeface(
-                    Typeface.DEFAULT,
-                    Typeface.BOLD
-            );
+    private void addLegend(LinearLayout parent, String label, int colorRes) {
+        TextView view = text("● " + label, 9, colorRes, true);
+        view.setGravity(Gravity.CENTER);
+        parent.addView(view, new LinearLayout.LayoutParams(0, dp(28), 1f));
+    }
+
+    private MaterialCardView card(int background, int outline) {
+        MaterialCardView card = new MaterialCardView(this);
+        card.setCardBackgroundColor(color(background));
+        card.setStrokeColor(color(outline));
+        card.setStrokeWidth(dp(1));
+        card.setRadius(dp(16));
+        card.setCardElevation(0);
+        return card;
+    }
+
+    private TextView text(String value, float size, int colorRes, boolean bold) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(color(colorRes));
+        if (bold) view.setTypeface(Typeface.DEFAULT_BOLD);
+        return view;
+    }
+
+    private LinearLayout row() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        return row;
+    }
+
+    private MaterialButton button(String label) {
+        MaterialButton button = new MaterialButton(this);
+        button.setText(label);
+        button.setTextSize(22);
+        button.setAllCaps(false);
+        button.setCornerRadius(dp(13));
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        return button;
+    }
+
+    private MaterialButton actionButton(String label) {
+        MaterialButton button = new MaterialButton(this);
+        button.setText(label);
+        button.setTextSize(11);
+        button.setAllCaps(false);
+        button.setCornerRadius(dp(13));
+        BubbleTouchAnimator.apply(button);
+        return button;
+    }
+
+    private LinearLayout.LayoutParams weightedButtonParams(boolean left) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(46), 1f);
+        params.setMargins(left ? 0 : dp(5), 0, left ? dp(5) : 0, dp(7));
+        return params;
+    }
+
+    private int colorForType(String type) {
+        if ("Bill".equals(type)) return R.color.orange;
+        if ("EMI".equals(type)) return R.color.expense;
+        if ("Card".equals(type)) return R.color.purple;
+        if ("Goal".equals(type)) return R.color.secondary;
+        return R.color.success;
+    }
+
+    private int surfaceForType(String type) {
+        if ("Bill".equals(type)) return R.color.warning_surface;
+        if ("EMI".equals(type)) return R.color.expense_surface;
+        if ("Card".equals(type)) return R.color.purple_surface;
+        if ("Goal".equals(type)) return R.color.info_surface;
+        return R.color.success_surface;
+    }
+
+    private int outlineForType(String type) {
+        if ("Bill".equals(type)) return R.color.warning_outline;
+        if ("EMI".equals(type)) return R.color.expense_outline;
+        if ("Card".equals(type)) return R.color.purple_outline;
+        if ("Goal".equals(type)) return R.color.info_outline;
+        return R.color.success_outline;
+    }
+
+    private String money(double amount) {
+        return NumberFormat.getCurrencyInstance(new Locale("en", "IN")).format(amount);
+    }
+
+    private String formatDate(Date date) {
+        return new SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(date);
+    }
+
+    private String safe(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value.trim();
+    }
+
+    private int color(int resource) {
+        return ContextCompat.getColor(this, resource);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void setButtonsEnabled(boolean enabled) {
+        previousButton.setEnabled(enabled);
+        nextButton.setEnabled(enabled);
+        previousButton.setAlpha(enabled ? 1f : 0.5f);
+        nextButton.setAlpha(enabled ? 1f : 0.5f);
+    }
+
+    private static void clearTime(Calendar calendar) {
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+    }
+
+    private static final class FinanceEvent {
+        final Date date;
+        final String type;
+        final String title;
+        final double amount;
+        final String detail;
+        FinanceEvent(Date date, String type, String title, double amount, String detail) {
+            this.date = date;
+            this.type = type;
+            this.title = title;
+            this.amount = amount;
+            this.detail = detail == null ? "" : detail;
         }
-
-        return textView;
-    }
-
-    private GradientDrawable createRoundedDrawable(
-            int backgroundColor,
-            int outlineColor,
-            int radiusDp
-    ) {
-        GradientDrawable drawable =
-                new GradientDrawable();
-
-        drawable.setColor(
-                backgroundColor
-        );
-
-        drawable.setStroke(
-                dpToPx(1),
-                outlineColor
-        );
-
-        drawable.setCornerRadius(
-                dpToPx(radiusDp)
-        );
-
-        return drawable;
-    }
-
-    private String formatAmount(
-            double amount
-    ) {
-        NumberFormat numberFormat =
-                NumberFormat.getNumberInstance(
-                        new Locale(
-                                "en",
-                                "IN"
-                        )
-                );
-
-        numberFormat.setMinimumFractionDigits(2);
-        numberFormat.setMaximumFractionDigits(2);
-
-        return "₹"
-                + numberFormat.format(
-                amount
-        );
-    }
-
-    private String formatSignedAmount(
-            double amount
-    ) {
-        if (amount > 0) {
-            return "+"
-                    + formatAmount(amount);
-
-        } else if (amount < 0) {
-            return "-"
-                    + formatAmount(
-                    Math.abs(amount)
-            );
-        }
-
-        return formatAmount(0);
-    }
-
-    private String formatCompact(
-            double amount
-    ) {
-        double absoluteAmount =
-                Math.abs(amount);
-
-        DecimalFormat decimalFormat =
-                new DecimalFormat("0.#");
-
-        if (absoluteAmount >= 10000000) {
-            return "₹"
-                    + decimalFormat.format(
-                    absoluteAmount / 10000000
-            )
-                    + "Cr";
-        }
-
-        if (absoluteAmount >= 100000) {
-            return "₹"
-                    + decimalFormat.format(
-                    absoluteAmount / 100000
-            )
-                    + "L";
-        }
-
-        if (absoluteAmount >= 1000) {
-            return "₹"
-                    + decimalFormat.format(
-                    absoluteAmount / 1000
-            )
-                    + "K";
-        }
-
-        return "₹"
-                + decimalFormat.format(
-                absoluteAmount
-        );
-    }
-
-    private String formatCompactSigned(
-            double amount
-    ) {
-        if (amount > 0) {
-            return "+"
-                    + formatCompact(amount);
-
-        } else if (amount < 0) {
-            return "-"
-                    + formatCompact(amount);
-        }
-
-        return formatCompact(0);
-    }
-
-    private String safeText(
-            String value,
-            String fallback
-    ) {
-        if (value == null
-                || value.trim().isEmpty()) {
-
-            return fallback;
-        }
-
-        return value.trim();
-    }
-
-    private void clearTime(
-            Calendar calendar
-    ) {
-        calendar.set(
-                Calendar.HOUR_OF_DAY,
-                0
-        );
-
-        calendar.set(
-                Calendar.MINUTE,
-                0
-        );
-
-        calendar.set(
-                Calendar.SECOND,
-                0
-        );
-
-        calendar.set(
-                Calendar.MILLISECOND,
-                0
-        );
-    }
-
-    private int getColorValue(
-            int colorResource
-    ) {
-        return ContextCompat.getColor(
-                this,
-                colorResource
-        );
-    }
-
-    private int dpToPx(
-            int dp
-    ) {
-        return Math.round(
-                dp
-                        * getResources()
-                        .getDisplayMetrics()
-                        .density
-        );
-    }
-
-    private static class MonthData {
-
-        private final Map<Integer, DailyTotal> dailyTotals =
-                new HashMap<>();
-
-        private double monthIncome;
-        private double monthExpense;
-    }
-
-    private static class DailyTotal {
-
-        private double income;
-        private double expense;
-
-        private int incomeCount;
-        private int expenseCount;
     }
 }
