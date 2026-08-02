@@ -2,16 +2,9 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Firebase Authentication -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Android 13+ bill and subscription notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Fingerprint and Face Unlock -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-
-    <!-- Compatibility for Android 8.1 and older -->
     <uses-permission
         android:name="android.permission.USE_FINGERPRINT"
         android:maxSdkVersion="27" />
@@ -24,191 +17,72 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MoneyManagerPro">
 
-        <!-- Permission-free Google Play services QR scanner module -->
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="barcode_ui" />
 
-        <!-- Initializes the permanent Cloud Backup/Account delete actions. -->
         <provider
             android:name=".cloud.CloudDeleteActionsInitializer"
             android:authorities="${applicationId}.cloud_delete_initializer"
             android:exported="false"
             android:initOrder="100" />
 
-        <!-- Adds the offline AI Budget Planner to BudgetActivity. -->
         <provider
             android:name=".budget.AiBudgetPlannerInitializer"
             android:authorities="${applicationId}.ai_budget_planner_initializer"
             android:exported="false"
             android:initOrder="90" />
 
-        <!-- FIREBASE AUTHENTICATION -->
-
-        <activity
-            android:name=".activities.UserProfileActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.AuthenticationActivity"
-            android:exported="false" />
-
-        <!-- HELP -->
-
-        <activity
-            android:name=".activities.HelpActivity"
-            android:exported="false" />
-
-        <!-- IMPORT AND RECEIPTS -->
-
-        <activity
-            android:name=".activities.CsvImportActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.ReceiptGalleryActivity"
-            android:exported="false" />
-
-        <!-- FINANCIAL INSIGHTS -->
-
-        <activity
-            android:name=".activities.FinanceAdvisorActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.ChartsActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.AnalyticsActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.ReportActivity"
-            android:exported="false" />
-
-        <!-- PLANNING AND TRACKING -->
-
-        <activity
-            android:name=".activities.CreditCardActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.SubscriptionActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.CalendarActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.MoreFeaturesActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.LoanActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.BudgetActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.RecurringActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.GoalActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.InvestmentActivity"
-            android:exported="false" />
-
-        <!-- BACKUP AND EXPORT -->
-
-        <activity
-            android:name=".activities.BackupActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.ExportActivity"
-            android:exported="false" />
-
-        <!-- SETTINGS AND SECURITY -->
-
-        <activity
-            android:name=".activities.SettingsActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.PinActivity"
-            android:exported="false" />
-
-        <!-- ACCOUNTS AND TRANSACTIONS -->
-
-        <activity
-            android:name=".activities.TransferActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.AccountActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.EditTransactionActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.TransactionsActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.CategoryActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.AddExpenseActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".activities.AddIncomeActivity"
-            android:exported="false" />
-
-        <!-- MAIN DASHBOARD -->
-
-        <activity
-            android:name=".activities.DashboardActivity"
-            android:exported="false" />
-
-        <!-- HOME-SCREEN FINANCE WIDGET -->
+        <activity android:name=".activities.UserProfileActivity" android:exported="false" />
+        <activity android:name=".activities.AuthenticationActivity" android:exported="false" />
+        <activity android:name=".activities.HelpActivity" android:exported="false" />
+        <activity android:name=".activities.CsvImportActivity" android:exported="false" />
+        <activity android:name=".activities.ReceiptGalleryActivity" android:exported="false" />
+        <activity android:name=".activities.FinanceAdvisorActivity" android:exported="false" />
+        <activity android:name=".activities.ChartsActivity" android:exported="false" />
+        <activity android:name=".activities.AnalyticsActivity" android:exported="false" />
+        <activity android:name=".activities.ReportActivity" android:exported="false" />
+        <activity android:name=".activities.CreditCardActivity" android:exported="false" />
+        <activity android:name=".activities.SubscriptionActivity" android:exported="false" />
+        <activity android:name=".activities.CalendarActivity" android:exported="false" />
+        <activity android:name=".activities.MoreFeaturesActivity" android:exported="false" />
+        <activity android:name=".activities.SmartGoalDebtPlannerActivity" android:exported="false" />
+        <activity android:name=".activities.LoanActivity" android:exported="false" />
+        <activity android:name=".activities.BudgetActivity" android:exported="false" />
+        <activity android:name=".activities.RecurringActivity" android:exported="false" />
+        <activity android:name=".activities.GoalActivity" android:exported="false" />
+        <activity android:name=".activities.InvestmentActivity" android:exported="false" />
+        <activity android:name=".activities.BackupActivity" android:exported="false" />
+        <activity android:name=".activities.ExportActivity" android:exported="false" />
+        <activity android:name=".activities.SettingsActivity" android:exported="false" />
+        <activity android:name=".activities.PinActivity" android:exported="false" />
+        <activity android:name=".activities.TransferActivity" android:exported="false" />
+        <activity android:name=".activities.AccountActivity" android:exported="false" />
+        <activity android:name=".activities.EditTransactionActivity" android:exported="false" />
+        <activity android:name=".activities.TransactionsActivity" android:exported="false" />
+        <activity android:name=".activities.CategoryActivity" android:exported="false" />
+        <activity android:name=".activities.AddExpenseActivity" android:exported="false" />
+        <activity android:name=".activities.AddIncomeActivity" android:exported="false" />
+        <activity android:name=".activities.DashboardActivity" android:exported="false" />
 
         <receiver
             android:name=".widget.FinanceWidgetProvider"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
-
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/finance_widget_info" />
-
         </receiver>
-
-        <!-- APP LAUNCHER -->
 
         <activity
             android:name=".activities.SplashActivity"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
     </application>
