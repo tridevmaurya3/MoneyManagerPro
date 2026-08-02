@@ -24,8 +24,8 @@ android {
         applicationId = "com.example.moneymanagerpro"
         minSdk = 24
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 7
+        versionName = "1.6"
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
@@ -75,81 +75,27 @@ android {
 }
 
 dependencies {
-    implementation(
-        libs.appcompat
-    )
+    implementation(libs.appcompat)
+    implementation(libs.material)
+    implementation(libs.activity)
+    implementation(libs.constraintlayout)
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
 
-    implementation(
-        libs.material
-    )
+    implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
-    implementation(
-        libs.activity
-    )
+    implementation(libs.room.runtime)
+    annotationProcessor(libs.room.compiler)
+    implementation(libs.work.runtime)
 
-    implementation(
-        libs.constraintlayout
-    )
+    implementation("com.google.guava:guava:33.6.0-android")
+    implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
+    implementation("androidx.biometric:biometric:1.1.0")
 
-    implementation(
-        "androidx.drawerlayout:drawerlayout:1.2.0"
-    )
-
-    implementation(
-        platform(
-            "com.google.firebase:firebase-bom:34.16.0"
-        )
-    )
-
-    implementation(
-        "com.google.firebase:firebase-auth"
-    )
-
-    implementation(
-        "com.google.firebase:firebase-firestore"
-    )
-
-    implementation(
-        "androidx.datastore:datastore-preferences:1.2.1"
-    )
-
-    implementation(
-        "com.google.android.gms:play-services-code-scanner:16.1.0"
-    )
-
-    implementation(
-        libs.room.runtime
-    )
-
-    annotationProcessor(
-        libs.room.compiler
-    )
-
-    implementation(
-        libs.work.runtime
-    )
-
-    implementation(
-        "com.google.guava:guava:33.6.0-android"
-    )
-
-    implementation(
-        "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"
-    )
-
-    implementation(
-        "androidx.biometric:biometric:1.1.0"
-    )
-
-    testImplementation(
-        libs.junit
-    )
-
-    androidTestImplementation(
-        libs.ext.junit
-    )
-
-    androidTestImplementation(
-        libs.espresso.core
-    )
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.ext.junit)
+    androidTestImplementation(libs.espresso.core)
 }
