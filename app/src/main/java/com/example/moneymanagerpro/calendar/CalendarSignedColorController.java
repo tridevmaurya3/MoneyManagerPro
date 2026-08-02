@@ -83,15 +83,14 @@ public final class CalendarSignedColorController {
         card.setCardBackgroundColor(ContextCompat.getColor(activity, surface));
         card.setStrokeColor(ContextCompat.getColor(activity, outline));
         card.setStrokeWidth(dp(1));
-        styleText(card, ContextCompat.getColor(activity, accent), state);
+        styleText(card, ContextCompat.getColor(activity, accent));
     }
 
     private SignedState stateFor(@NonNull String text) {
         boolean positive = text.contains("income")
                 || text.contains("received")
                 || text.contains("+₹")
-                || text.contains("+ ₹")
-                || text.matches("(?s).*\+\s*\d+.*");
+                || text.contains("+ ₹");
 
         boolean negative = text.contains("expense")
                 || text.contains("bill")
@@ -100,8 +99,7 @@ public final class CalendarSignedColorController {
                 || text.contains("due tomorrow")
                 || text.contains("overdue")
                 || text.contains("-₹")
-                || text.contains("- ₹")
-                || text.matches("(?s).*\-\s*\d+.*");
+                || text.contains("- ₹");
 
         if (positive && !negative) return SignedState.POSITIVE;
         if (negative && !positive) return SignedState.NEGATIVE;
@@ -109,7 +107,7 @@ public final class CalendarSignedColorController {
         return SignedState.NONE;
     }
 
-    private void styleText(@NonNull View view, int accent, SignedState state) {
+    private void styleText(@NonNull View view, int accent) {
         if (view instanceof TextView) {
             TextView textView = (TextView) view;
             String value = textView.getText() == null
@@ -132,7 +130,7 @@ public final class CalendarSignedColorController {
         if (view instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) {
-                styleText(group.getChildAt(i), accent, state);
+                styleText(group.getChildAt(i), accent);
             }
         }
     }
