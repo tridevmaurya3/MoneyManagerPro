@@ -13,7 +13,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-/** Stores SMS-app notification previews locally. No SMS permission is used. */
+/** Stores direct-SMS and SMS-notification previews locally on the device. */
 public final class SmsAlertStore {
 
     private static final String PREFS = "sms_alert_notification_inbox";
@@ -21,12 +21,12 @@ public final class SmsAlertStore {
     private static final String KEY_REDACTED_COUNT = "redacted_count";
     private static final String KEY_LAST_REDACTED_PACKAGE = "last_redacted_package";
     private static final String KEY_LAST_REDACTED_AT = "last_redacted_at";
-    private static final int MAX_ITEMS = 200;
+    private static final int MAX_ITEMS = 500;
 
     private SmsAlertStore() {
     }
 
-    public static synchronized void add(
+    public static synchronized boolean add(
             @NonNull Context context,
             @NonNull String packageName,
             @NonNull String sender,
@@ -36,7 +36,7 @@ public final class SmsAlertStore {
         String cleanMessage = message.trim();
         if (cleanMessage.isEmpty()
                 || NotificationTextExtractor.isRedactedText(cleanMessage)) {
-            return;
+            return false;
         }
 
         String id = Integer.toHexString(
@@ -47,7 +47,7 @@ public final class SmsAlertStore {
 
         List<Item> items = getAll(context);
         for (Item item : items) {
-            if (item.id.equals(id)) return;
+            if (item.id.equals(id)) return false;
         }
 
         items.add(new Item(
@@ -55,7 +55,7 @@ public final class SmsAlertStore {
                 packageName,
                 sender.trim().isEmpty() ? "SMS Alert" : sender.trim(),
                 cleanMessage,
-                categorize(cleanMessage),
+                SmsFinancialClassifier.category(cleanMessage),
                 postedAt,
                 false
         ));
@@ -63,6 +63,7 @@ public final class SmsAlertStore {
         sort(items);
         while (items.size() > MAX_ITEMS) items.remove(items.size() - 1);
         save(context, items);
+        return true;
     }
 
     public static synchronized void recordRedacted(
@@ -158,47 +159,6 @@ public final class SmsAlertStore {
                 .remove(KEY_LAST_REDACTED_PACKAGE)
                 .remove(KEY_LAST_REDACTED_AT)
                 .apply();
-    }
-
-    private static String categorize(String message) {
-        String lower = message.toLowerCase(Locale.ROOT);
-        if (containsAny(
-                lower,
-                "debited",
-                "credited",
-                "upi",
-                "a/c",
-                "account",
-                "bank",
-                "txn",
-                "transaction",
-                "payment",
-                "paid",
-                "withdrawn",
-                "received",
-                "refund"
-        )) {
-            return "BANKING";
-        }
-        if (containsAny(
-                lower,
-                "offer",
-                "discount",
-                "sale",
-                "coupon",
-                "cashback",
-                "deal"
-        )) {
-            return "OFFERS";
-        }
-        return "OTHER";
-    }
-
-    private static boolean containsAny(String text, String... values) {
-        for (String value : values) {
-            if (text.contains(value)) return true;
-        }
-        return false;
     }
 
     private static void sort(List<Item> items) {

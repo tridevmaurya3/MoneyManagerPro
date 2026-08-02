@@ -1,6 +1,8 @@
 package com.example.moneymanagerpro.activities;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -15,12 +17,16 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.notification.DirectSmsAccessManager;
 import com.example.moneymanagerpro.notification.SmsAlertStore;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
@@ -30,12 +36,19 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-/** Play-safe SMS alert inbox built from SMS-app notifications. */
+/** SMS inbox supporting direct permission access and notification fallback. */
 public class SmsAlertInboxActivity extends AppCompatActivity {
+
+    private static final int SMS_PERMISSION_REQUEST_CODE = 4201;
+
+    private final ExecutorService smsExecutor = Executors.newSingleThreadExecutor();
 
     private LinearLayout listContainer;
     private LinearLayout filterContainer;
+    private LinearLayout directAccessContainer;
     private LinearLayout redactionContainer;
     private TextView summaryText;
     private EditText searchInput;
@@ -52,6 +65,12 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         refresh();
+    }
+
+    @Override
+    protected void onDestroy() {
+        smsExecutor.shutdownNow();
+        super.onDestroy();
     }
 
     private View buildScreen() {
@@ -71,7 +90,7 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
         TextView title = text("SMS Alerts", 28, R.color.app_text_primary, true);
         addTop(root, title, 14);
         root.addView(text(
-                "Read-only SMS previews captured from notification access. No SMS permission and no cloud upload.",
+                "Read financial SMS directly after permission, with Notification Access kept as a fallback.",
                 12,
                 R.color.app_text_secondary,
                 false
@@ -79,28 +98,32 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
 
         MaterialCardView privacyCard = card(R.color.info_surface, R.color.info_outline);
         LinearLayout privacy = content();
-        privacy.addView(text("Play-safe SMS Inbox", 17, R.color.secondary, true));
+        privacy.addView(text("SMS Access & Privacy", 17, R.color.secondary, true));
         privacy.addView(text(
-                "Only notifications shown by your SMS app can appear here. The app cannot read old SMS history or delete messages from the phone.",
+                "Money Manager Pro uses SMS access only to find completed financial transactions such as debit, credit, UPI, card, refund and withdrawal alerts. Processing stays on this device and SMS content is not uploaded.",
                 11,
                 R.color.app_text_secondary,
                 false
         ));
 
-        MaterialButton settings = filledButton(
+        MaterialButton notificationSettings = filledButton(
                 "Open Notification Settings",
-                R.color.button_primary
+                R.color.button_secondary
         );
-        settings.setOnClickListener(v -> openSettings());
-        LinearLayout.LayoutParams settingsParams = new LinearLayout.LayoutParams(
+        notificationSettings.setOnClickListener(v -> openNotificationSettings());
+        LinearLayout.LayoutParams notificationParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(50)
+                dp(48)
         );
-        settingsParams.setMargins(0, dp(12), 0, 0);
-        privacy.addView(settings, settingsParams);
+        notificationParams.setMargins(0, dp(12), 0, 0);
+        privacy.addView(notificationSettings, notificationParams);
 
         privacyCard.addView(privacy);
         addTop(root, privacyCard, 16);
+
+        directAccessContainer = new LinearLayout(this);
+        directAccessContainer.setOrientation(LinearLayout.VERTICAL);
+        addTop(root, directAccessContainer, 10);
 
         redactionContainer = new LinearLayout(this);
         redactionContainer.setOrientation(LinearLayout.VERTICAL);
@@ -212,6 +235,7 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
     private void refresh() {
         if (listContainer == null) return;
 
+        updateDirectAccessCard();
         updateRedactionNotice();
 
         List<SmsAlertStore.Item> items = SmsAlertStore.getAll(this);
@@ -241,9 +265,14 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
         if (shown == 0) {
             MaterialCardView empty = card(R.color.app_surface_soft, R.color.app_outline);
             LinearLayout emptyContent = content();
-            emptyContent.addView(text("No readable SMS alerts found", 16, R.color.app_text_primary, true));
+            emptyContent.addView(text("No financial SMS found", 16, R.color.app_text_primary, true));
+
+            String help = DirectSmsAccessManager.hasAllPermissions(this)
+                    ? "Tap Import Recent Transactions or wait for a new completed banking/UPI/card SMS. OTP and non-transactional messages are ignored."
+                    : "Grant SMS access to import recent financial messages. Notification Access can still be used as a fallback.";
+
             emptyContent.addView(text(
-                    "Keep Notification Access enabled and allow your SMS app to show message previews. Android may still hide OTP or other sensitive content.",
+                    help,
                     11,
                     R.color.app_text_secondary,
                     false
@@ -251,6 +280,139 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
             empty.addView(emptyContent);
             listContainer.addView(empty);
         }
+    }
+
+    private void updateDirectAccessCard() {
+        if (directAccessContainer == null) return;
+
+        directAccessContainer.removeAllViews();
+
+        boolean readGranted = DirectSmsAccessManager.hasReadPermission(this);
+        boolean receiveGranted = DirectSmsAccessManager.hasReceivePermission(this);
+        boolean allGranted = readGranted && receiveGranted;
+
+        MaterialCardView accessCard = card(
+                allGranted ? R.color.success_surface : R.color.warning_surface,
+                allGranted ? R.color.success_outline : R.color.warning_outline
+        );
+        LinearLayout accessContent = content();
+
+        accessContent.addView(text(
+                allGranted ? "Direct SMS access is active" : "Direct SMS access is required",
+                16,
+                allGranted ? R.color.text_success : R.color.text_warning,
+                true
+        ));
+
+        TextView status = text(
+                "READ_SMS: " + (readGranted ? "Granted" : "Not granted")
+                        + "  •  RECEIVE_SMS: " + (receiveGranted ? "Granted" : "Not granted"),
+                11,
+                R.color.app_text_secondary,
+                false
+        );
+        addTop(accessContent, status, 5);
+
+        TextView detail = text(
+                allGranted
+                        ? "Recent transactional SMS can be imported, and new financial SMS will be captured automatically."
+                        : "The permissions are used only for local money-management features. OTP and unrelated personal messages are not imported.",
+                11,
+                R.color.app_text_secondary,
+                false
+        );
+        addTop(accessContent, detail, 4);
+
+        MaterialButton action = filledButton(
+                allGranted ? "Import Recent Transactions" : "Grant SMS Access",
+                allGranted ? R.color.button_primary : R.color.button_secondary
+        );
+        action.setOnClickListener(v -> {
+            if (allGranted) {
+                importRecentSms();
+            } else {
+                showSmsPermissionDisclosure();
+            }
+        });
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(48)
+        );
+        actionParams.setMargins(0, dp(12), 0, 0);
+        accessContent.addView(action, actionParams);
+
+        accessCard.addView(accessContent);
+        directAccessContainer.addView(accessCard);
+    }
+
+    private void showSmsPermissionDisclosure() {
+        new AlertDialog.Builder(this)
+                .setTitle("Allow financial SMS access?")
+                .setMessage(
+                        "Money Manager Pro will use READ_SMS to scan recent messages and RECEIVE_SMS to detect new messages. "
+                                + "Only completed financial alerts such as debits, credits, UPI, card payments, refunds and withdrawals are copied into the app. "
+                                + "OTP and unrelated personal messages are ignored. Processing remains on this device and SMS content is not uploaded."
+                )
+                .setNegativeButton("Not Now", null)
+                .setPositiveButton("Continue", (dialog, which) -> requestSmsPermissions())
+                .show();
+    }
+
+    private void requestSmsPermissions() {
+        ActivityCompat.requestPermissions(
+                this,
+                new String[]{
+                        Manifest.permission.READ_SMS,
+                        Manifest.permission.RECEIVE_SMS
+                },
+                SMS_PERMISSION_REQUEST_CODE
+        );
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode,
+            @NonNull String[] permissions,
+            @NonNull int[] grantResults
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode != SMS_PERMISSION_REQUEST_CODE) return;
+
+        if (DirectSmsAccessManager.hasAllPermissions(this)) {
+            Toast.makeText(this, "SMS access granted", Toast.LENGTH_SHORT).show();
+            importRecentSms();
+        } else {
+            Toast.makeText(
+                    this,
+                    "SMS access was not fully granted. Notification mode remains available.",
+                    Toast.LENGTH_LONG
+            ).show();
+            refresh();
+        }
+    }
+
+    private void importRecentSms() {
+        if (!DirectSmsAccessManager.hasReadPermission(this)) {
+            showSmsPermissionDisclosure();
+            return;
+        }
+
+        Toast.makeText(this, "Scanning recent financial SMS…", Toast.LENGTH_SHORT).show();
+
+        smsExecutor.execute(() -> {
+            int imported = DirectSmsAccessManager.importRecentFinancialSms(this);
+            runOnUiThread(() -> {
+                Toast.makeText(
+                        this,
+                        imported == 0
+                                ? "No new financial SMS found"
+                                : imported + " financial SMS imported",
+                        Toast.LENGTH_LONG
+                ).show();
+                refresh();
+            });
+        });
     }
 
     private void updateRedactionNotice() {
@@ -272,18 +434,18 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
         MaterialCardView warningCard = card(R.color.warning_surface, R.color.warning_outline);
         LinearLayout warningContent = content();
         warningContent.addView(text(
-                "Android hid sensitive SMS content",
+                "Android hid notification text",
                 16,
                 R.color.text_warning,
                 true
         ));
 
         String countText = count == 1
-                ? "1 SMS notification was received, but its message text was hidden before Money Manager Pro could read it."
-                : count + " SMS notifications were received, but their message text was hidden before Money Manager Pro could read it.";
+                ? "1 SMS notification was hidden before Notification Access could read it."
+                : count + " SMS notifications were hidden before Notification Access could read them.";
 
         TextView explanation = text(
-                countText + " This commonly happens with OTP or privacy-protected notifications on newer Android versions.",
+                countText + " Direct READ_SMS access can still import eligible financial messages after permission is granted.",
                 11,
                 R.color.app_text_secondary,
                 false
@@ -354,11 +516,15 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
                 sender,
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         );
-        heading.addView(text(item.category, 9, R.color.secondary, true));
+
+        String badge = "direct-sms".equals(item.packageName)
+                ? "DIRECT SMS"
+                : item.category;
+        heading.addView(text(badge, 9, R.color.secondary, true));
         alertContent.addView(heading);
 
         TextView message = text(item.message, 12, R.color.app_text_secondary, false);
-        message.setMaxLines(5);
+        message.setMaxLines(6);
         addTop(alertContent, message, 6);
         alertContent.addView(text(
                 formatDate(item.postedAt),
@@ -411,8 +577,8 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle("Clear local SMS alerts?")
                 .setMessage(
-                        "This removes only alert previews saved inside Money Manager Pro. "
-                                + "It does not delete SMS messages from your phone."
+                        "This removes only SMS copies saved inside Money Manager Pro. "
+                                + "It does not delete messages from your phone's SMS app."
                 )
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Clear", (dialog, which) -> {
@@ -422,7 +588,7 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void openSettings() {
+    private void openNotificationSettings() {
         try {
             startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
         } catch (Exception exception) {
