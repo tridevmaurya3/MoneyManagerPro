@@ -12,10 +12,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.core.widget.NestedScrollView;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Budget;
 import com.example.moneymanagerpro.model.Transaction;
@@ -316,7 +318,7 @@ public final class AiBudgetPlannerUiController {
         section.addView(card);
 
         btnGeneratePlan.setOnClickListener(view -> generatePlan());
-        btnApplyCompletePlan.setOnClickListener(view -> applyCompletePlan());
+        btnApplyCompletePlan.setOnClickListener(view -> confirmApplyCompletePlan());
 
         BubbleTouchAnimator.apply(btnGeneratePlan);
         BubbleTouchAnimator.apply(btnApplyCompletePlan);
@@ -570,6 +572,29 @@ public final class AiBudgetPlannerUiController {
         }).start();
     }
 
+    private void confirmApplyCompletePlan() {
+        if (operationInProgress
+                || currentPlan == null
+                || currentPlan.getSuggestions().isEmpty()) {
+            return;
+        }
+
+        new AlertDialog.Builder(activity)
+                .setTitle("Apply complete monthly plan?")
+                .setMessage(
+                        "This will create or update "
+                                + currentPlan.getSuggestions().size()
+                                + " monthly category budgets. Existing monthly limits for "
+                                + "the same categories will be replaced. Transactions will not be changed."
+                )
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(
+                        "Apply Plan",
+                        (dialog, which) -> applyCompletePlan()
+                )
+                .show();
+    }
+
     private void applyCompletePlan() {
         if (operationInProgress
                 || currentPlan == null
@@ -586,13 +611,22 @@ public final class AiBudgetPlannerUiController {
             Exception failure = null;
 
             try {
-                for (AiBudgetPlannerEngine.Suggestion suggestion
-                        : currentPlan.getSuggestions()) {
-                    saveMonthlyBudget(suggestion);
-                    applied++;
-                }
+                AppDatabase database = DatabaseClient
+                        .getInstance(activity.getApplicationContext())
+                        .getAppDatabase();
+
+                final int[] savedCount = {0};
+                database.runInTransaction(() -> {
+                    for (AiBudgetPlannerEngine.Suggestion suggestion
+                            : currentPlan.getSuggestions()) {
+                        saveMonthlyBudget(database, suggestion);
+                        savedCount[0]++;
+                    }
+                });
+                applied = savedCount[0];
             } catch (Exception exception) {
                 failure = exception;
+                applied = 0;
             }
 
             int finalApplied = applied;
@@ -609,6 +643,10 @@ public final class AiBudgetPlannerUiController {
                     BudgetAlertScheduler.schedule(
                             activity.getApplicationContext()
                     );
+                    txtPlannerStatus.setText(
+                            finalApplied + " monthly budgets applied safely"
+                    );
+                    btnApplyCompletePlan.setText("Complete Plan Applied");
                     Toast.makeText(
                             activity,
                             finalApplied
@@ -616,11 +654,12 @@ public final class AiBudgetPlannerUiController {
                             Toast.LENGTH_LONG
                     ).show();
                 } else {
+                    txtPlannerStatus.setText(
+                            "Plan was not changed because an error occurred"
+                    );
                     Toast.makeText(
                             activity,
-                            "Applied "
-                                    + finalApplied
-                                    + " budgets before an error occurred",
+                            "Complete plan could not be applied. Existing budgets remain unchanged.",
                             Toast.LENGTH_LONG
                     ).show();
                 }
@@ -631,15 +670,22 @@ public final class AiBudgetPlannerUiController {
     private void saveMonthlyBudget(
             @NonNull AiBudgetPlannerEngine.Suggestion suggestion
     ) {
-        Budget existing =
-                DatabaseClient
-                        .getInstance(activity.getApplicationContext())
-                        .getAppDatabase()
-                        .budgetDao()
-                        .getBudgetForCategory(
-                                suggestion.getCategory(),
-                                "Monthly"
-                        );
+        AppDatabase database = DatabaseClient
+                .getInstance(activity.getApplicationContext())
+                .getAppDatabase();
+        saveMonthlyBudget(database, suggestion);
+    }
+
+    private void saveMonthlyBudget(
+            @NonNull AppDatabase database,
+            @NonNull AiBudgetPlannerEngine.Suggestion suggestion
+    ) {
+        Budget existing = database
+                .budgetDao()
+                .getBudgetForCategory(
+                        suggestion.getCategory(),
+                        "Monthly"
+                );
 
         if (existing == null) {
             Budget budget = new Budget();
@@ -647,19 +693,11 @@ public final class AiBudgetPlannerUiController {
             budget.setPeriod("Monthly");
             budget.setLimitAmount(suggestion.getRecommendedLimit());
 
-            DatabaseClient
-                    .getInstance(activity.getApplicationContext())
-                    .getAppDatabase()
-                    .budgetDao()
-                    .insert(budget);
+            database.budgetDao().insert(budget);
         } else {
             existing.setLimitAmount(suggestion.getRecommendedLimit());
 
-            DatabaseClient
-                    .getInstance(activity.getApplicationContext())
-                    .getAppDatabase()
-                    .budgetDao()
-                    .update(existing);
+            database.budgetDao().update(existing);
         }
     }
 
