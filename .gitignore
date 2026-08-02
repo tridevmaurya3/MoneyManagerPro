@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Release signing secrets — never commit these files.
+keystore.properties
+*.jks
+*.keystore
+/keystore/
