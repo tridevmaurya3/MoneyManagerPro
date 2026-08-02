@@ -12,7 +12,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.moneymanagerpro.activities.BackupActivity;
+import com.example.moneymanagerpro.activities.DashboardActivity;
 import com.example.moneymanagerpro.activities.SettingsActivity;
+import com.example.moneymanagerpro.dashboard.SmartDashboard2Controller;
 import com.example.moneymanagerpro.security.AppInactivityLockManager;
 import com.example.moneymanagerpro.security.AutoLockSettingsController;
 import com.example.moneymanagerpro.ui.DashboardVisualEnhancer;
@@ -27,7 +29,8 @@ import java.util.WeakHashMap;
  * - permanent cloud backup/account deletion actions,
  * - global inactivity auto-lock monitoring,
  * - configurable auto-lock controls on Settings,
- * - distinct light colors and updated assistant label on Dashboard.
+ * - distinct light colors and assistant label on Dashboard,
+ * - Smart Dashboard 2.0 finance intelligence panel.
  *
  * The ContentProvider stores no data and exposes no queryable content.
  */
@@ -40,6 +43,10 @@ public final class CloudDeleteActionsInitializer
 
     private final Map<Activity, AutoLockSettingsController>
             autoLockSettingsControllers =
+            new WeakHashMap<>();
+
+    private final Map<Activity, SmartDashboard2Controller>
+            smartDashboardControllers =
             new WeakHashMap<>();
 
     @Nullable
@@ -91,6 +98,12 @@ public final class CloudDeleteActionsInitializer
                                 activity
                         );
 
+                        if (activity instanceof DashboardActivity) {
+                            attachSmartDashboardController(
+                                    activity
+                            );
+                        }
+
                         if (activity instanceof BackupActivity) {
                             attachCloudDeleteController(
                                     activity
@@ -139,6 +152,10 @@ public final class CloudDeleteActionsInitializer
                         );
 
                         autoLockSettingsControllers.remove(
+                                activity
+                        );
+
+                        smartDashboardControllers.remove(
                                 activity
                         );
 
@@ -196,6 +213,29 @@ public final class CloudDeleteActionsInitializer
                     );
 
             autoLockSettingsControllers.put(
+                    activity,
+                    controller
+            );
+        }
+
+        controller.attach();
+    }
+
+    private void attachSmartDashboardController(
+            @NonNull Activity activity
+    ) {
+        SmartDashboard2Controller controller =
+                smartDashboardControllers.get(
+                        activity
+                );
+
+        if (controller == null) {
+            controller =
+                    new SmartDashboard2Controller(
+                            activity
+                    );
+
+            smartDashboardControllers.put(
                     activity,
                     controller
             );
