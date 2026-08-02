@@ -1,6 +1,7 @@
 package com.example.moneymanagerpro.activities;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -8,6 +9,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -18,6 +20,7 @@ import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.notification.SmsAlertStore;
+import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -30,6 +33,7 @@ import java.util.Locale;
 public class SmsAlertInboxActivity extends AppCompatActivity {
 
     private LinearLayout listContainer;
+    private LinearLayout filterContainer;
     private TextView summaryText;
     private EditText searchInput;
     private String filter = "ALL";
@@ -50,7 +54,7 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
     private View buildScreen() {
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
+        scrollView.setBackgroundColor(color(R.color.app_background));
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -63,70 +67,147 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
 
         TextView title = text("SMS Alerts", 28, R.color.app_text_primary, true);
         addTop(root, title, 14);
-        root.addView(text("Read-only SMS previews captured from notification access. No SMS permission and no cloud upload.", 12, R.color.app_text_secondary, false));
+        root.addView(text(
+                "Read-only SMS previews captured from notification access. No SMS permission and no cloud upload.",
+                12,
+                R.color.app_text_secondary,
+                false
+        ));
 
         MaterialCardView privacyCard = card(R.color.info_surface, R.color.info_outline);
         LinearLayout privacy = content();
         privacy.addView(text("Play-safe SMS Inbox", 17, R.color.secondary, true));
-        privacy.addView(text("Only notifications shown by your SMS app can appear here. The app cannot read old SMS history or delete messages from the phone.", 11, R.color.app_text_secondary, false));
-        MaterialButton settings = button("Open Notification Settings");
+        privacy.addView(text(
+                "Only notifications shown by your SMS app can appear here. The app cannot read old SMS history or delete messages from the phone.",
+                11,
+                R.color.app_text_secondary,
+                false
+        ));
+
+        MaterialButton settings = filledButton(
+                "Open Notification Settings",
+                R.color.button_primary
+        );
         settings.setOnClickListener(v -> openSettings());
-        addTop(privacy, settings, 10);
+        LinearLayout.LayoutParams settingsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(50)
+        );
+        settingsParams.setMargins(0, dp(12), 0, 0);
+        privacy.addView(settings, settingsParams);
+
         privacyCard.addView(privacy);
         addTop(root, privacyCard, 16);
 
         summaryText = text("0 alerts", 15, R.color.app_text_primary, true);
         addTop(root, summaryText, 16);
 
-        searchInput = new EditText(this);
-        searchInput.setHint("Search sender or message");
-        searchInput.setSingleLine(true);
-        searchInput.setPadding(dp(14), 0, dp(14), 0);
-        addTop(root, searchInput, 10);
+        MaterialCardView searchBox = createSearchBox();
+        addTop(root, searchBox, 10);
 
         LinearLayout searchActions = new LinearLayout(this);
         searchActions.setOrientation(LinearLayout.HORIZONTAL);
-        MaterialButton search = button("Search");
-        search.setOnClickListener(v -> refresh());
-        searchActions.addView(search, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        MaterialButton clearAll = button("Clear Inbox");
-        clearAll.setOnClickListener(v -> confirmClear());
-        LinearLayout.LayoutParams clearParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        clearParams.setMargins(dp(8), 0, 0, 0);
-        searchActions.addView(clearAll, clearParams);
-        addTop(root, searchActions, 8);
 
-        LinearLayout filters = new LinearLayout(this);
-        filters.setOrientation(LinearLayout.HORIZONTAL);
-        filters.addView(filterButton("All", "ALL"));
-        filters.addView(filterButton("Banking", "BANKING"));
-        filters.addView(filterButton("Offers", "OFFERS"));
-        filters.addView(filterButton("Other", "OTHER"));
-        addTop(root, filters, 10);
+        MaterialButton search = filledButton("Search", R.color.button_primary);
+        search.setOnClickListener(v -> refresh());
+        searchActions.addView(search, new LinearLayout.LayoutParams(0, dp(50), 1f));
+
+        MaterialButton clearAll = filledButton("Clear Inbox", R.color.button_danger);
+        clearAll.setOnClickListener(v -> confirmClear());
+        LinearLayout.LayoutParams clearParams = new LinearLayout.LayoutParams(0, dp(50), 1f);
+        clearParams.setMargins(dp(10), 0, 0, 0);
+        searchActions.addView(clearAll, clearParams);
+        addTop(root, searchActions, 10);
+
+        filterContainer = new LinearLayout(this);
+        filterContainer.setOrientation(LinearLayout.HORIZONTAL);
+        filterContainer.addView(filterButton("All", "ALL"));
+        filterContainer.addView(filterButton("Banking", "BANKING"));
+        filterContainer.addView(filterButton("Offers", "OFFERS"));
+        filterContainer.addView(filterButton("Other", "OTHER"));
+        addTop(root, filterContainer, 12);
+        updateFilterStyles();
 
         listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
-        addTop(root, listContainer, 14);
+        addTop(root, listContainer, 16);
         return scrollView;
     }
 
+    private MaterialCardView createSearchBox() {
+        MaterialCardView searchCard = card(R.color.app_surface, R.color.app_outline);
+        searchCard.setRadius(dp(16));
+        searchCard.setCardElevation(0);
+
+        searchInput = new EditText(this);
+        searchInput.setHint("Search sender or message");
+        searchInput.setSingleLine(true);
+        searchInput.setTextSize(14);
+        searchInput.setTextColor(color(R.color.app_text_primary));
+        searchInput.setHintTextColor(color(R.color.app_text_tertiary));
+        searchInput.setGravity(Gravity.CENTER_VERTICAL);
+        searchInput.setPadding(dp(15), 0, dp(15), 0);
+        searchInput.setBackground(null);
+
+        FrameLayout.LayoutParams inputParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(52)
+        );
+        searchCard.addView(searchInput, inputParams);
+        return searchCard;
+    }
+
     private View filterButton(String label, String value) {
-        MaterialButton button = button(label);
-        button.setTextSize(9);
+        MaterialButton button = outlinedButton(
+                label,
+                R.color.primary,
+                R.color.app_surface,
+                R.color.success_outline
+        );
+        button.setTextSize(10);
+        button.setTag(value);
         button.setOnClickListener(v -> {
             filter = value;
+            updateFilterStyles();
             refresh();
         });
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
-        params.setMargins(dp(2), 0, dp(2), 0);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(42), 1f);
+        params.setMargins(dp(3), 0, dp(3), 0);
         button.setLayoutParams(params);
         return button;
     }
 
+    private void updateFilterStyles() {
+        if (filterContainer == null) return;
+
+        for (int index = 0; index < filterContainer.getChildCount(); index++) {
+            View child = filterContainer.getChildAt(index);
+            if (!(child instanceof MaterialButton)) continue;
+
+            MaterialButton button = (MaterialButton) child;
+            boolean selected = filter.equals(String.valueOf(button.getTag()));
+
+            if (selected) {
+                button.setBackgroundTintList(ColorStateList.valueOf(color(R.color.button_primary)));
+                button.setTextColor(color(R.color.white));
+                button.setStrokeWidth(0);
+            } else {
+                button.setBackgroundTintList(ColorStateList.valueOf(color(R.color.success_surface)));
+                button.setTextColor(color(R.color.primary));
+                button.setStrokeColor(ColorStateList.valueOf(color(R.color.success_outline)));
+                button.setStrokeWidth(dp(1));
+            }
+        }
+    }
+
     private void refresh() {
         if (listContainer == null) return;
+
         List<SmsAlertStore.Item> items = SmsAlertStore.getAll(this);
-        String query = searchInput == null ? "" : searchInput.getText().toString().trim().toLowerCase(Locale.ROOT);
+        String query = searchInput == null
+                ? ""
+                : searchInput.getText().toString().trim().toLowerCase(Locale.ROOT);
 
         listContainer.removeAllViews();
         int shown = 0;
@@ -135,20 +216,29 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
         for (SmsAlertStore.Item item : items) {
             if (!item.read) unread++;
             if (!"ALL".equals(filter) && !filter.equals(item.category)) continue;
+
             String haystack = (item.sender + " " + item.message).toLowerCase(Locale.ROOT);
             if (!query.isEmpty() && !haystack.contains(query)) continue;
+
             listContainer.addView(createAlertCard(item));
             shown++;
         }
 
-        summaryText.setText(shown + " shown  •  " + unread + " unread  •  " + items.size() + " total");
+        summaryText.setText(
+                shown + " shown  •  " + unread + " unread  •  " + items.size() + " total"
+        );
 
         if (shown == 0) {
             MaterialCardView empty = card(R.color.app_surface_soft, R.color.app_outline);
-            LinearLayout content = content();
-            content.addView(text("No SMS alerts found", 16, R.color.app_text_primary, true));
-            content.addView(text("Enable Notification Access and wait for your SMS app to show a message notification.", 11, R.color.app_text_secondary, false));
-            empty.addView(content);
+            LinearLayout emptyContent = content();
+            emptyContent.addView(text("No SMS alerts found", 16, R.color.app_text_primary, true));
+            emptyContent.addView(text(
+                    "Enable Notification Access and wait for your SMS app to show a message notification.",
+                    11,
+                    R.color.app_text_secondary,
+                    false
+            ));
+            empty.addView(emptyContent);
             listContainer.addView(empty);
         }
     }
@@ -159,56 +249,84 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
                 : "OFFERS".equals(item.category)
                 ? R.color.purple_surface
                 : R.color.app_surface_soft;
+
         int outline = "BANKING".equals(item.category)
                 ? R.color.info_outline
                 : "OFFERS".equals(item.category)
                 ? R.color.purple_outline
                 : R.color.app_outline;
 
-        MaterialCardView card = card(background, outline);
-        LinearLayout content = content();
+        MaterialCardView alertCard = card(background, outline);
+        LinearLayout alertContent = content();
 
         LinearLayout heading = new LinearLayout(this);
         heading.setOrientation(LinearLayout.HORIZONTAL);
+
         TextView sender = text(item.sender, 15, R.color.app_text_primary, !item.read);
-        heading.addView(sender, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        heading.addView(
+                sender,
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        );
         heading.addView(text(item.category, 9, R.color.secondary, true));
-        content.addView(heading);
+        alertContent.addView(heading);
 
         TextView message = text(item.message, 12, R.color.app_text_secondary, false);
         message.setMaxLines(5);
-        addTop(content, message, 6);
-        content.addView(text(formatDate(item.postedAt), 9, R.color.app_text_secondary, false));
+        addTop(alertContent, message, 6);
+        alertContent.addView(text(
+                formatDate(item.postedAt),
+                9,
+                R.color.app_text_secondary,
+                false
+        ));
 
         LinearLayout actions = new LinearLayout(this);
         actions.setGravity(Gravity.END);
-        MaterialButton read = button(item.read ? "Mark Unread" : "Mark Read");
+
+        MaterialButton read = outlinedButton(
+                item.read ? "Mark Unread" : "Mark Read",
+                R.color.primary,
+                R.color.success_surface,
+                R.color.success_outline
+        );
         read.setOnClickListener(v -> {
             SmsAlertStore.markRead(this, item.id, !item.read);
             refresh();
         });
-        actions.addView(read);
-        MaterialButton delete = button("Delete Local Copy");
+        actions.addView(read, new LinearLayout.LayoutParams(0, dp(44), 1f));
+
+        MaterialButton delete = outlinedButton(
+                "Delete Local Copy",
+                R.color.expense,
+                R.color.error_surface,
+                R.color.error_outline
+        );
         delete.setOnClickListener(v -> {
             SmsAlertStore.delete(this, item.id);
             refresh();
         });
-        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(44));
+        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
         deleteParams.setMargins(dp(8), 0, 0, 0);
         actions.addView(delete, deleteParams);
-        addTop(content, actions, 10);
+        addTop(alertContent, actions, 10);
 
-        card.addView(content);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.setMargins(0, 0, 0, dp(10));
-        card.setLayoutParams(params);
-        return card;
+        alertCard.addView(alertContent);
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        cardParams.setMargins(0, 0, 0, dp(10));
+        alertCard.setLayoutParams(cardParams);
+        return alertCard;
     }
 
     private void confirmClear() {
         new AlertDialog.Builder(this)
                 .setTitle("Clear local SMS alerts?")
-                .setMessage("This removes only alert previews saved inside Money Manager Pro. It does not delete SMS messages from your phone.")
+                .setMessage(
+                        "This removes only alert previews saved inside Money Manager Pro. "
+                                + "It does not delete SMS messages from your phone."
+                )
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Clear", (dialog, which) -> {
                     SmsAlertStore.clear(this);
@@ -227,8 +345,8 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
 
     private MaterialCardView card(int background, int outline) {
         MaterialCardView card = new MaterialCardView(this);
-        card.setCardBackgroundColor(ContextCompat.getColor(this, background));
-        card.setStrokeColor(ContextCompat.getColor(this, outline));
+        card.setCardBackgroundColor(color(background));
+        card.setStrokeColor(color(outline));
         card.setStrokeWidth(dp(1));
         card.setRadius(dp(20));
         card.setCardElevation(dp(1));
@@ -242,12 +360,39 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
         return layout;
     }
 
-    private MaterialButton button(String label) {
+    private MaterialButton filledButton(String label, int backgroundColor) {
+        MaterialButton button = baseButton(label);
+        button.setBackgroundTintList(ColorStateList.valueOf(color(backgroundColor)));
+        button.setTextColor(color(R.color.white));
+        button.setStrokeWidth(0);
+        return button;
+    }
+
+    private MaterialButton outlinedButton(
+            String label,
+            int textColor,
+            int backgroundColor,
+            int outlineColor
+    ) {
+        MaterialButton button = baseButton(label);
+        button.setBackgroundTintList(ColorStateList.valueOf(color(backgroundColor)));
+        button.setTextColor(color(textColor));
+        button.setStrokeColor(ColorStateList.valueOf(color(outlineColor)));
+        button.setStrokeWidth(dp(1));
+        return button;
+    }
+
+    private MaterialButton baseButton(String label) {
         MaterialButton button = new MaterialButton(this);
         button.setText(label);
         button.setAllCaps(false);
-        button.setTextSize(10);
+        button.setTextSize(11);
+        button.setTypeface(Typeface.DEFAULT_BOLD);
         button.setMinHeight(0);
+        button.setMinWidth(0);
+        button.setCornerRadius(dp(16));
+        button.setPadding(dp(10), 0, dp(10), 0);
+        BubbleTouchAnimator.apply(button);
         return button;
     }
 
@@ -255,22 +400,33 @@ public class SmsAlertInboxActivity extends AppCompatActivity {
         TextView view = new TextView(this);
         view.setText(value);
         view.setTextSize(size);
-        view.setTextColor(ContextCompat.getColor(this, color));
+        view.setTextColor(color(color));
         if (bold) view.setTypeface(Typeface.DEFAULT_BOLD);
         return view;
     }
 
     private void addTop(LinearLayout parent, View child, int margin) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                child.getLayoutParams() == null ? ViewGroup.LayoutParams.MATCH_PARENT : child.getLayoutParams().width,
-                child.getLayoutParams() == null ? ViewGroup.LayoutParams.WRAP_CONTENT : child.getLayoutParams().height
+                child.getLayoutParams() == null
+                        ? ViewGroup.LayoutParams.MATCH_PARENT
+                        : child.getLayoutParams().width,
+                child.getLayoutParams() == null
+                        ? ViewGroup.LayoutParams.WRAP_CONTENT
+                        : child.getLayoutParams().height
         );
         params.setMargins(0, dp(margin), 0, 0);
         parent.addView(child, params);
     }
 
     private String formatDate(long time) {
-        return new SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(new Date(time));
+        return new SimpleDateFormat(
+                "dd MMM yyyy, hh:mm a",
+                Locale.getDefault()
+        ).format(new Date(time));
+    }
+
+    private int color(int resource) {
+        return ContextCompat.getColor(this, resource);
     }
 
     private int dp(int value) {
