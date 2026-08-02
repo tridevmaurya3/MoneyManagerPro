@@ -31,7 +31,6 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         setContentView(R.layout.activity_more_features);
 
         featureContainer = findViewById(R.id.featureContainer);
-
         buildFeatureMenu();
     }
 
@@ -203,6 +202,25 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         );
 
         addSectionHeader(
+                "SMS & Notifications",
+                "Play-safe transaction detection without SMS permission",
+                false
+        );
+
+        addFeatureRow(
+                new FeatureItem(
+                        "Financial Notifications",
+                        "Review bank, UPI, wallet and card alerts",
+                        "N",
+                        NotificationAssistantActivity.class,
+                        R.color.secondary,
+                        R.color.info_surface,
+                        R.color.info_outline
+                ),
+                null
+        );
+
+        addSectionHeader(
                 "Data & Security",
                 "Protect records and manage app preferences",
                 false
@@ -288,7 +306,6 @@ public class MoreFeaturesActivity extends AppCompatActivity {
 
         sectionLayout.addView(titleView);
         sectionLayout.addView(subtitleView);
-
         featureContainer.addView(sectionLayout);
     }
 
@@ -382,12 +399,7 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         iconBackground.setCornerRadius(dp(10));
         iconView.setBackground(iconBackground);
 
-        LinearLayout.LayoutParams iconParams =
-                new LinearLayout.LayoutParams(
-                        dp(28),
-                        dp(28)
-                );
-        iconView.setLayoutParams(iconParams);
+        iconView.setLayoutParams(new LinearLayout.LayoutParams(dp(28), dp(28)));
 
         TextView titleView = new TextView(this);
         titleView.setText(item.title);
@@ -425,13 +437,10 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         content.addView(iconView);
         content.addView(titleView);
         content.addView(subtitleView);
-
         card.addView(content);
 
         BubbleTouchAnimator.apply(card);
-
         card.setOnClickListener(v -> openFeature(item.activityClass));
-
         return card;
     }
 
