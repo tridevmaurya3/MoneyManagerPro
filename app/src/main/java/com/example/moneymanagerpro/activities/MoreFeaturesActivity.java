@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -23,12 +24,14 @@ import com.google.android.material.card.MaterialCardView;
 
 public class MoreFeaturesActivity extends AppCompatActivity {
 
+    private static final int CARD_HEIGHT_DP = 112;
     private LinearLayout featureContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_more_features);
+
         featureContainer = findViewById(R.id.featureContainer);
         buildFeatureMenu();
     }
@@ -36,49 +39,147 @@ public class MoreFeaturesActivity extends AppCompatActivity {
     private void buildFeatureMenu() {
         featureContainer.removeAllViews();
 
-        addSectionHeader("Planning & Money", "Manage transfers, goals, budgets and repayments", true);
-        addFeatureRow(item("Transfer", "Move money between accounts", "↔", TransferActivity.class, R.color.purple, R.color.purple_surface, R.color.purple_outline), item("Goals", "Track your saving targets", "◎", GoalActivity.class, R.color.success, R.color.success_surface, R.color.success_outline));
-        addFeatureRow(item("Recurring", "Regular income and expenses", "↻", RecurringActivity.class, R.color.orange, R.color.warning_surface, R.color.warning_outline), item("Budgets", "Control category spending", "%", BudgetActivity.class, R.color.expense, R.color.error_surface, R.color.error_outline));
-        addFeatureRow(item("Loans", "Track lending and EMI", "₹", LoanActivity.class, R.color.pink, R.color.pink_surface, R.color.pink_outline), item("Credit Cards", "Billing cycles and statements", "CC", CreditCardActivity.class, R.color.purple, R.color.purple_surface, R.color.purple_outline));
-        addFeatureRow(item("Investments", "Manage saved investments", "↗", InvestmentActivity.class, R.color.purple, R.color.purple_surface, R.color.purple_outline), null);
+        addSectionHeader(
+                "Planning & Money",
+                "Manage transfers, goals, budgets and repayments",
+                true
+        );
 
-        addSectionHeader("Insights & Tracking", "Understand financial activity and upcoming payments", false);
-        addFeatureRow(item("Analytics", "View spending insights", "◔", AnalyticsActivity.class, R.color.teal, R.color.teal_surface, R.color.teal_outline), item("Charts & Trends", "Visual financial reports", "▥", ChartsActivity.class, R.color.teal, R.color.teal_surface, R.color.teal_outline));
-        addFeatureRow(item("Smart Advisor", "Personal finance guidance", "✦", FinanceAdvisorActivity.class, R.color.purple, R.color.purple_surface, R.color.purple_outline), item("Calendar", "Daily cash-flow view", "▦", CalendarActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline));
-        addFeatureRow(item("Receipt Vault", "Saved bill and receipt photos", "▣", ReceiptGalleryActivity.class, R.color.expense, R.color.error_surface, R.color.error_outline), item("Import CSV", "Bring old finance records", "⇪", CsvImportActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline));
-        addFeatureRow(item("Export", "Create CSV and PDF files", "⇩", ExportActivity.class, R.color.app_text_secondary, R.color.app_surface_soft, R.color.app_outline), null);
+        addFeatureRow(
+                item("Transfer", "Move money between accounts", "↔", TransferActivity.class,
+                        R.color.purple, R.color.purple_surface, R.color.purple_outline),
+                item("Goals", "Track your saving targets", "◎", GoalActivity.class,
+                        R.color.success, R.color.success_surface, R.color.success_outline)
+        );
 
-        addSectionHeader("SMS & Notifications", "Play-safe detection without SMS permission", false);
-        addFeatureRow(item("Financial Notifications", "Review bank, UPI, wallet and card alerts", "N", NotificationAssistantActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline), item("SMS Alerts", "Read SMS app notification previews locally", "SMS", SmsAlertInboxActivity.class, R.color.purple, R.color.purple_surface, R.color.purple_outline));
+        addFeatureRow(
+                item("Recurring", "Regular income and expenses", "↻", RecurringActivity.class,
+                        R.color.orange, R.color.warning_surface, R.color.warning_outline),
+                item("Budgets", "Control category spending", "%", BudgetActivity.class,
+                        R.color.expense, R.color.error_surface, R.color.error_outline)
+        );
 
-        addSectionHeader("Data & Security", "Protect records and manage app preferences", false);
-        addFeatureRow(item("Backup", "Create and restore data", "B", BackupActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline), item("Settings", "Theme, PIN and security", "⚙", SettingsActivity.class, R.color.app_text_primary, R.color.app_surface_muted, R.color.app_outline));
-        addFeatureRow(item("Help Guide", "Learn how to use the app", "?", HelpActivity.class, R.color.teal, R.color.teal_surface, R.color.teal_outline), null);
+        addFeatureRow(
+                item("Loans", "Track lending and EMI", "₹", LoanActivity.class,
+                        R.color.pink, R.color.pink_surface, R.color.pink_outline),
+                item("Credit Cards", "Billing cycles and statements", "CC", CreditCardActivity.class,
+                        R.color.purple, R.color.purple_surface, R.color.purple_outline)
+        );
+
+        addFeatureRow(
+                item("Investments", "Manage saved investments", "↗", InvestmentActivity.class,
+                        R.color.purple, R.color.purple_surface, R.color.purple_outline),
+                null
+        );
+
+        addSectionHeader(
+                "Insights & Tracking",
+                "Understand financial activity and upcoming payments",
+                false
+        );
+
+        addFeatureRow(
+                item("Analytics", "View spending insights", "◔", AnalyticsActivity.class,
+                        R.color.teal, R.color.teal_surface, R.color.teal_outline),
+                item("Charts & Trends", "Visual financial reports", "▥", ChartsActivity.class,
+                        R.color.teal, R.color.teal_surface, R.color.teal_outline)
+        );
+
+        addFeatureRow(
+                item("Smart Advisor", "Personal finance guidance", "✦", FinanceAdvisorActivity.class,
+                        R.color.purple, R.color.purple_surface, R.color.purple_outline),
+                item("Calendar", "Daily cash-flow view", "▦", CalendarActivity.class,
+                        R.color.secondary, R.color.info_surface, R.color.info_outline)
+        );
+
+        addFeatureRow(
+                item("Receipt Vault", "Saved bill and receipt photos", "▣", ReceiptGalleryActivity.class,
+                        R.color.expense, R.color.error_surface, R.color.error_outline),
+                item("Import CSV", "Bring old finance records", "⇪", CsvImportActivity.class,
+                        R.color.secondary, R.color.info_surface, R.color.info_outline)
+        );
+
+        addFeatureRow(
+                item("Export", "Create CSV and PDF files", "⇩", ExportActivity.class,
+                        R.color.app_text_secondary, R.color.app_surface_soft, R.color.app_outline),
+                null
+        );
+
+        addSectionHeader(
+                "SMS & Notifications",
+                "Play-safe detection without SMS permission",
+                false
+        );
+
+        addFeatureRow(
+                item("Financial Notifications", "Review bank, UPI, wallet and card alerts", "N",
+                        NotificationAssistantActivity.class,
+                        R.color.secondary, R.color.info_surface, R.color.info_outline),
+                item("SMS Alerts", "Read SMS app notification previews locally", "SMS",
+                        SmsAlertInboxActivity.class,
+                        R.color.purple, R.color.purple_surface, R.color.purple_outline)
+        );
+
+        addSectionHeader(
+                "Data & Security",
+                "Protect records and manage app preferences",
+                false
+        );
+
+        addFeatureRow(
+                item("Backup", "Create and restore data", "B", BackupActivity.class,
+                        R.color.secondary, R.color.info_surface, R.color.info_outline),
+                item("Settings", "Theme, PIN and security", "⚙", SettingsActivity.class,
+                        R.color.app_text_primary, R.color.app_surface_muted, R.color.app_outline)
+        );
+
+        addFeatureRow(
+                item("Help Guide", "Learn how to use the app", "?", HelpActivity.class,
+                        R.color.teal, R.color.teal_surface, R.color.teal_outline),
+                null
+        );
     }
 
-    private FeatureItem item(String title, String subtitle, String icon, Class<?> activity, @ColorRes int iconColor, @ColorRes int surface, @ColorRes int outline) {
+    private FeatureItem item(
+            String title,
+            String subtitle,
+            String icon,
+            Class<?> activity,
+            @ColorRes int iconColor,
+            @ColorRes int surface,
+            @ColorRes int outline
+    ) {
         return new FeatureItem(title, subtitle, icon, activity, iconColor, surface, outline);
     }
 
     private void addSectionHeader(String title, String subtitle, boolean first) {
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.setMargins(0, first ? dp(4) : dp(28), 0, dp(14));
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, first ? dp(2) : dp(22), 0, dp(10));
         section.setLayoutParams(params);
 
         TextView titleView = new TextView(this);
         titleView.setText(title);
         titleView.setTextColor(color(R.color.app_text_primary));
-        titleView.setTextSize(23);
+        titleView.setTextSize(19);
         titleView.setTypeface(Typeface.DEFAULT_BOLD);
 
         TextView subtitleView = new TextView(this);
         subtitleView.setText(subtitle);
         subtitleView.setTextColor(color(R.color.app_text_secondary));
-        subtitleView.setTextSize(13);
-        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        subtitleParams.setMargins(0, dp(5), 0, 0);
+        subtitleView.setTextSize(11);
+        subtitleView.setMaxLines(2);
+
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        subtitleParams.setMargins(0, dp(3), 0, 0);
         subtitleView.setLayoutParams(subtitleParams);
 
         section.addView(titleView);
@@ -91,45 +192,68 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.TOP);
         row.setBaselineAligned(false);
-        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rowParams.setMargins(0, 0, 0, dp(14));
+
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        rowParams.setMargins(0, 0, 0, dp(10));
         row.setLayoutParams(rowParams);
 
         MaterialCardView firstCard = createFeatureCard(first);
-        LinearLayout.LayoutParams firstParams = new LinearLayout.LayoutParams(0, dp(154), 1f);
-        firstParams.setMargins(0, 0, dp(8), 0);
+        LinearLayout.LayoutParams firstParams = new LinearLayout.LayoutParams(
+                0,
+                dp(CARD_HEIGHT_DP),
+                1f
+        );
+        firstParams.setMargins(0, 0, dp(6), 0);
         row.addView(firstCard, firstParams);
 
         if (second != null) {
             MaterialCardView secondCard = createFeatureCard(second);
-            LinearLayout.LayoutParams secondParams = new LinearLayout.LayoutParams(0, dp(154), 1f);
-            secondParams.setMargins(dp(8), 0, 0, 0);
+            LinearLayout.LayoutParams secondParams = new LinearLayout.LayoutParams(
+                    0,
+                    dp(CARD_HEIGHT_DP),
+                    1f
+            );
+            secondParams.setMargins(dp(6), 0, 0, 0);
             row.addView(secondCard, secondParams);
         } else {
             Space space = new Space(this);
-            LinearLayout.LayoutParams spaceParams = new LinearLayout.LayoutParams(0, dp(154), 1f);
-            spaceParams.setMargins(dp(8), 0, 0, 0);
+            LinearLayout.LayoutParams spaceParams = new LinearLayout.LayoutParams(
+                    0,
+                    dp(CARD_HEIGHT_DP),
+                    1f
+            );
+            spaceParams.setMargins(dp(6), 0, 0, 0);
             row.addView(space, spaceParams);
         }
+
         featureContainer.addView(row);
     }
 
     private MaterialCardView createFeatureCard(FeatureItem item) {
         int iconColor = color(item.iconColor);
+
         MaterialCardView card = new MaterialCardView(this);
         card.setCardBackgroundColor(color(item.surfaceColor));
-        card.setRadius(dp(22));
-        card.setCardElevation(dp(2));
+        card.setRadius(dp(17));
+        card.setCardElevation(dp(1));
         card.setStrokeColor(color(item.outlineColor));
         card.setStrokeWidth(dp(1));
         card.setClickable(true);
         card.setFocusable(true);
-        card.setRippleColor(ColorStateList.valueOf(Color.argb(35, Color.red(iconColor), Color.green(iconColor), Color.blue(iconColor))));
+        card.setRippleColor(ColorStateList.valueOf(Color.argb(
+                32,
+                Color.red(iconColor),
+                Color.green(iconColor),
+                Color.blue(iconColor)
+        )));
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setGravity(Gravity.TOP | Gravity.START);
-        content.setPadding(dp(20), dp(18), dp(18), dp(16));
+        content.setPadding(dp(12), dp(11), dp(11), dp(10));
 
         LinearLayout heading = new LinearLayout(this);
         heading.setOrientation(LinearLayout.HORIZONTAL);
@@ -138,38 +262,56 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         TextView icon = new TextView(this);
         icon.setText(item.iconText);
         icon.setTextColor(iconColor);
-        icon.setTextSize(item.iconText.length() > 2 ? 12 : 20);
+        icon.setTextSize(item.iconText.length() > 2 ? 9.5f : 15f);
         icon.setTypeface(Typeface.DEFAULT_BOLD);
         icon.setGravity(Gravity.CENTER);
+
         GradientDrawable iconBackground = new GradientDrawable();
-        iconBackground.setColor(Color.argb(25, Color.red(iconColor), Color.green(iconColor), Color.blue(iconColor)));
-        iconBackground.setCornerRadius(dp(16));
+        iconBackground.setColor(Color.argb(
+                24,
+                Color.red(iconColor),
+                Color.green(iconColor),
+                Color.blue(iconColor)
+        ));
+        iconBackground.setCornerRadius(dp(12));
         icon.setBackground(iconBackground);
-        heading.addView(icon, new LinearLayout.LayoutParams(dp(56), dp(56)));
+        heading.addView(icon, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         TextView title = new TextView(this);
         title.setText(item.title);
         title.setTextColor(color(R.color.app_text_primary));
-        title.setTextSize(17);
+        title.setTextSize(14);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setMaxLines(2);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.setMargins(dp(16), 0, 0, 0);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        titleParams.setMargins(dp(11), 0, 0, 0);
         heading.addView(title, titleParams);
 
         TextView subtitle = new TextView(this);
         subtitle.setText(item.subtitle);
         subtitle.setTextColor(color(R.color.app_text_secondary));
-        subtitle.setTextSize(13);
-        subtitle.setMaxLines(3);
-        subtitle.setLineSpacing(dp(1), 1.05f);
-        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-        subtitleParams.setMargins(0, dp(14), 0, 0);
+        subtitle.setTextSize(10.5f);
+        subtitle.setMaxLines(2);
+        subtitle.setEllipsize(TextUtils.TruncateAt.END);
+        subtitle.setLineSpacing(0f, 1.02f);
+
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        subtitleParams.setMargins(0, dp(9), 0, 0);
         subtitle.setLayoutParams(subtitleParams);
 
         content.addView(heading);
         content.addView(subtitle);
         card.addView(content);
+
         BubbleTouchAnimator.apply(card);
         card.setOnClickListener(v -> openFeature(item.activityClass));
         return card;
@@ -179,7 +321,11 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         try {
             startActivity(new Intent(this, activityClass));
         } catch (Exception exception) {
-            Toast.makeText(this, "This feature could not be opened", Toast.LENGTH_SHORT).show();
+            Toast.makeText(
+                    this,
+                    "This feature could not be opened",
+                    Toast.LENGTH_SHORT
+            ).show();
         }
     }
 
@@ -196,11 +342,25 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         final String subtitle;
         final String iconText;
         final Class<?> activityClass;
-        @ColorRes final int iconColor;
-        @ColorRes final int surfaceColor;
-        @ColorRes final int outlineColor;
 
-        FeatureItem(String title, String subtitle, String iconText, Class<?> activityClass, int iconColor, int surfaceColor, int outlineColor) {
+        @ColorRes
+        final int iconColor;
+
+        @ColorRes
+        final int surfaceColor;
+
+        @ColorRes
+        final int outlineColor;
+
+        FeatureItem(
+                String title,
+                String subtitle,
+                String iconText,
+                Class<?> activityClass,
+                int iconColor,
+                int surfaceColor,
+                int outlineColor
+        ) {
             this.title = title;
             this.subtitle = subtitle;
             this.iconText = iconText;
