@@ -12,11 +12,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.moneymanagerpro.activities.BackupActivity;
+import com.example.moneymanagerpro.activities.CreditCardActivity;
 import com.example.moneymanagerpro.activities.DashboardActivity;
 import com.example.moneymanagerpro.activities.SettingsActivity;
+import com.example.moneymanagerpro.credit.AdvancedCreditCardManagerController;
+import com.example.moneymanagerpro.dashboard.AdvancedDashboardInsightsController;
 import com.example.moneymanagerpro.dashboard.SmartDashboard2Controller;
 import com.example.moneymanagerpro.security.AppInactivityLockManager;
 import com.example.moneymanagerpro.security.AutoLockSettingsController;
+import com.example.moneymanagerpro.ui.DashboardMotionPolish;
 import com.example.moneymanagerpro.ui.DashboardVisualEnhancer;
 
 import java.util.Map;
@@ -25,28 +29,20 @@ import java.util.WeakHashMap;
 /**
  * Internal process initializer for focused runtime controllers.
  *
- * It attaches:
- * - permanent cloud backup/account deletion actions,
- * - global inactivity auto-lock monitoring,
- * - configurable auto-lock controls on Settings,
- * - distinct light colors and assistant label on Dashboard,
- * - Smart Dashboard 2.0 finance intelligence panel.
- *
- * The ContentProvider stores no data and exposes no queryable content.
+ * The provider stores no data and exposes no queryable content. It only hooks
+ * feature controllers into the existing Activity lifecycle.
  */
-public final class CloudDeleteActionsInitializer
-        extends ContentProvider {
+public final class CloudDeleteActionsInitializer extends ContentProvider {
 
-    private final Map<Activity, CloudDeleteActionsController>
-            cloudDeleteControllers =
+    private final Map<Activity, CloudDeleteActionsController> cloudDeleteControllers =
             new WeakHashMap<>();
-
-    private final Map<Activity, AutoLockSettingsController>
-            autoLockSettingsControllers =
+    private final Map<Activity, AutoLockSettingsController> autoLockSettingsControllers =
             new WeakHashMap<>();
-
-    private final Map<Activity, SmartDashboard2Controller>
-            smartDashboardControllers =
+    private final Map<Activity, SmartDashboard2Controller> smartDashboardControllers =
+            new WeakHashMap<>();
+    private final Map<Activity, AdvancedDashboardInsightsController> advancedDashboardControllers =
+            new WeakHashMap<>();
+    private final Map<Activity, AdvancedCreditCardManagerController> creditCardControllers =
             new WeakHashMap<>();
 
     @Nullable
@@ -58,14 +54,8 @@ public final class CloudDeleteActionsInitializer
             return false;
         }
 
-        Application application =
-                (Application) getContext()
-                        .getApplicationContext();
-
-        inactivityLockManager =
-                new AppInactivityLockManager(
-                        application
-                );
+        Application application = (Application) getContext().getApplicationContext();
+        inactivityLockManager = new AppInactivityLockManager(application);
 
         application.registerActivityLifecycleCallbacks(
                 new Application.ActivityLifecycleCallbacks() {
@@ -74,64 +64,53 @@ public final class CloudDeleteActionsInitializer
                             @NonNull Activity activity,
                             @Nullable Bundle savedInstanceState
                     ) {
-                        // Runtime controllers attach after Activity.onResume().
+                        // Controllers attach after Activity.onResume().
                     }
 
                     @Override
-                    public void onActivityStarted(
-                            @NonNull Activity activity
-                    ) {
+                    public void onActivityStarted(@NonNull Activity activity) {
                         // No action required.
                     }
 
                     @Override
-                    public void onActivityResumed(
-                            @NonNull Activity activity
-                    ) {
+                    public void onActivityResumed(@NonNull Activity activity) {
                         if (inactivityLockManager != null) {
-                            inactivityLockManager.onActivityResumed(
-                                    activity
+                            inactivityLockManager.onActivityResumed(activity);
+                        }
+
+                        DashboardVisualEnhancer.apply(activity);
+
+                        if (activity instanceof DashboardActivity) {
+                            attachSmartDashboardController(activity);
+                            attachAdvancedDashboardController(activity);
+                            activity.getWindow().getDecorView().postDelayed(
+                                    () -> DashboardMotionPolish.apply(activity),
+                                    140L
                             );
                         }
 
-                        DashboardVisualEnhancer.apply(
-                                activity
-                        );
-
-                        if (activity instanceof DashboardActivity) {
-                            attachSmartDashboardController(
-                                    activity
-                            );
+                        if (activity instanceof CreditCardActivity) {
+                            attachCreditCardController(activity);
                         }
 
                         if (activity instanceof BackupActivity) {
-                            attachCloudDeleteController(
-                                    activity
-                            );
+                            attachCloudDeleteController(activity);
                         }
 
                         if (activity instanceof SettingsActivity) {
-                            attachAutoLockSettingsController(
-                                    activity
-                            );
+                            attachAutoLockSettingsController(activity);
                         }
                     }
 
                     @Override
-                    public void onActivityPaused(
-                            @NonNull Activity activity
-                    ) {
+                    public void onActivityPaused(@NonNull Activity activity) {
                         if (inactivityLockManager != null) {
-                            inactivityLockManager.onActivityPaused(
-                                    activity
-                            );
+                            inactivityLockManager.onActivityPaused(activity);
                         }
                     }
 
                     @Override
-                    public void onActivityStopped(
-                            @NonNull Activity activity
-                    ) {
+                    public void onActivityStopped(@NonNull Activity activity) {
                         // Background duration is evaluated at next resume.
                     }
 
@@ -144,29 +123,17 @@ public final class CloudDeleteActionsInitializer
                     }
 
                     @Override
-                    public void onActivityDestroyed(
-                            @NonNull Activity activity
-                    ) {
-                        cloudDeleteControllers.remove(
-                                activity
-                        );
-
-                        autoLockSettingsControllers.remove(
-                                activity
-                        );
-
-                        smartDashboardControllers.remove(
-                                activity
-                        );
-
-                        DashboardVisualEnhancer.remove(
-                                activity
-                        );
+                    public void onActivityDestroyed(@NonNull Activity activity) {
+                        cloudDeleteControllers.remove(activity);
+                        autoLockSettingsControllers.remove(activity);
+                        smartDashboardControllers.remove(activity);
+                        advancedDashboardControllers.remove(activity);
+                        creditCardControllers.remove(activity);
+                        DashboardVisualEnhancer.remove(activity);
+                        DashboardMotionPolish.remove(activity);
 
                         if (inactivityLockManager != null) {
-                            inactivityLockManager.onActivityDestroyed(
-                                    activity
-                            );
+                            inactivityLockManager.onActivityDestroyed(activity);
                         }
                     }
                 }
@@ -175,72 +142,48 @@ public final class CloudDeleteActionsInitializer
         return true;
     }
 
-    private void attachCloudDeleteController(
-            @NonNull Activity activity
-    ) {
-        CloudDeleteActionsController controller =
-                cloudDeleteControllers.get(
-                        activity
-                );
-
+    private void attachCloudDeleteController(@NonNull Activity activity) {
+        CloudDeleteActionsController controller = cloudDeleteControllers.get(activity);
         if (controller == null) {
-            controller =
-                    new CloudDeleteActionsController(
-                            activity
-                    );
-
-            cloudDeleteControllers.put(
-                    activity,
-                    controller
-            );
+            controller = new CloudDeleteActionsController(activity);
+            cloudDeleteControllers.put(activity, controller);
         }
-
         controller.attach();
     }
 
-    private void attachAutoLockSettingsController(
-            @NonNull Activity activity
-    ) {
-        AutoLockSettingsController controller =
-                autoLockSettingsControllers.get(
-                        activity
-                );
-
+    private void attachAutoLockSettingsController(@NonNull Activity activity) {
+        AutoLockSettingsController controller = autoLockSettingsControllers.get(activity);
         if (controller == null) {
-            controller =
-                    new AutoLockSettingsController(
-                            activity
-                    );
-
-            autoLockSettingsControllers.put(
-                    activity,
-                    controller
-            );
+            controller = new AutoLockSettingsController(activity);
+            autoLockSettingsControllers.put(activity, controller);
         }
-
         controller.attach();
     }
 
-    private void attachSmartDashboardController(
-            @NonNull Activity activity
-    ) {
-        SmartDashboard2Controller controller =
-                smartDashboardControllers.get(
-                        activity
-                );
-
+    private void attachSmartDashboardController(@NonNull Activity activity) {
+        SmartDashboard2Controller controller = smartDashboardControllers.get(activity);
         if (controller == null) {
-            controller =
-                    new SmartDashboard2Controller(
-                            activity
-                    );
-
-            smartDashboardControllers.put(
-                    activity,
-                    controller
-            );
+            controller = new SmartDashboard2Controller(activity);
+            smartDashboardControllers.put(activity, controller);
         }
+        controller.attach();
+    }
 
+    private void attachAdvancedDashboardController(@NonNull Activity activity) {
+        AdvancedDashboardInsightsController controller = advancedDashboardControllers.get(activity);
+        if (controller == null) {
+            controller = new AdvancedDashboardInsightsController(activity);
+            advancedDashboardControllers.put(activity, controller);
+        }
+        controller.attach();
+    }
+
+    private void attachCreditCardController(@NonNull Activity activity) {
+        AdvancedCreditCardManagerController controller = creditCardControllers.get(activity);
+        if (controller == null) {
+            controller = new AdvancedCreditCardManagerController(activity);
+            creditCardControllers.put(activity, controller);
+        }
         controller.attach();
     }
 
@@ -258,18 +201,13 @@ public final class CloudDeleteActionsInitializer
 
     @Nullable
     @Override
-    public String getType(
-            @NonNull Uri uri
-    ) {
+    public String getType(@NonNull Uri uri) {
         return null;
     }
 
     @Nullable
     @Override
-    public Uri insert(
-            @NonNull Uri uri,
-            @Nullable ContentValues values
-    ) {
+    public Uri insert(@NonNull Uri uri, @Nullable ContentValues values) {
         return null;
     }
 
