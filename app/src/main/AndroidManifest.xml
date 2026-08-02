@@ -46,6 +46,7 @@
         <activity android:name=".activities.SubscriptionActivity" android:exported="false" />
         <activity android:name=".activities.CalendarActivity" android:exported="false" />
         <activity android:name=".activities.MoreFeaturesActivity" android:exported="false" />
+        <activity android:name=".activities.NotificationAssistantActivity" android:exported="false" />
         <activity android:name=".activities.SmartGoalDebtPlannerActivity" android:exported="false" />
         <activity android:name=".activities.LoanActivity" android:exported="false" />
         <activity android:name=".activities.BudgetActivity" android:exported="false" />
@@ -64,6 +65,16 @@
         <activity android:name=".activities.AddExpenseActivity" android:exported="false" />
         <activity android:name=".activities.AddIncomeActivity" android:exported="false" />
         <activity android:name=".activities.DashboardActivity" android:exported="false" />
+
+        <service
+            android:name=".notification.FinancialNotificationListenerService"
+            android:label="Money Manager Pro Financial Notifications"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <receiver
             android:name=".widget.FinanceWidgetProvider"
