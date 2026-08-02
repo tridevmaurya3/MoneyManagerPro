@@ -36,6 +36,13 @@
             android:exported="false"
             android:initOrder="100" />
 
+        <!-- Adds the offline AI Budget Planner to BudgetActivity. -->
+        <provider
+            android:name=".budget.AiBudgetPlannerInitializer"
+            android:authorities="${applicationId}.ai_budget_planner_initializer"
+            android:exported="false"
+            android:initOrder="90" />
+
         <!-- FIREBASE AUTHENTICATION -->
 
         <activity
