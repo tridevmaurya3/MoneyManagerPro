@@ -30,6 +30,12 @@
             android:initOrder="150" />
 
         <provider
+            android:name=".ui.AdvancedFinanceDataLauncherInitializer"
+            android:authorities="${applicationId}.advanced_finance_data_launcher"
+            android:exported="false"
+            android:initOrder="145" />
+
+        <provider
             android:name=".ui.MoreToolsNavigationInitializer"
             android:authorities="${applicationId}.more_tools_navigation_initializer"
             android:exported="false"
@@ -53,6 +59,7 @@
             android:exported="false"
             android:initOrder="90" />
 
+        <activity android:name=".activities.AdvancedFinanceDataActivity" android:exported="false" />
         <activity android:name=".activities.UserProfileActivity" android:exported="false" />
         <activity android:name=".activities.AuthenticationActivity" android:exported="false" />
         <activity android:name=".activities.HelpActivity" android:exported="false" />

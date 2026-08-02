@@ -23,13 +23,16 @@ public interface AccountDao {
     @Delete
     void delete(Account account);
 
-    @Query("SELECT * FROM accounts ORDER BY name ASC")
+    @Query("SELECT * FROM accounts WHERE archived = 0 ORDER BY name ASC")
     List<Account> getAllAccounts();
 
-    @Query("SELECT COUNT(*) FROM accounts")
+    @Query("SELECT * FROM accounts ORDER BY archived ASC, name ASC")
+    List<Account> getAllAccountsIncludingArchived();
+
+    @Query("SELECT COUNT(*) FROM accounts WHERE archived = 0")
     int getAccountCount();
 
-    @Query("SELECT * FROM accounts WHERE name = :accountName LIMIT 1")
+    @Query("SELECT * FROM accounts WHERE name = :accountName AND archived = 0 LIMIT 1")
     Account findByName(String accountName);
 
     @Query("SELECT " +
@@ -48,6 +51,7 @@ public interface AccountDao {
             "), 0)) AS currentBalance " +
             "FROM accounts AS a " +
             "LEFT JOIN transactions AS t ON a.name = t.account " +
+            "WHERE a.archived = 0 " +
             "GROUP BY a.id, a.name, a.type, a.openingBalance, a.color " +
             "ORDER BY a.name ASC")
     List<AccountBalance> getAccountBalances();

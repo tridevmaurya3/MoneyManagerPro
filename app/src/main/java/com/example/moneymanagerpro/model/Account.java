@@ -13,6 +13,7 @@ public class Account {
     private String type;
     private double openingBalance;
     private String color;
+    private boolean archived;
 
     public Account() {
     }
@@ -55,5 +56,13 @@ public class Account {
 
     public void setColor(String color) {
         this.color = color;
+    }
+
+    public boolean isArchived() {
+        return archived;
+    }
+
+    public void setArchived(boolean archived) {
+        this.archived = archived;
     }
 }
