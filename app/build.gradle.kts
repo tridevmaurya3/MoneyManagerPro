@@ -1,6 +1,19 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.androidApplication)
     id("com.google.gms.google-services")
+}
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+
+if (hasReleaseKeystore) {
+    FileInputStream(keystorePropertiesFile).use {
+        keystoreProperties.load(it)
+    }
 }
 
 android {
@@ -11,16 +24,42 @@ android {
         applicationId = "com.example.moneymanagerpro"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(
+                    keystoreProperties.getProperty("storeFile")
+                )
+                storePassword =
+                    keystoreProperties.getProperty("storePassword")
+                keyAlias =
+                    keystoreProperties.getProperty("keyAlias")
+                keyPassword =
+                    keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+
         release {
             isMinifyEnabled = false
+
+            if (hasReleaseKeystore) {
+                signingConfig =
+                    signingConfigs.getByName("release")
+            }
 
             proguardFiles(
                 getDefaultProguardFile(
@@ -61,55 +100,28 @@ dependencies {
         "androidx.drawerlayout:drawerlayout:1.2.0"
     )
 
-    /*
-     * Firebase libraries के compatible versions manage करता है।
-     *
-     * firebase-auth और firebase-firestore के सामने अलग-अलग
-     * versions नहीं लगाने हैं।
-     */
     implementation(
         platform(
             "com.google.firebase:firebase-bom:34.16.0"
         )
     )
 
-    /*
-     * Firebase Login, Signup और Account Management।
-     */
     implementation(
         "com.google.firebase:firebase-auth"
     )
 
-    /*
-     * Encrypted Cloud Backup metadata और encrypted chunks।
-     */
     implementation(
         "com.google.firebase:firebase-firestore"
     )
 
-    /*
-     * Firestore/Firebase runtime में उपयोग होने वाली
-     * AndroidX Preferences DataStore classes।
-     *
-     * यह dependency निम्न crash को ठीक करती है:
-     *
-     * NoClassDefFoundError:
-     * androidx.datastore.preferences.PreferenceDataStoreDelegateKt
-     */
     implementation(
         "androidx.datastore:datastore-preferences:1.2.1"
     )
 
-    /*
-     * Permission-free UPI QR Scanner।
-     */
     implementation(
         "com.google.android.gms:play-services-code-scanner:16.1.0"
     )
 
-    /*
-     * Room Local Database।
-     */
     implementation(
         libs.room.runtime
     )
@@ -118,35 +130,18 @@ dependencies {
         libs.room.compiler
     )
 
-    /*
-     * Bill Reminder और Automatic Backup Workers।
-     */
     implementation(
         libs.work.runtime
     )
 
-    /*
-     * WorkManager की ListenableFuture class के लिए पूरा
-     * Android-compatible Guava package।
-     */
     implementation(
         "com.google.guava:guava:33.6.0-android"
     )
 
-    /*
-     * पुराने standalone ListenableFuture artifact के साथ
-     * duplicate-class conflict रोकता है।
-     *
-     * वास्तविक ListenableFuture class ऊपर वाले Guava Android
-     * package से मिलेगी।
-     */
     implementation(
         "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"
     )
 
-    /*
-     * PIN और Biometric Protection।
-     */
     implementation(
         "androidx.biometric:biometric:1.1.0"
     )
