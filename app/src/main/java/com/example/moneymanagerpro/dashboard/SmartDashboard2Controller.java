@@ -24,6 +24,7 @@ import com.example.moneymanagerpro.activities.DashboardActivity;
 import com.example.moneymanagerpro.activities.FinanceAdvisorActivity;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Budget;
+import com.example.moneymanagerpro.model.CreditCardPayment;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
@@ -395,9 +396,19 @@ public final class SmartDashboard2Controller {
                                 .budgetDao()
                                 .getAllBudgets();
 
+                List<CreditCardPayment> cardPayments =
+                        DatabaseClient
+                                .getInstance(
+                                        activity.getApplicationContext()
+                                )
+                                .getAppDatabase()
+                                .creditCardPaymentDao()
+                                .getAllPayments();
+
                 DashboardData data = analyse(
                         transactions,
                         budgets,
+                        cardPayments,
                         requestedMonth
                 );
 
@@ -427,6 +438,7 @@ public final class SmartDashboard2Controller {
     private DashboardData analyse(
             List<Transaction> transactions,
             List<Budget> budgets,
+            List<CreditCardPayment> cardPayments,
             @NonNull Calendar requestedMonth
     ) {
         DashboardData data = new DashboardData();
@@ -488,6 +500,27 @@ public final class SmartDashboard2Controller {
         }
 
         data.cashFlow = data.income - data.expense;
+        if (cardPayments != null) {
+            for (CreditCardPayment payment : cardPayments) {
+                if (payment == null) {
+                    continue;
+                }
+                Date paymentDate = parseDate(payment.getPaymentDate());
+                if (paymentDate == null) {
+                    continue;
+                }
+                Calendar paymentMonth = Calendar.getInstance();
+                paymentMonth.setTime(paymentDate);
+                if (paymentMonth.get(Calendar.YEAR)
+                        == requestedMonth.get(Calendar.YEAR)
+                        && paymentMonth.get(Calendar.MONTH)
+                        == requestedMonth.get(Calendar.MONTH)) {
+                    data.cardPayments += Math.abs(payment.getAmount());
+                }
+            }
+        }
+        data.netAvailableCash =
+                data.cashFlow - data.cardPayments;
         data.savingTarget = data.income * 0.20d;
         data.savingProgress = data.savingTarget > 0
                 ? percentage(data.cashFlow, data.savingTarget)
@@ -660,6 +693,23 @@ public final class SmartDashboard2Controller {
                 text,
                 "−" + money(data.expense),
                 color(R.color.expense),
+                Typeface.BOLD
+        );
+        text.append('\n');
+        text.append("Card Payments ");
+        appendStyled(
+                text,
+                "−" + money(data.cardPayments),
+                color(R.color.expense),
+                Typeface.BOLD
+        );
+        text.append("  •  Available Cash ");
+        appendStyled(
+                text,
+                signedMoney(data.netAvailableCash),
+                color(data.netAvailableCash >= 0
+                        ? R.color.success
+                        : R.color.expense),
                 Typeface.BOLD
         );
 
@@ -1017,6 +1067,8 @@ public final class SmartDashboard2Controller {
         private double income;
         private double expense;
         private double cashFlow;
+        private double cardPayments;
+        private double netAvailableCash;
         private double savingTarget;
         private double savingProgress;
         private String topCategory = "";
