@@ -54,6 +54,8 @@ public class DashboardActivity extends AppCompatActivity {
     private TextView txtIncome;
     private TextView txtExpense;
     private TextView txtCash;
+    private TextView txtCardPayments;
+    private TextView txtNetAvailableCash;
 
     private TextView txtSelectedPeriod;
     private TextView txtOverviewMonthLabel;
@@ -205,6 +207,12 @@ public class DashboardActivity extends AppCompatActivity {
 
         txtCash =
                 findViewById(R.id.txtCash);
+
+        txtCardPayments =
+                findViewById(R.id.txtCardPayments);
+
+        txtNetAvailableCash =
+                findViewById(R.id.txtNetAvailableCash);
 
         txtSelectedPeriod =
                 findViewById(R.id.txtSelectedPeriod);
@@ -1053,6 +1061,21 @@ public class DashboardActivity extends AppCompatActivity {
             double selectedNet =
                     income - expense;
 
+            double cardPayments =
+                    DatabaseClient
+                            .getInstance(
+                                    getApplicationContext()
+                            )
+                            .getAppDatabase()
+                            .creditCardPaymentDao()
+                            .getTotalPaidForPeriod(
+                                    selectedRange[0],
+                                    selectedRange[1]
+                            );
+
+            double netAvailableCash =
+                    income - expense - cardPayments;
+
             Calendar month1 =
                     copyMonth(
                             requestedPeriod
@@ -1138,6 +1161,12 @@ public class DashboardActivity extends AppCompatActivity {
             double finalSelectedNet =
                     selectedNet;
 
+            double finalCardPayments =
+                    cardPayments;
+
+            double finalNetAvailableCash =
+                    netAvailableCash;
+
             double finalMonth1Net =
                     month1Net;
 
@@ -1167,6 +1196,17 @@ public class DashboardActivity extends AppCompatActivity {
                         formatAmount(
                                 finalExpense
                         )
+                );
+
+                txtCardPayments.setText(
+                        "−" + formatAmount(
+                                finalCardPayments
+                        )
+                );
+
+                applySignedAmount(
+                        txtNetAvailableCash,
+                        finalNetAvailableCash
                 );
 
                 txtCash.setText(
