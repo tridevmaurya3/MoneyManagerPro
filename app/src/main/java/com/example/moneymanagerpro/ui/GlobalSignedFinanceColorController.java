@@ -97,6 +97,10 @@ public final class GlobalSignedFinanceColorController {
                 text,
                 "+₹", "+ ₹", "saving +", "balance +", "net +"
         );
+        // Summary cards may intentionally contain both income (+) and
+        // expense/payment (-) values. Leave those mixed cards neutral so the
+        // individual Spannable value colours remain visible.
+        if (explicitNegative && explicitPositive) return SignedState.NONE;
         if (explicitNegative) return SignedState.NEGATIVE;
         if (explicitPositive) return SignedState.POSITIVE;
 
