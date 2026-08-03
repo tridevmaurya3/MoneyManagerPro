@@ -3,6 +3,10 @@ package com.example.moneymanagerpro.dashboard;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -566,19 +570,12 @@ public final class SmartDashboard2Controller {
     private void showData(
             @NonNull DashboardData data
     ) {
-        txtCashFlow.setText(
-                "Monthly Cash Flow\n"
-                        + signedMoney(data.cashFlow)
-                        + "  •  Income "
-                        + money(data.income)
-                        + "  •  Expense "
-                        + money(data.expense)
-        );
-        txtCashFlow.setTextColor(color(
-                data.cashFlow >= 0
-                        ? R.color.success
-                        : R.color.expense
-        ));
+        txtCashFlow.setText(buildCashFlowText(data));
+        // Keep the heading neutral. Individual signed values receive their
+        // own semantic colour inside buildCashFlowText(). Setting one colour
+        // on the entire TextView made expense values appear green whenever
+        // the net cash flow was positive.
+        txtCashFlow.setTextColor(color(R.color.app_text_primary));
 
         if (data.budgetCount == 0) {
             txtBudgetHealth.setText(
@@ -626,6 +623,70 @@ public final class SmartDashboard2Controller {
 
         txtGuidance.setText(
                 buildGuidance(data)
+        );
+    }
+
+    @NonNull
+    private CharSequence buildCashFlowText(
+            @NonNull DashboardData data
+    ) {
+        SpannableStringBuilder text = new SpannableStringBuilder();
+
+        appendStyled(
+                text,
+                "Monthly Cash Flow",
+                color(R.color.app_text_primary),
+                Typeface.BOLD
+        );
+        text.append('\n');
+
+        appendStyled(
+                text,
+                signedMoney(data.cashFlow),
+                color(data.cashFlow >= 0
+                        ? R.color.success
+                        : R.color.expense),
+                Typeface.BOLD
+        );
+        text.append("  •  Income ");
+        appendStyled(
+                text,
+                "+" + money(data.income),
+                color(R.color.success),
+                Typeface.BOLD
+        );
+        text.append("  •  Expense ");
+        appendStyled(
+                text,
+                "−" + money(data.expense),
+                color(R.color.expense),
+                Typeface.BOLD
+        );
+
+        return text;
+    }
+
+    private void appendStyled(
+            @NonNull SpannableStringBuilder target,
+            @NonNull String value,
+            int textColor,
+            int typefaceStyle
+    ) {
+        int start = target.length();
+        target.append(value);
+        int end = target.length();
+
+        target.setSpan(
+                new ForegroundColorSpan(textColor),
+                start,
+                end,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        );
+        target.setSpan(
+                new StyleSpan(typefaceStyle),
+                start,
+                end,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         );
     }
 
