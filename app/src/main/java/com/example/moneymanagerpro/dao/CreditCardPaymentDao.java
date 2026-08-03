@@ -25,4 +25,12 @@ public interface CreditCardPaymentDao {
             int creditCardId,
             String statementEndDate
     );
+
+    @Query("SELECT COALESCE(SUM(amount), 0) " +
+            "FROM credit_card_payments " +
+            "WHERE paymentDate BETWEEN :startDate AND :endDate")
+    double getTotalPaidForPeriod(
+            String startDate,
+            String endDate
+    );
 }
