@@ -17,7 +17,6 @@ import android.widget.TextView;
 import androidx.annotation.ColorRes;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
-import androidx.core.widget.TextViewCompat;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.activities.BudgetActivity;
@@ -69,10 +68,6 @@ public final class SmartDashboard2Controller {
     private LinearLayout panel;
     private TextView txtPeriod;
     private TextView txtCashFlow;
-    private TextView txtIncomeColumn;
-    private TextView txtExpenseColumn;
-    private TextView txtCardPaymentColumn;
-    private TextView txtAvailableCashColumn;
     private TextView txtBudgetHealth;
     private TextView txtSavingProgress;
     private TextView txtTopCategory;
@@ -177,18 +172,8 @@ public final class SmartDashboard2Controller {
 
         LinearLayout heroContent = verticalContent(15);
 
-        LinearLayout cashFlowColumns = createHorizontalRow();
-        txtCashFlow = createCashFlowColumn("Cash Flow");
-        txtIncomeColumn = createCashFlowColumn("Income");
-        txtExpenseColumn = createCashFlowColumn("Expense");
-        txtCardPaymentColumn = createCashFlowColumn("Card Paid");
-        txtAvailableCashColumn = createCashFlowColumn("Available");
-        cashFlowColumns.addView(txtCashFlow);
-        cashFlowColumns.addView(txtIncomeColumn);
-        cashFlowColumns.addView(txtExpenseColumn);
-        cashFlowColumns.addView(txtCardPaymentColumn);
-        cashFlowColumns.addView(txtAvailableCashColumn);
-        heroContent.addView(cashFlowColumns);
+        txtCashFlow = createMetricText("Monthly Cash Flow", "₹0.00");
+        heroContent.addView(txtCashFlow);
 
         txtGuidance = createText(
                 "Loading income, expense and saving position...",
@@ -603,11 +588,7 @@ public final class SmartDashboard2Controller {
     }
 
     private void showLoading() {
-        txtCashFlow.setText("Cash Flow\n…");
-        txtIncomeColumn.setText("Income\n…");
-        txtExpenseColumn.setText("Expense\n…");
-        txtCardPaymentColumn.setText("Card Paid\n…");
-        txtAvailableCashColumn.setText("Available\n…");
+        txtCashFlow.setText("Monthly Cash Flow\nCalculating...");
         txtBudgetHealth.setText("Budget Health\nCalculating...");
         txtSavingProgress.setText("Saving Target\nCalculating...");
         txtTopCategory.setText("Top Category\nCalculating...");
@@ -622,11 +603,12 @@ public final class SmartDashboard2Controller {
     private void showData(
             @NonNull DashboardData data
     ) {
-        setCashFlowColumn(txtCashFlow, "Cash Flow", signedMoney(data.cashFlow), data.cashFlow >= 0);
-        setCashFlowColumn(txtIncomeColumn, "Income", "+" + money(data.income), true);
-        setCashFlowColumn(txtExpenseColumn, "Expense", "−" + money(data.expense), false);
-        setCashFlowColumn(txtCardPaymentColumn, "Card Paid", "−" + money(data.cardPayments), false);
-        setCashFlowColumn(txtAvailableCashColumn, "Available", signedMoney(data.netAvailableCash), data.netAvailableCash >= 0);
+        txtCashFlow.setText(buildCashFlowText(data));
+        // Keep the heading neutral. Individual signed values receive their
+        // own semantic colour inside buildCashFlowText(). Setting one colour
+        // on the entire TextView made expense values appear green whenever
+        // the net cash flow was positive.
+        txtCashFlow.setTextColor(color(R.color.app_text_primary));
 
         if (data.budgetCount == 0) {
             txtBudgetHealth.setText(
@@ -756,26 +738,6 @@ public final class SmartDashboard2Controller {
                 end,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         );
-    }
-
-    @NonNull
-    private TextView createCashFlowColumn(@NonNull String title) {
-        TextView view = createText(title + "\n₹0", 10, R.color.app_text_primary, true);
-        view.setGravity(Gravity.CENTER);
-        view.setMaxLines(2);
-        view.setSingleLine(false);
-        view.setHorizontallyScrolling(false);
-        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(view, 8, 11, 1, 2);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        params.setMargins(dp(2), 0, dp(2), 0);
-        view.setLayoutParams(params);
-        return view;
-    }
-
-    private void setCashFlowColumn(TextView view, String title, String amount, boolean positive) {
-        SpannableStringBuilder value = new SpannableStringBuilder(title + "\n");
-        appendStyled(value, amount, color(positive ? R.color.success : R.color.expense), Typeface.BOLD);
-        view.setText(value);
     }
 
     @NonNull

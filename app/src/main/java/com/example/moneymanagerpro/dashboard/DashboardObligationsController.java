@@ -22,7 +22,6 @@ import com.example.moneymanagerpro.credit.CreditCardCycleCalculator;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.AccountBalance;
 import com.example.moneymanagerpro.model.CreditCard;
-import com.example.moneymanagerpro.model.CreditCardPayment;
 import com.example.moneymanagerpro.model.RecurringTransaction;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
@@ -395,13 +394,7 @@ public final class DashboardObligationsController {
                                 .accountDao()
                                 .getAccountBalances();
 
-                List<CreditCardPayment> cardPayments =
-                        DatabaseClient.getInstance(activity)
-                                .getAppDatabase()
-                                .creditCardPaymentDao()
-                                .getAllPayments();
-
-                Snapshot snapshot = buildSnapshot(recurring, cards, balances, cardPayments);
+                Snapshot snapshot = buildSnapshot(recurring, cards, balances);
                 activity.runOnUiThread(() -> {
                     if (version == requestVersion
                             && !activity.isFinishing()
@@ -441,8 +434,7 @@ public final class DashboardObligationsController {
     private Snapshot buildSnapshot(
             List<RecurringTransaction> recurring,
             List<CreditCard> cards,
-            List<AccountBalance> balances,
-            List<CreditCardPayment> cardPayments
+            List<AccountBalance> balances
     ) {
         double assets = 0d;
         double liabilities = 0d;
@@ -501,25 +493,12 @@ public final class DashboardObligationsController {
                         0d
                 );
                 double used = Math.max(0d, -balance);
-                String paidDate = "";
-                double paidForCycle = 0d;
-                if (cardPayments != null) {
-                    for (CreditCardPayment payment : cardPayments) {
-                        if (payment == null || payment.getCreditCardId() != card.getId()) continue;
-                        if (!cycle.closedEnd.equals(payment.getStatementEndDate())) continue;
-                        paidForCycle += Math.max(0d, payment.getAmount());
-                        if (paidDate.isEmpty() || payment.getPaymentDate().compareTo(paidDate) > 0) paidDate = payment.getPaymentDate();
-                    }
-                }
-                boolean fullyPaid = used <= 0.005d && paidForCycle > 0.005d;
                 cardDues.add(new CardDueItem(
                         safe(card.getName()),
                         safe(card.getLastFour()),
                         cycle.dueDate,
                         cycle.daysUntilDue,
-                        used,
-                        fullyPaid,
-                        paidDate
+                        used
                 ));
             }
         }
@@ -582,28 +561,25 @@ public final class DashboardObligationsController {
             int limit = Math.min(4, snapshot.cardDues.size());
             for (int i = 0; i < limit; i++) {
                 CardDueItem item = snapshot.cardDues.get(i);
-                int surface = item.fullyPaid ? R.color.success_surface : item.days <= 3
+                int surface = item.days <= 3
                         ? R.color.error_surface
                         : item.days <= 7
                         ? R.color.warning_surface
                         : R.color.purple_surface;
-                int outline = item.fullyPaid ? R.color.success_outline : item.days <= 3
+                int outline = item.days <= 3
                         ? R.color.error_outline
                         : item.days <= 7
                         ? R.color.warning_outline
                         : R.color.purple_outline;
-                int accent = item.fullyPaid ? R.color.success : item.days <= 3
+                int accent = item.days <= 3
                         ? R.color.expense
                         : item.days <= 7
                         ? R.color.orange
                         : R.color.purple;
                 cardDueContainer.addView(infoCard(
                         item.name + " •••• " + item.lastFour,
-                        "Due " + visibleDate(item.date)
-                                + (item.fullyPaid
-                                ? "  •  Fully paid early on " + visibleDate(item.paidDate)
-                                : "  •  " + dueLabel(item.days)
-                                + (item.used > 0d ? "  •  Outstanding " + money(item.used) : "")),
+                        dueLabel(item.days) + "  •  " + visibleDate(item.date)
+                                + (item.used > 0d ? "  •  Used " + money(item.used) : ""),
                         surface,
                         outline,
                         accent
@@ -806,17 +782,13 @@ public final class DashboardObligationsController {
         final String date;
         final int days;
         final double used;
-        final boolean fullyPaid;
-        final String paidDate;
 
-        CardDueItem(String name, String lastFour, String date, int days, double used, boolean fullyPaid, String paidDate) {
+        CardDueItem(String name, String lastFour, String date, int days, double used) {
             this.name = name;
             this.lastFour = lastFour;
             this.date = date;
             this.days = days;
             this.used = used;
-            this.fullyPaid = fullyPaid;
-            this.paidDate = paidDate;
         }
     }
 }

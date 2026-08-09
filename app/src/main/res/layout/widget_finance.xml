@@ -47,12 +47,11 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/widgetMonth"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:includeFontPadding="false"
-                android:text="This Month"
+                android:text="Personal finance overview"
                 android:textColor="#C8F7E2"
                 android:textSize="9sp" />
 
@@ -72,49 +71,6 @@
             android:textSize="10sp"
             android:textStyle="bold" />
 
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="46dp"
-        android:layout_marginTop="7dp"
-        android:background="#18FFFFFF"
-        android:orientation="horizontal"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp">
-
-        <TextView
-            android:id="@+id/widgetAvailableCash"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:maxLines="1"
-            android:text="+₹0.00"
-            android:textColor="#BBF7D0"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/widgetCardPayments"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:maxLines="1"
-            android:text="−₹0.00"
-            android:textColor="#FECACA"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/widgetUpdated"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:gravity="center_vertical"
-            android:text="Updated now"
-            android:textColor="#C8F7E2"
-            android:textSize="8sp" />
     </LinearLayout>
 
     <!-- BALANCE PANEL -->
@@ -288,7 +244,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="7dp"
+        android:layout_marginTop="10dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 

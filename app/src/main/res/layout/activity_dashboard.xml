@@ -759,7 +759,7 @@
                     android:gravity="center_vertical"
                     android:minHeight="72dp"
                     android:orientation="horizontal"
-                    android:padding="8dp">
+                    android:padding="12dp">
 
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="40dp"
@@ -1019,7 +1019,7 @@
                             android:layout_height="wrap_content"
                             android:text="More Financial Tools"
                             android:textColor="#304B37"
-                            android:textSize="13sp"
+                            android:textSize="15sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -1034,8 +1034,8 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnMoreFeatures"
-                        android:layout_width="72dp"
-                        android:layout_height="36dp"
+                        android:layout_width="86dp"
+                        android:layout_height="40dp"
                         android:gravity="center"
                         android:insetTop="0dp"
                         android:insetBottom="0dp"
@@ -1046,26 +1046,6 @@
                         android:textAllCaps="false"
                         android:textColor="#31593C"
                         android:textSize="11sp"
-                        android:textStyle="bold"
-                        app:backgroundTint="#E5F1E7"
-                        app:cornerRadius="12dp"
-                        app:strokeColor="#BCD5C1"
-                        app:strokeWidth="1dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnShareDashboard"
-                        android:layout_width="42dp"
-                        android:layout_height="36dp"
-                        android:layout_marginStart="6dp"
-                        android:contentDescription="Share selected dashboard month as PDF"
-                        android:insetTop="0dp"
-                        android:insetBottom="0dp"
-                        android:minWidth="0dp"
-                        android:padding="0dp"
-                        android:text="↗"
-                        android:textAllCaps="false"
-                        android:textColor="#31593C"
-                        android:textSize="18sp"
                         android:textStyle="bold"
                         app:backgroundTint="#E5F1E7"
                         app:cornerRadius="12dp"

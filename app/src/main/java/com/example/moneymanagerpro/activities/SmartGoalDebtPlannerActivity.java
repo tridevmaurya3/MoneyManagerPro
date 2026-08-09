@@ -85,7 +85,7 @@ public final class SmartGoalDebtPlannerActivity extends AppCompatActivity {
         controlContent.setPadding(dp(15), dp(15), dp(15), dp(15));
         controlContent.addView(text("Planning Method", 15, R.color.secondary, true));
         controlContent.addView(text(
-                "Choose Snowball, Avalanche, EMI Relief, Highest Balance or Quick Utilization Win. The payoff order and forecast are recalculated for the selected method.",
+                "Snowball closes the smallest balance first. Avalanche prioritizes the highest interest rate.",
                 11, R.color.app_text_secondary, false
         ));
 
@@ -101,9 +101,6 @@ public final class SmartGoalDebtPlannerActivity extends AppCompatActivity {
         List<String> strategies = new ArrayList<>();
         strategies.add("Snowball — smallest debt first");
         strategies.add("Avalanche — highest interest first");
-        strategies.add("EMI Relief — release highest EMI first");
-        strategies.add("Highest Balance — largest debt first");
-        strategies.add("Quick Win — lowest balance-to-EMI ratio");
         strategyDropdown.setSimpleItems(strategies.toArray(new String[0]));
         strategyDropdown.setText(strategies.get(0), false);
         strategyLayout.addView(strategyDropdown);
@@ -155,19 +152,9 @@ public final class SmartGoalDebtPlannerActivity extends AppCompatActivity {
             extra = 0d;
         }
         final double requestedExtra = Math.max(0d, extra);
-        String selectedStrategy = strategyDropdown.getText().toString();
-        final SmartGoalDebtPlannerEngine.Strategy strategy;
-        if (selectedStrategy.startsWith("Avalanche")) {
-            strategy = SmartGoalDebtPlannerEngine.Strategy.AVALANCHE;
-        } else if (selectedStrategy.startsWith("EMI Relief")) {
-            strategy = SmartGoalDebtPlannerEngine.Strategy.HIGHEST_EMI_RELIEF;
-        } else if (selectedStrategy.startsWith("Highest Balance")) {
-            strategy = SmartGoalDebtPlannerEngine.Strategy.HIGHEST_BALANCE_FIRST;
-        } else if (selectedStrategy.startsWith("Quick Win")) {
-            strategy = SmartGoalDebtPlannerEngine.Strategy.LOWEST_UTILIZATION_WIN;
-        } else {
-            strategy = SmartGoalDebtPlannerEngine.Strategy.SNOWBALL;
-        }
+        final SmartGoalDebtPlannerEngine.Strategy strategy = strategyDropdown.getText().toString().startsWith("Avalanche")
+                ? SmartGoalDebtPlannerEngine.Strategy.AVALANCHE
+                : SmartGoalDebtPlannerEngine.Strategy.SNOWBALL;
 
         new Thread(() -> {
             AppDatabase database = DatabaseClient.getInstance(getApplicationContext()).getAppDatabase();
