@@ -16,6 +16,7 @@ import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.AccountBalance;
 import com.example.moneymanagerpro.model.CreditCard;
+import com.example.moneymanagerpro.model.CreditCardPayment;
 import com.google.android.material.card.MaterialCardView;
 
 import java.text.NumberFormat;
@@ -85,6 +86,7 @@ public final class AdvancedCreditCardManagerController {
 
             List<CreditCard> cards = database.creditCardDao().getActiveCreditCards();
             List<AccountBalance> balances = database.accountDao().getAccountBalances();
+            List<CreditCardPayment> payments = database.creditCardPaymentDao().getAllPayments();
 
             Map<String, Double> balanceByAccount = new HashMap<>();
             if (balances != null) {
@@ -115,10 +117,20 @@ public final class AdvancedCreditCardManagerController {
                     double interest = used * ESTIMATED_MONTHLY_INTEREST_RATE;
                     Calendar nextDue = nextDueDate(card.getDueDay());
                     int daysToDue = daysBetween(Calendar.getInstance(), nextDue);
+                    String latestPaymentDate = "";
+                    if (payments != null) {
+                        for (CreditCardPayment payment : payments) {
+                            if (payment != null && payment.getCreditCardId() == card.getId()
+                                    && (latestPaymentDate.isEmpty() || payment.getPaymentDate().compareTo(latestPaymentDate) > 0)) {
+                                latestPaymentDate = payment.getPaymentDate();
+                            }
+                        }
+                    }
+                    boolean fullyPaid = used <= 0.005d && !latestPaymentDate.isEmpty();
                     if (used > 0d && daysToDue <= Math.max(3, card.getReminderDays())) urgentCards++;
 
                     insights.add(new CardInsight(
-                            card, used, utilization, minimumDue, interest, nextDue, daysToDue
+                            card, used, utilization, minimumDue, interest, nextDue, daysToDue, fullyPaid, latestPaymentDate
                     ));
                     totalLimit += limit;
                     totalUsed += used;
@@ -260,9 +272,9 @@ public final class AdvancedCreditCardManagerController {
 
     private View cardInsightView(CardInsight insight, int index) {
         int accent = utilizationColor(insight.utilization);
-        String surface = insight.daysToDue <= Math.max(3, insight.card.getReminderDays()) && insight.used > 0d
+        String surface = insight.fullyPaid ? "#ECF9F0" : insight.daysToDue <= Math.max(3, insight.card.getReminderDays()) && insight.used > 0d
                 ? "#FFF5F3" : "#FFFFFF";
-        String outline = insight.daysToDue <= Math.max(3, insight.card.getReminderDays()) && insight.used > 0d
+        String outline = insight.fullyPaid ? "#A9D9B7" : insight.daysToDue <= Math.max(3, insight.card.getReminderDays()) && insight.used > 0d
                 ? "#F2C4BC" : "#E4EAF0";
 
         MaterialCardView card = card(surface, outline, 17);
@@ -300,15 +312,18 @@ public final class AdvancedCreditCardManagerController {
         bar.setLayoutParams(progressParams);
         content.addView(bar);
 
-        String dueLabel = insight.used <= 0d
-                ? "No outstanding amount"
+        String dueDateLabel = new SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(insight.nextDue.getTime());
+        String dueLabel = insight.fullyPaid
+                ? "Due " + dueDateLabel + " • Fully paid early on " + visibleDate(insight.latestPaymentDate)
+                : insight.used <= 0d
+                ? "Due " + dueDateLabel + " • No outstanding amount"
                 : insight.daysToDue == 0
                 ? "Due today"
                 : "Due in " + insight.daysToDue + " days • "
                 + new SimpleDateFormat("dd MMM", Locale.ENGLISH).format(insight.nextDue.getTime());
 
         TextView due = text(dueLabel, 11,
-                insight.daysToDue <= Math.max(3, insight.card.getReminderDays()) && insight.used > 0d
+                insight.fullyPaid ? Color.parseColor("#107C41") : insight.daysToDue <= Math.max(3, insight.card.getReminderDays()) && insight.used > 0d
                         ? Color.parseColor("#C42B1C") : Color.parseColor("#667085"),
                 insight.used > 0d);
         LinearLayout.LayoutParams dueParams = new LinearLayout.LayoutParams(
@@ -484,6 +499,15 @@ public final class AdvancedCreditCardManagerController {
         return format.format(Math.abs(amount));
     }
 
+    private String visibleDate(String iso) {
+        try {
+            return new SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(
+                    new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(iso));
+        } catch (Exception ignored) {
+            return iso == null ? "" : iso;
+        }
+    }
+
     private int withAlpha(int color, int alpha) {
         return Color.argb(Math.max(0, Math.min(255, alpha)), Color.red(color), Color.green(color), Color.blue(color));
     }
@@ -505,8 +529,10 @@ public final class AdvancedCreditCardManagerController {
         final Calendar nextDue;
         final int daysToDue;
 
+        final boolean fullyPaid;
+        final String latestPaymentDate;
         CardInsight(CreditCard card, double used, double utilization, double minimumDue,
-                    double interest, Calendar nextDue, int daysToDue) {
+                    double interest, Calendar nextDue, int daysToDue, boolean fullyPaid, String latestPaymentDate) {
             this.card = card;
             this.used = used;
             this.utilization = utilization;
@@ -514,6 +540,8 @@ public final class AdvancedCreditCardManagerController {
             this.interest = interest;
             this.nextDue = nextDue;
             this.daysToDue = daysToDue;
+            this.fullyPaid = fullyPaid;
+            this.latestPaymentDate = latestPaymentDate;
         }
     }
 

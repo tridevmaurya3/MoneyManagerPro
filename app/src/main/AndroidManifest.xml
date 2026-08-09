@@ -42,6 +42,34 @@
             android:initOrder="142" />
 
         <provider
+            android:name=".ui.VisibleDataToolsInitializer"
+            android:authorities="${applicationId}.visible_data_tools"
+            android:exported="false"
+            android:initOrder="141" />
+
+        <provider
+            android:name=".ui.CompactFormsInitializer"
+            android:authorities="${applicationId}.compact_forms"
+            android:exported="false"
+            android:initOrder="140" />
+
+        <provider
+            android:name=".widget.WidgetDataSyncInitializer"
+            android:authorities="${applicationId}.widget_data_sync"
+            android:exported="false"
+            android:initOrder="139" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.report_files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/report_file_paths" />
+        </provider>
+
+        <provider
             android:name=".ui.MoreToolsNavigationInitializer"
             android:authorities="${applicationId}.more_tools_navigation_initializer"
             android:exported="false"

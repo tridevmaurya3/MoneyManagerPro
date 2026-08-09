@@ -34,6 +34,7 @@ import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.AccountBalance;
 import com.example.moneymanagerpro.navigation.DashboardDrawerController;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
+import com.example.moneymanagerpro.ui.VisibleDataToolsController;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.card.MaterialCardView;
@@ -84,6 +85,7 @@ public class DashboardActivity extends AppCompatActivity {
     private View btnTransactions;
     private View btnReports;
     private View btnMoreFeatures;
+    private View btnShareDashboard;
     private View btnOpenDrawer;
     private View btnUserMenu;
 
@@ -282,6 +284,7 @@ public class DashboardActivity extends AppCompatActivity {
 
         btnMoreFeatures =
                 findViewById(R.id.btnMoreFeatures);
+        btnShareDashboard = findViewById(R.id.btnShareDashboard);
 
         btnOpenDrawer =
                 findViewById(R.id.btnOpenDrawer);
@@ -347,6 +350,7 @@ public class DashboardActivity extends AppCompatActivity {
         BubbleTouchAnimator.apply(btnTransactions);
         BubbleTouchAnimator.apply(btnReports);
         BubbleTouchAnimator.apply(btnMoreFeatures);
+        BubbleTouchAnimator.apply(btnShareDashboard);
         BubbleTouchAnimator.apply(btnOpenDrawer);
         BubbleTouchAnimator.apply(btnUserMenu);
 
@@ -394,6 +398,9 @@ public class DashboardActivity extends AppCompatActivity {
 
         btnMoreFeatures.setOnClickListener(
                 view -> showMoreToolsMenu()
+        );
+        btnShareDashboard.setOnClickListener(view ->
+                new VisibleDataToolsController(this).shareCurrentPdf()
         );
 
         cardBalance.setOnClickListener(

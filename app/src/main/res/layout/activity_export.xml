@@ -51,8 +51,60 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:lineSpacingExtra="2dp"
-            android:text="Save your complete transaction history as an Excel-compatible CSV file or a printable PDF report."
+            android:text="Export the selected period and sort as an Excel-compatible file or a printable A4 PDF report."
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:hint="Period"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/dropdownExportPeriod"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:inputType="none"
+                    android:textSize="11sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                android:hint="Sort"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/dropdownExportSort"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:inputType="none"
+                    android:textSize="11sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                android:hint="Type"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/dropdownExportType"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:inputType="none"
+                    android:textSize="11sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
 
         <!-- INTRODUCTION CARD -->
 
@@ -193,7 +245,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="CSV for Excel"
+                            android:text="Excel"
                             android:textColor="@color/success"
                             android:textSize="18sp"
                             android:textStyle="bold" />
@@ -320,7 +372,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
                     android:layout_marginTop="14dp"
-                    android:text="Export CSV File"
+                    android:text="Export Excel File"
                     android:textColor="@color/white"
                     app:backgroundTint="@color/success"
                     app:cornerRadius="17dp" />
@@ -515,6 +567,19 @@
                     app:backgroundTint="@color/expense"
                     app:cornerRadius="17dp" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnShareExportPdf"
+                    style="@style/Widget.MoneyManagerPro.Button.Secondary"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:text="Share Filtered Data as PDF"
+                    android:textColor="@color/expense"
+                    app:backgroundTint="@color/error_surface"
+                    app:cornerRadius="15dp"
+                    app:strokeColor="@color/error_outline"
+                    app:strokeWidth="1dp" />
+
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
@@ -581,7 +646,7 @@
                     android:layout_marginStart="11dp"
                     android:layout_weight="1"
                     android:lineSpacingExtra="2dp"
-                    android:text="Choose CSV or PDF format to begin exporting your transaction data."
+                    android:text="Choose Excel, PDF or Share PDF for the currently selected filters."
                     android:textColor="@color/app_text_secondary"
                     android:textSize="12sp"
                     android:textStyle="bold" />

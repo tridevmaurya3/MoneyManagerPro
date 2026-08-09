@@ -14,19 +14,23 @@ import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.app.DatePickerDialog;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -38,6 +42,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Calendar;
+import java.util.Comparator;
 
 public class ExportActivity extends AppCompatActivity {
 
@@ -54,6 +60,14 @@ public class ExportActivity extends AppCompatActivity {
 
     private MaterialButton btnExportCsv;
     private MaterialButton btnExportPdf;
+    private MaterialButton btnShareExportPdf;
+    private MaterialAutoCompleteTextView dropdownExportPeriod;
+    private MaterialAutoCompleteTextView dropdownExportSort;
+    private MaterialAutoCompleteTextView dropdownExportType;
+    private Calendar exportStart;
+    private Calendar exportEnd;
+    private String exportSort = "Newest first";
+    private String exportType = "All data";
 
     private boolean exportInProgress = false;
 
@@ -66,7 +80,7 @@ public class ExportActivity extends AppCompatActivity {
                                 || result.getData().getData() == null) {
 
                             showReadyStatus(
-                                    "CSV export cancelled. Choose a format whenever you are ready."
+                                    "Excel export cancelled. Choose a format whenever you are ready."
                             );
 
                             return;
@@ -122,6 +136,10 @@ public class ExportActivity extends AppCompatActivity {
 
         btnExportPdf =
                 findViewById(R.id.btnExportPdf);
+        btnShareExportPdf = findViewById(R.id.btnShareExportPdf);
+        dropdownExportPeriod = findViewById(R.id.dropdownExportPeriod);
+        dropdownExportSort = findViewById(R.id.dropdownExportSort);
+        dropdownExportType = findViewById(R.id.dropdownExportType);
 
         btnBack.setOnClickListener(
                 view -> finish()
@@ -129,6 +147,7 @@ public class ExportActivity extends AppCompatActivity {
     }
 
     private void prepareScreen() {
+        setupExportFilters();
         btnExportCsv.setOnClickListener(
                 view -> createCsvFile()
         );
@@ -136,6 +155,7 @@ public class ExportActivity extends AppCompatActivity {
         btnExportPdf.setOnClickListener(
                 view -> createPdfFile()
         );
+        btnShareExportPdf.setOnClickListener(view -> shareFilteredPdf());
 
         BubbleTouchAnimator.apply(
                 btnExportCsv
@@ -144,10 +164,52 @@ public class ExportActivity extends AppCompatActivity {
         BubbleTouchAnimator.apply(
                 btnExportPdf
         );
+        BubbleTouchAnimator.apply(btnShareExportPdf);
 
         showReadyStatus(
-                "Choose CSV or PDF format to begin exporting your transaction data."
+                "Choose Excel, PDF or Share PDF for the selected period and sort."
         );
+    }
+
+    private void setupExportFilters() {
+        String[] periods = {"Today", "This Week", "This Month", "Last Month", "Last Two Month", "Last Three Month", "Last Six Month", "Custom"};
+        String[] sorts = {"Newest first", "Oldest first", "Amount high to low", "Amount low to high"};
+        String[] types = {"All data", "Income only", "Expense only", "Transfers only"};
+        dropdownExportPeriod.setSimpleItems(periods);
+        dropdownExportSort.setSimpleItems(sorts);
+        dropdownExportType.setSimpleItems(types);
+        dropdownExportPeriod.setText("This Month", false);
+        dropdownExportSort.setText("Newest first", false);
+        dropdownExportType.setText("All data", false);
+        setExportRange("This Month");
+        dropdownExportPeriod.setOnItemClickListener((p, v, position, id) -> setExportRange(periods[position]));
+        dropdownExportSort.setOnItemClickListener((p, v, position, id) -> exportSort = sorts[position]);
+        dropdownExportType.setOnItemClickListener((p, v, position, id) -> exportType = types[position]);
+    }
+
+    private void setExportRange(String label) {
+        Calendar now = Calendar.getInstance();
+        now.set(Calendar.HOUR_OF_DAY, 0); now.set(Calendar.MINUTE, 0); now.set(Calendar.SECOND, 0); now.set(Calendar.MILLISECOND, 0);
+        exportStart = (Calendar) now.clone(); exportEnd = (Calendar) now.clone();
+        if ("This Week".equals(label)) exportStart.set(Calendar.DAY_OF_WEEK, exportStart.getFirstDayOfWeek());
+        else if ("This Month".equals(label)) exportStart.set(Calendar.DAY_OF_MONTH, 1);
+        else if ("Last Month".equals(label)) { exportStart.add(Calendar.MONTH, -1); exportStart.set(Calendar.DAY_OF_MONTH, 1); exportEnd = (Calendar) exportStart.clone(); exportEnd.set(Calendar.DAY_OF_MONTH, exportEnd.getActualMaximum(Calendar.DAY_OF_MONTH)); }
+        else if ("Last Two Month".equals(label)) { exportStart.add(Calendar.MONTH, -1); exportStart.set(Calendar.DAY_OF_MONTH, 1); }
+        else if ("Last Three Month".equals(label)) { exportStart.add(Calendar.MONTH, -2); exportStart.set(Calendar.DAY_OF_MONTH, 1); }
+        else if ("Last Six Month".equals(label)) { exportStart.add(Calendar.MONTH, -5); exportStart.set(Calendar.DAY_OF_MONTH, 1); }
+        else if ("Custom".equals(label)) { pickCustomExportRange(); return; }
+        exportEnd.set(Calendar.HOUR_OF_DAY, 23); exportEnd.set(Calendar.MINUTE, 59); exportEnd.set(Calendar.SECOND, 59);
+    }
+
+    private void pickCustomExportRange() {
+        Calendar now = Calendar.getInstance();
+        new DatePickerDialog(this, (d, y, m, day) -> {
+            exportStart = Calendar.getInstance(); exportStart.set(y, m, day, 0, 0, 0);
+            new DatePickerDialog(this, (d2, y2, m2, day2) -> {
+                exportEnd = Calendar.getInstance(); exportEnd.set(y2, m2, day2, 23, 59, 59);
+                if (exportEnd.before(exportStart)) { Calendar swap = exportStart; exportStart = exportEnd; exportEnd = swap; }
+            }, y, m, day).show();
+        }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH)).show();
     }
 
     private void createCsvFile() {
@@ -166,18 +228,18 @@ public class ExportActivity extends AppCompatActivity {
         );
 
         intent.setType(
-                "text/csv"
+                "application/vnd.ms-excel"
         );
 
         intent.putExtra(
                 Intent.EXTRA_TITLE,
                 "MoneyManager_Transactions_"
                         + getFileDate()
-                        + ".csv"
+                        + ".xls"
         );
 
         txtExportStatus.setText(
-                "Choose a folder and file name for the CSV report."
+                "Choose a folder and file name for the Excel report."
         );
 
         txtExportStatus.setTextColor(
@@ -242,12 +304,37 @@ public class ExportActivity extends AppCompatActivity {
         }
     }
 
+    private void shareFilteredPdf() {
+        if (exportInProgress) { showBusyMessage(); return; }
+        setExportState(true, "Creating filtered PDF for sharing...");
+        new Thread(() -> {
+            try {
+                File directory = new File(getCacheDir(), "shared_reports");
+                if (!directory.exists() && !directory.mkdirs()) throw new IOException("Unable to prepare report folder");
+                File file = new File(directory, "MoneyManager_Filtered_" + getFileDate() + ".pdf");
+                Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".report_files", file);
+                List<Transaction> transactions = loadTransactions();
+                createPdfDocument(uri, transactions, calculateSummary(transactions));
+                runOnUiThread(() -> {
+                    setExportState(false, transactions.size() + " filtered transactions ready to share.");
+                    Intent share = new Intent(Intent.ACTION_SEND);
+                    share.setType("application/pdf");
+                    share.putExtra(Intent.EXTRA_STREAM, uri);
+                    share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(share, "Share filtered PDF"));
+                });
+            } catch (Exception exception) {
+                runOnUiThread(() -> showExportError("Unable to create the shared PDF."));
+            }
+        }).start();
+    }
+
     private void exportCsv(
             Uri fileUri
     ) {
         if (fileUri == null) {
             showExportError(
-                    "The selected CSV location is unavailable."
+                    "The selected Excel location is unavailable."
             );
 
             return;
@@ -255,7 +342,7 @@ public class ExportActivity extends AppCompatActivity {
 
         setExportState(
                 true,
-                "Creating CSV report..."
+                "Creating Excel-compatible report..."
         );
 
         new Thread(() -> {
@@ -271,7 +358,7 @@ public class ExportActivity extends AppCompatActivity {
                 String fileName =
                         getDisplayName(
                                 fileUri,
-                                "CSV report"
+                                "Excel report"
                         );
 
                 runOnUiThread(() ->
@@ -294,7 +381,7 @@ public class ExportActivity extends AppCompatActivity {
 
                 runOnUiThread(() ->
                         showExportError(
-                                "CSV export failed. Please choose a location and try again."
+                                "Excel export failed. Please choose a location and try again."
                         )
                 );
             }
@@ -1461,9 +1548,25 @@ public class ExportActivity extends AppCompatActivity {
             return new ArrayList<>();
         }
 
-        return new ArrayList<>(
-                transactions
-        );
+        List<Transaction> filtered = new ArrayList<>();
+        for (Transaction transaction : transactions) {
+            if (transaction == null) continue;
+            Date date = parseStoredDate(transaction.getDate());
+            if (date != null && exportStart != null && (date.before(exportStart.getTime()) || date.after(exportEnd.getTime()))) continue;
+            String type = safeText(transaction.getType(), "");
+            if ("Income only".equals(exportType) && !"INCOME".equalsIgnoreCase(type)) continue;
+            if ("Expense only".equals(exportType) && !"EXPENSE".equalsIgnoreCase(type)) continue;
+            if ("Transfers only".equals(exportType) && !type.toUpperCase(Locale.ROOT).startsWith("TRANSFER")) continue;
+            filtered.add(transaction);
+        }
+        Comparator<Transaction> byDate = Comparator.comparing(t -> {
+            Date d = parseStoredDate(t.getDate()); return d == null ? new Date(0) : d;
+        });
+        if ("Oldest first".equals(exportSort)) filtered.sort(byDate);
+        else if ("Amount high to low".equals(exportSort)) filtered.sort(Comparator.comparingDouble(Transaction::getAmount).reversed());
+        else if ("Amount low to high".equals(exportSort)) filtered.sort(Comparator.comparingDouble(Transaction::getAmount));
+        else filtered.sort(byDate.reversed());
+        return filtered;
     }
 
     private ReportSummary calculateSummary(
@@ -1547,7 +1650,7 @@ public class ExportActivity extends AppCompatActivity {
         btnExportCsv.setText(
                 exporting
                         ? "Export in Progress..."
-                        : "Export CSV File"
+                        : "Export Excel File"
         );
 
         btnExportPdf.setText(

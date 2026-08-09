@@ -24,6 +24,8 @@ import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.CreditCard;
 import com.example.moneymanagerpro.model.Goal;
 import com.example.moneymanagerpro.model.Loan;
+import com.example.moneymanagerpro.model.LoanPayment;
+import com.example.moneymanagerpro.model.CreditCardPayment;
 import com.example.moneymanagerpro.model.RecurringTransaction;
 import com.example.moneymanagerpro.model.Subscription;
 import com.example.moneymanagerpro.model.Transaction;
@@ -94,8 +96,8 @@ public class CalendarActivity extends AppCompatActivity {
         MaterialCardView selector = card(R.color.info_surface, R.color.info_outline);
         LinearLayout selectorRow = row();
         selectorRow.setPadding(dp(10), dp(9), dp(10), dp(9));
-        previousButton = button("‹");
-        nextButton = button("›");
+        previousButton = button("←");
+        nextButton = button("→");
         monthTitle = text("", 17, R.color.secondary, true);
         monthTitle.setGravity(Gravity.CENTER);
         selectorRow.addView(previousButton, new LinearLayout.LayoutParams(dp(44), dp(44)));
@@ -171,8 +173,8 @@ public class CalendarActivity extends AppCompatActivity {
                 addTransactionEvents(events, db.transactionDao().getAllTransactions());
                 addRecurringEvents(events, db.recurringTransactionDao().getAllRecurringTransactions());
                 addSubscriptionEvents(events, db.subscriptionDao().getActiveSubscriptions());
-                addLoanEvents(events, db.loanDao().getActiveLoans());
-                addCardEvents(events, db.creditCardDao().getActiveCreditCards());
+                addLoanEvents(events, db.loanDao().getActiveLoans(), db.loanPaymentDao().getAllLoanPayments());
+                addCardEvents(events, db.creditCardDao().getActiveCreditCards(), db.creditCardPaymentDao().getAllPayments(), db);
                 addGoalEvents(events, db.goalDao().getAllGoals());
                 Collections.sort(events, Comparator.comparingLong(e -> e.date.getTime()));
                 runOnUiThread(() -> {
@@ -277,7 +279,7 @@ public class CalendarActivity extends AppCompatActivity {
 
     @NonNull
     private View buildEventCard(FinanceEvent event, boolean showCountdown) {
-        MaterialCardView card = card(surfaceForType(event.type), outlineForType(event.type));
+        MaterialCardView card = card(event.paid ? R.color.success_surface : surfaceForType(event.type), event.paid ? R.color.success_outline : outlineForType(event.type));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.setMargins(0, dp(5), 0, dp(5));
         card.setLayoutParams(params);
@@ -285,14 +287,16 @@ public class CalendarActivity extends AppCompatActivity {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(13), dp(11), dp(13), dp(11));
         LinearLayout header = row();
-        TextView title = text(event.title, 13, colorForType(event.type), true);
+        int eventColor = event.paid ? R.color.success : colorForType(event.type);
+        TextView title = text(event.title, 13, eventColor, true);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
-        header.addView(text(event.type, 10, colorForType(event.type), true));
+        header.addView(text(event.paid ? "PAID" : event.type, 10, eventColor, true));
         content.addView(header);
         String detail = formatDate(event.date);
         if (event.amount > 0) detail += "  •  " + signedMoney(event);
         if (showCountdown) detail += "  •  " + countdown(event.date);
-        TextView detailView = text(detail, 10, colorForType(event.type), true);
+        if (event.paid && !event.paidDate.isEmpty()) detail += "  •  Paid early on " + visibleDate(event.paidDate);
+        TextView detailView = text(detail, 10, eventColor, true);
         detailView.setPadding(0, dp(4), 0, 0);
         content.addView(detailView);
         if (!event.detail.isEmpty()) {
@@ -338,22 +342,45 @@ public class CalendarActivity extends AppCompatActivity {
         }
     }
 
-    private void addLoanEvents(List<FinanceEvent> out, List<Loan> items) {
+    private void addLoanEvents(List<FinanceEvent> out, List<Loan> items, List<LoanPayment> payments) {
         if (items == null) return;
         for (Loan item : items) {
             if (!item.isActive() || !"Loan Taken".equalsIgnoreCase(item.getLoanType())) continue;
             Date date = parseDate(item.getDueDate());
-            if (date != null) out.add(new FinanceEvent(date, "EMI", safe(item.getPersonName(), "Loan EMI"), item.getEmiAmount(), "Outstanding " + money(item.getOutstandingAmount())));
+            String paidDate = "";
+            double paidAmount = 0d;
+            if (payments != null) for (LoanPayment payment : payments) {
+                if (payment != null && payment.getLoanId() == item.getId() && sameMonth(payment.getPaymentDate(), item.getDueDate())) {
+                    paidAmount += Math.max(0d, payment.getAmount());
+                    if (paidDate.isEmpty() || payment.getPaymentDate().compareTo(paidDate) > 0) paidDate = payment.getPaymentDate();
+                }
+            }
+            boolean fullyPaid = paidAmount + 0.005d >= Math.max(0d, item.getEmiAmount());
+            if (date != null) out.add(new FinanceEvent(date, "EMI", safe(item.getPersonName(), "Loan EMI"), item.getEmiAmount(), "Outstanding " + money(item.getOutstandingAmount()), fullyPaid, paidDate));
         }
     }
 
-    private void addCardEvents(List<FinanceEvent> out, List<CreditCard> items) {
+    private void addCardEvents(List<FinanceEvent> out, List<CreditCard> items, List<CreditCardPayment> payments, AppDatabase database) {
         if (items == null) return;
         Calendar reference = Calendar.getInstance();
         for (CreditCard item : items) {
             CreditCardCycleCalculator.Cycle cycle = CreditCardCycleCalculator.calculate(item, reference);
             Date date = parseDate(cycle.dueDate);
-            if (date != null) out.add(new FinanceEvent(date, "Card", safe(item.getName(), "Credit Card") + " •••• " + safe(item.getLastFour(), ""), 0, "Payment account: " + safe(item.getPaymentAccount(), "Cash")));
+            String paidDate = ""; double paid = 0d;
+            if (payments != null) for (CreditCardPayment payment : payments) {
+                if (payment != null && payment.getCreditCardId() == item.getId() && cycle.closedEnd.equals(payment.getStatementEndDate())) {
+                    paid += Math.max(0d, payment.getAmount());
+                    if (paidDate.isEmpty() || payment.getPaymentDate().compareTo(paidDate) > 0) paidDate = payment.getPaymentDate();
+                }
+            }
+            List<String> accounts = new ArrayList<>(); accounts.add(item.getAccountName());
+            double statementAmount = Math.max(0d, database.transactionDao().getNetCardSpendForPeriodFromSources(
+                    accounts, item.getName(), cycle.closedStart, cycle.closedEnd + " 23:59:59"));
+            double outstanding = Math.max(0d, statementAmount - paid);
+            boolean fullyPaid = statementAmount > 0.005d && outstanding <= 0.005d;
+            String detail = "Payment account: " + safe(item.getPaymentAccount(), "Cash")
+                    + " • Statement " + money(statementAmount) + " • Outstanding " + money(outstanding);
+            if (date != null) out.add(new FinanceEvent(date, "Card", safe(item.getName(), "Credit Card") + " •••• " + safe(item.getLastFour(), ""), outstanding, detail, fullyPaid, paidDate));
         }
     }
 
@@ -513,6 +540,14 @@ public class CalendarActivity extends AppCompatActivity {
         return new SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(date);
     }
 
+    private String visibleDate(String value) { Date date = parseDate(value); return date == null ? value : formatDate(date); }
+
+    private boolean sameMonth(String first, String second) {
+        Date a = parseDate(first); Date b = parseDate(second); if (a == null || b == null) return false;
+        Calendar ca = Calendar.getInstance(); ca.setTime(a); Calendar cb = Calendar.getInstance(); cb.setTime(b);
+        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) && ca.get(Calendar.MONTH) == cb.get(Calendar.MONTH);
+    }
+
     private String safe(String value, String fallback) {
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
     }
@@ -545,12 +580,19 @@ public class CalendarActivity extends AppCompatActivity {
         final String title;
         final double amount;
         final String detail;
+        final boolean paid;
+        final String paidDate;
         FinanceEvent(Date date, String type, String title, double amount, String detail) {
+            this(date, type, title, amount, detail, false, "");
+        }
+        FinanceEvent(Date date, String type, String title, double amount, String detail, boolean paid, String paidDate) {
             this.date = date;
             this.type = type;
             this.title = title;
             this.amount = amount;
             this.detail = detail == null ? "" : detail;
+            this.paid = paid;
+            this.paidDate = paidDate == null ? "" : paidDate;
         }
     }
 }
