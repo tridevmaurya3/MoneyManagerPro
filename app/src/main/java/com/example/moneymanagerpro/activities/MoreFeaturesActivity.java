@@ -50,9 +50,6 @@ public class MoreFeaturesActivity extends AppCompatActivity {
         addFeatureRow(item("Receipt Vault", "Saved bill and receipt photos", "▣", ReceiptGalleryActivity.class, R.color.expense, R.color.error_surface, R.color.error_outline), item("Import CSV", "Bring old finance records", "⇪", CsvImportActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline));
         addFeatureRow(item("Export", "Create CSV and PDF files", "⇩", ExportActivity.class, R.color.app_text_secondary, R.color.app_surface_soft, R.color.app_outline), null);
 
-        addSectionHeader("SMS & Notifications", "Play-safe detection without SMS permission", false);
-        addFeatureRow(item("Financial Notifications", "Review bank, UPI, wallet and card alerts", "N", NotificationAssistantActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline), item("SMS Alerts", "Read SMS app notification previews locally", "SMS", SmsAlertInboxActivity.class, R.color.purple, R.color.purple_surface, R.color.purple_outline));
-
         addSectionHeader("Data & Security", "Protect records and manage app preferences", false);
         addFeatureRow(item("Backup", "Create and restore data", "B", BackupActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline), item("Settings", "Theme, PIN and security", "⚙", SettingsActivity.class, R.color.app_text_primary, R.color.app_surface_muted, R.color.app_outline));
         addFeatureRow(item("Help Guide", "Learn how to use the app", "?", HelpActivity.class, R.color.teal, R.color.teal_surface, R.color.teal_outline), null);

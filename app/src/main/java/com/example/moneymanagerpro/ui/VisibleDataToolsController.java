@@ -44,7 +44,7 @@ import java.util.Locale;
 public final class VisibleDataToolsController {
     private static final String TAG = "visible_data_tools_v3";
     private static final String ORIGINAL_VISIBILITY = "visible_data_original_visibility";
-    private static final String[] SUPPORTED = {"Dashboard", "Transactions", "Report", "Analytics", "Charts", "Calendar", "CreditCard", "Loan", "Budget", "Goal", "Investment", "Subscription", "Recurring", "Account", "AdvancedFinanceData", "FinanceAdvisor", "ReceiptGallery", "SmsAlertInbox"};
+    private static final String[] SUPPORTED = {"Dashboard", "Transactions", "Report", "Analytics", "Charts", "Calendar", "CreditCard", "Loan", "Budget", "Goal", "Investment", "Subscription", "Recurring", "Account", "AdvancedFinanceData", "FinanceAdvisor", "ReceiptGallery"};
     private static final String[] DATE_PATTERNS = {"yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd", "dd-MM-yyyy HH:mm", "dd-MM-yyyy", "dd/MM/yyyy HH:mm", "dd/MM/yyyy", "dd MMM yyyy", "MMM dd, yyyy"};
 
     private final Activity activity;

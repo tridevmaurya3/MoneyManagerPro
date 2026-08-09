@@ -4,8 +4,6 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.READ_SMS" />
-    <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission
         android:name="android.permission.USE_FINGERPRINT"
@@ -76,8 +74,8 @@
             android:initOrder="130" />
 
         <provider
-            android:name=".ui.NotificationAndPinUiInitializer"
-            android:authorities="${applicationId}.notification_pin_ui_initializer"
+            android:name=".ui.PinUiInitializer"
+            android:authorities="${applicationId}.pin_ui_initializer"
             android:exported="false"
             android:initOrder="120" />
 
@@ -107,8 +105,6 @@
         <activity android:name=".activities.SubscriptionActivity" android:exported="false" />
         <activity android:name=".activities.CalendarActivity" android:exported="false" />
         <activity android:name=".activities.MoreFeaturesActivity" android:exported="false" />
-        <activity android:name=".activities.NotificationAssistantActivity" android:exported="false" />
-        <activity android:name=".activities.SmsAlertInboxActivity" android:exported="false" />
         <activity android:name=".activities.SmartGoalDebtPlannerActivity" android:exported="false" />
         <activity android:name=".activities.LoanActivity" android:exported="false" />
         <activity android:name=".activities.BudgetActivity" android:exported="false" />
@@ -127,25 +123,6 @@
         <activity android:name=".activities.AddExpenseActivity" android:exported="false" />
         <activity android:name=".activities.AddIncomeActivity" android:exported="false" />
         <activity android:name=".activities.DashboardActivity" android:exported="false" />
-
-        <service
-            android:name=".notification.FinancialNotificationListenerService"
-            android:label="Money Manager Pro Financial Notifications"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
-
-        <receiver
-            android:name=".notification.FinancialSmsReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter android:priority="999">
-                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
-            </intent-filter>
-        </receiver>
 
         <receiver
             android:name=".widget.FinanceWidgetProvider"

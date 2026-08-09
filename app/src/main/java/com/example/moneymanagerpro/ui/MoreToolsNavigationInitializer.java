@@ -22,10 +22,8 @@ import com.example.moneymanagerpro.activities.MoreFeaturesActivity;
  * Keeps Dashboard → More Financial Tools on one permanent, testable screen.
  *
  * DashboardActivity previously opened a dynamically created BottomSheetDialog.
- * Dialog windows are outside the Activity decor view, so runtime view injection
- * could not reliably add Financial Notifications. This initializer replaces the
- * dashboard button action with MoreFeaturesActivity, whose menu permanently
- * contains SMS & Notifications → Financial Notifications.
+ * This initializer replaces the dashboard button action with the permanent
+ * MoreFeaturesActivity menu.
  */
 public final class MoreToolsNavigationInitializer extends ContentProvider {
 
