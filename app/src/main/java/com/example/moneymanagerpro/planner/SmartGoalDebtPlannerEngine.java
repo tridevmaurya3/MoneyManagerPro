@@ -79,9 +79,18 @@ public final class SmartGoalDebtPlannerEngine {
             }
         }
 
-        Comparator<DebtItem> comparator = strategy == Strategy.AVALANCHE
-                ? Comparator.comparingDouble(DebtItem::getAnnualRate).reversed()
-                : Comparator.comparingDouble(DebtItem::getBalance);
+        Comparator<DebtItem> comparator;
+        if (strategy == Strategy.AVALANCHE) {
+            comparator = Comparator.comparingDouble(DebtItem::getAnnualRate).reversed();
+        } else if (strategy == Strategy.HIGHEST_EMI_RELIEF) {
+            comparator = Comparator.comparingDouble(DebtItem::getMinimumPayment).reversed();
+        } else if (strategy == Strategy.HIGHEST_BALANCE_FIRST) {
+            comparator = Comparator.comparingDouble(DebtItem::getBalance).reversed();
+        } else if (strategy == Strategy.LOWEST_UTILIZATION_WIN) {
+            comparator = Comparator.comparingDouble(item -> item.getBalance() / Math.max(1d, item.getMinimumPayment()));
+        } else {
+            comparator = Comparator.comparingDouble(DebtItem::getBalance);
+        }
         Collections.sort(debts, comparator);
 
         Simulation base = simulate(debts, 0d);
@@ -218,7 +227,13 @@ public final class SmartGoalDebtPlannerEngine {
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
     }
 
-    public enum Strategy { SNOWBALL, AVALANCHE }
+    public enum Strategy {
+        SNOWBALL,
+        AVALANCHE,
+        HIGHEST_EMI_RELIEF,
+        HIGHEST_BALANCE_FIRST,
+        LOWEST_UTILIZATION_WIN
+    }
 
     public static final class Plan {
         private final Strategy strategy;

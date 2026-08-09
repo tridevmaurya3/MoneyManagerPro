@@ -146,14 +146,14 @@
                     android:layout_height="48dp"
                     android:minWidth="0dp"
                     android:padding="0dp"
-                    android:text="‹"
+                    android:text="←"
                     android:textAllCaps="false"
-                    android:textColor="@color/primary"
-                    android:textSize="27sp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="22sp"
                     android:textStyle="bold"
-                    app:backgroundTint="@color/app_surface_soft"
+                    app:backgroundTint="@color/secondary"
                     app:cornerRadius="15dp"
-                    app:strokeColor="@color/app_outline"
+                    app:strokeColor="@color/secondary"
                     app:strokeWidth="1dp" />
 
                 <LinearLayout
@@ -193,14 +193,14 @@
                     android:layout_height="48dp"
                     android:minWidth="0dp"
                     android:padding="0dp"
-                    android:text="›"
+                    android:text="→"
                     android:textAllCaps="false"
-                    android:textColor="@color/primary"
-                    android:textSize="27sp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="22sp"
                     android:textStyle="bold"
-                    app:backgroundTint="@color/app_surface_soft"
+                    app:backgroundTint="@color/secondary"
                     app:cornerRadius="15dp"
-                    app:strokeColor="@color/app_outline"
+                    app:strokeColor="@color/secondary"
                     app:strokeWidth="1dp" />
 
             </LinearLayout>

@@ -19,6 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.credit.CreditCardStatementImporter;
+import com.example.moneymanagerpro.credit.CreditCardDataIntegrityAuditor;
 import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
@@ -123,6 +124,10 @@ public class AdvancedFinanceDataActivity extends AppCompatActivity {
                         action("Import Statement CSV", () ->
                                 statementPicker.launch(new String[]{"text/*", "text/csv"})),
                         action("Reconciliation Preview", this::showReconciliation)
+                ),
+                buttonRow(
+                        action("Duplicate Audit & Safe Repair", this::showDuplicateAudit),
+                        action("Refresh Card Data", this::loadData)
                 )
         ));
 
@@ -420,6 +425,27 @@ public class AdvancedFinanceDataActivity extends AppCompatActivity {
                     )
                     .setPositiveButton("OK", null)
                     .show());
+        }).start();
+    }
+
+    private void showDuplicateAudit() {
+        CreditCard card = selectedCard();
+        if (card == null) return;
+        new Thread(() -> {
+            CreditCardDataIntegrityAuditor.Preview preview =
+                    CreditCardDataIntegrityAuditor.preview(database(), card);
+            runOnUiThread(() -> {
+                AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                        .setTitle("Card duplicate & outstanding audit")
+                        .setMessage(preview.describe())
+                        .setNegativeButton("Close", null);
+                if (preview.extraRows > 0) {
+                    dialog.setPositiveButton("Repair Exact Duplicates", (d, which) ->
+                            runOperation("Exact duplicate rows repaired", () ->
+                                    CreditCardDataIntegrityAuditor.repairExactDuplicates(database(), card)));
+                }
+                dialog.show();
+            });
         }).start();
     }
 
