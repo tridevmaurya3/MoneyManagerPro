@@ -13,6 +13,7 @@ import com.example.moneymanagerpro.database.DatabaseClient;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Keeps Credit Card records and Accounts backed by one canonical account name.
@@ -24,20 +25,28 @@ import java.util.List;
  */
 public final class CreditCardAccountSyncInitializer extends ContentProvider {
 
+    private static final AtomicBoolean SYNC_STARTED = new AtomicBoolean(false);
+
     @Override
     public boolean onCreate() {
         if (getContext() == null) return false;
 
-        try {
-            SupportSQLiteDatabase database = DatabaseClient
-                    .getInstance(getContext().getApplicationContext())
-                    .getAppDatabase()
-                    .getOpenHelper()
-                    .getWritableDatabase();
-
-            synchronize(database);
-        } catch (Exception ignored) {
-            // Never block app startup. The next launch retries synchronization.
+        android.content.Context appContext = getContext().getApplicationContext();
+        if (SYNC_STARTED.compareAndSet(false, true)) {
+            new Thread(() -> {
+                try {
+                    SupportSQLiteDatabase database = DatabaseClient
+                            .getInstance(appContext)
+                            .getAppDatabase()
+                            .getOpenHelper()
+                            .getWritableDatabase();
+                    synchronize(database);
+                } catch (Exception ignored) {
+                    // A later process launch safely retries this idempotent sync.
+                } finally {
+                    SYNC_STARTED.set(false);
+                }
+            }, "card-account-sync").start();
         }
 
         return true;

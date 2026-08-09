@@ -33,7 +33,7 @@ public class SplashActivity extends AppCompatActivity {
             "pin_enabled";
 
     private static final long SPLASH_DELAY_MS =
-            1200L;
+            650L;
 
     private MaterialCardView splashSecurityBadge;
     private MaterialCardView splashIconOuterCard;
@@ -74,7 +74,6 @@ public class SplashActivity extends AppCompatActivity {
         super.onStart();
 
         if (!hasNavigated) {
-            startPulseAnimation();
             scheduleNavigation();
         }
     }
@@ -82,7 +81,6 @@ public class SplashActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         cancelScheduledNavigation();
-        stopPulseAnimation();
 
         super.onStop();
     }
@@ -90,7 +88,6 @@ public class SplashActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         cancelScheduledNavigation();
-        stopPulseAnimation();
         cancelViewAnimations();
 
         super.onDestroy();
