@@ -27,33 +27,13 @@
 
             <TextView
                 android:id="@+id/btnCreditCardBack"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
                 android:gravity="center_vertical"
                 android:text="‹  Back"
                 android:textColor="@color/secondary"
                 android:textSize="15sp"
                 android:textStyle="bold" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnCreditCardDataCenter"
-                android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minWidth="0dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:text="⚙  Data Center"
-                android:textAllCaps="false"
-                android:textColor="@color/secondary"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                app:backgroundTint="@color/info_surface"
-                app:cornerRadius="14dp"
-                app:strokeColor="@color/info_outline"
-                app:strokeWidth="1dp" />
 
         </LinearLayout>
 

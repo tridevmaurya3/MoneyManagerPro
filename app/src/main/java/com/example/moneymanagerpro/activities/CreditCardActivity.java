@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -96,15 +97,42 @@ public class CreditCardActivity extends AppCompatActivity {
         bindViews();
         setupStaticDropdowns();
         setupActions();
-        findViewById(R.id.btnCreditCardDataCenter).setOnClickListener(view ->
-                startActivity(new Intent(this, AdvancedFinanceDataActivity.class))
-        );
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         loadData();
+        getWindow().getDecorView().post(this::ensureDataCenterFloatingButton);
+    }
+
+    private void ensureDataCenterFloatingButton() {
+        FrameLayout content = findViewById(android.R.id.content);
+        if (content == null) return;
+        final String tag = "credit_card_data_center_fab";
+        View existing = content.findViewWithTag(tag);
+        if (existing != null) {
+            existing.bringToFront();
+            return;
+        }
+        MaterialButton button = new MaterialButton(this);
+        button.setTag(tag);
+        button.setText("Data Center");
+        button.setTextSize(11);
+        button.setTextAllCaps(false);
+        button.setTextColor(android.graphics.Color.WHITE);
+        button.setIconResource(android.R.drawable.ic_menu_manage);
+        button.setIconTint(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
+        button.setCornerRadius(dp(18));
+        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.secondary)));
+        button.setOnClickListener(view ->
+                startActivity(new Intent(this, AdvancedFinanceDataActivity.class)));
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                dp(138), dp(50), Gravity.END | Gravity.BOTTOM);
+        params.setMargins(dp(12), dp(12), dp(18), dp(22));
+        content.addView(button, params);
+        button.bringToFront();
     }
 
     private void bindViews() {

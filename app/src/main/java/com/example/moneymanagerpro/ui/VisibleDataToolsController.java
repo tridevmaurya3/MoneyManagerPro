@@ -17,6 +17,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.FileProvider;
 
 import com.example.moneymanagerpro.R;
@@ -110,24 +111,55 @@ public final class VisibleDataToolsController {
         wrapper.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(52)));
         wrapper.addView(original, new LinearLayout.LayoutParams(-1, 0, 1f));
         contentGroup.addView(wrapper);
+        View floatingDataCenter = contentGroup.findViewWithTag("credit_card_data_center_fab");
+        if (floatingDataCenter != null) floatingDataCenter.bringToFront();
         selectRange(Range.THIS_MONTH);
     }
 
     private LinearLayout buildToolbar() {
         LinearLayout outer = new LinearLayout(activity);
-        outer.setOrientation(LinearLayout.VERTICAL);
+        outer.setOrientation(LinearLayout.HORIZONTAL);
+        outer.setGravity(Gravity.CENTER_VERTICAL);
         outer.setPadding(dp(8), dp(6), dp(8), dp(4));
         outer.setBackgroundColor(activity.getColor(R.color.app_surface));
 
-        LinearLayout actions = actionStrip();
-        actions.addView(button("‹", true, v -> activity.finish()));
-        for (Range range : Range.values()) actions.addView(button(range.symbol + "  " + range.label, false, v -> selectRange(range)));
-        actions.addView(button("⇅  Sort", true, v -> cycleSort()));
-        actions.addView(button("▤  PDF", true, v -> export(false, false)));
-        actions.addView(button("▦  Excel", true, v -> export(true, false)));
-        actions.addView(button("↗  Share PDF", true, v -> export(false, true)));
-        outer.addView(scroller(actions), new LinearLayout.LayoutParams(-1, dp(41)));
+        MaterialButton back = button("‹", true, v -> activity.finish());
+        outer.addView(back);
+        View spacer = new View(activity);
+        outer.addView(spacer, new LinearLayout.LayoutParams(0, dp(1), 1f));
+        outer.addView(button("⌄  Filter", false, v -> showFilterMenu()));
+        outer.addView(button("↗  Share", true, v -> showExportMenu()));
         return outer;
+    }
+
+    private void showFilterMenu() {
+        String[] choices = {
+                "●  Today", "▥  This Week", "▣  This Month", "‹  Last Month",
+                "«  Last Two Month", "≪  Last Three Month", "◫  Last Six Month",
+                "⌗  Custom", "⇅  Change Sort — " + sort.label
+        };
+        new AlertDialog.Builder(activity)
+                .setTitle("Filter & Sort")
+                .setItems(choices, (dialog, which) -> {
+                    if (which < Range.values().length) selectRange(Range.values()[which]);
+                    else cycleSort();
+                })
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void showExportMenu() {
+        String[] choices = {"▤  PDF", "▦  Excel", "↗  Share PDF"};
+        new AlertDialog.Builder(activity)
+                .setTitle("Export visible data")
+                .setMessage("The current filter and sort will be applied.")
+                .setItems(choices, (dialog, which) -> {
+                    if (which == 0) export(false, false);
+                    else if (which == 1) export(true, false);
+                    else export(false, true);
+                })
+                .setNegativeButton("Close", null)
+                .show();
     }
 
     private boolean hideOriginalBack(View view) {
