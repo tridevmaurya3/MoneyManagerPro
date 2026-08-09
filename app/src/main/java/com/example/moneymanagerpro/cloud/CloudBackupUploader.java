@@ -156,11 +156,14 @@ public final class CloudBackupUploader {
                 );
 
         /*
-         * Server copy is used so old or abandoned chunks can be
-         * removed accurately.
+         * DEFAULT first asks the server and safely falls back to Firestore's
+         * local cache when Google Play Services/DNS is temporarily resolving.
+         * The following atomic batch still has to reach Firestore before its
+         * completion task succeeds, so a cached read cannot create a false
+         * "backup complete" result.
          */
         chunksReference
-                .get(Source.SERVER)
+                .get(Source.DEFAULT)
                 .addOnSuccessListener(
                         existingChunks ->
                                 replaceLatestBackup(

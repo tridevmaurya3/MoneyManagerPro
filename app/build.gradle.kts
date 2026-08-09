@@ -24,8 +24,8 @@ android {
         applicationId = "com.example.moneymanagerpro"
         minSdk = 24
         targetSdk = 34
-        versionCode = 26
-        versionName = "3.5"
+        versionCode = 27
+        versionName = "3.6"
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
