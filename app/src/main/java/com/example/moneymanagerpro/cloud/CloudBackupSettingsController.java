@@ -25,6 +25,7 @@ import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
+import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
@@ -639,13 +640,11 @@ public final class CloudBackupSettingsController {
      */
     private void startManualCloudBackup() {
         if (manualBackupRunning) {
-            Toast.makeText(
-                    activity,
-                    "Encrypted cloud backup पहले से चल रहा है।",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            return;
+            FirebaseUser waitingUser = firebaseAuth.getCurrentUser();
+            if (waitingUser == null) return;
+            workManager.cancelUniqueWork(getManualWorkName(waitingUser.getUid()));
+            manualBackupRunning = false;
+            activeManualWorkId = null;
         }
 
         if (cloudRestoreRunning) {
@@ -759,10 +758,7 @@ public final class CloudBackupSettingsController {
             Constraints constraints =
                     new Constraints.Builder()
                             .setRequiredNetworkType(
-                                    NetworkType.CONNECTED
-                            )
-                            .setRequiresStorageNotLow(
-                                    true
+                                    NetworkType.NOT_REQUIRED
                             )
                             .build();
 
@@ -783,6 +779,9 @@ public final class CloudBackupSettingsController {
                                     BackoffPolicy.EXPONENTIAL,
                                     MANUAL_BACKOFF_SECONDS,
                                     TimeUnit.SECONDS
+                            )
+                            .setExpedited(
+                                    OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST
                             )
                             .addTag(
                                     TAG_MANUAL_CLOUD_BACKUP
@@ -1072,8 +1071,7 @@ public final class CloudBackupSettingsController {
 
         txtCloudBackupStatus.setText(
                 "Manual encrypted cloud backup तैयार किया जा रहा है।\n"
-                        + "Internet connection उपलब्ध होते ही encryption "
-                        + "और upload शुरू होगा।"
+                        + "Encryption और Firebase upload अभी शुरू होगा।"
         );
     }
 
@@ -1106,17 +1104,17 @@ public final class CloudBackupSettingsController {
             );
 
         } else {
-            btnCloudBackupNow.setText(
-                    "Waiting..."
-            );
+            btnCloudBackupNow.setEnabled(true);
+            btnCloudBackupNow.setAlpha(1F);
+            btnCloudBackupNow.setText("Retry Now");
 
             txtCloudBackupAvailability.setText(
                     "Waiting"
             );
 
             txtCloudBackupStatus.setText(
-                    "Manual encrypted cloud backup internet connection "
-                            + "का इंतजार कर रहा है।"
+                    "Backup system scheduler में queued है। यदि यह कुछ "
+                            + "seconds में शुरू न हो तो Retry Now दबाएँ।"
             );
         }
     }
