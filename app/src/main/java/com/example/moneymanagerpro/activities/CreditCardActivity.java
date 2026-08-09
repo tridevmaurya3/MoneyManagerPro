@@ -119,7 +119,7 @@ public class CreditCardActivity extends AppCompatActivity {
         button.setTag(tag);
         button.setText("Data Center");
         button.setTextSize(11);
-        button.setTextAllCaps(false);
+        button.setAllCaps(false);
         button.setTextColor(android.graphics.Color.WHITE);
         button.setIconResource(android.R.drawable.ic_menu_manage);
         button.setIconTint(android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE));
