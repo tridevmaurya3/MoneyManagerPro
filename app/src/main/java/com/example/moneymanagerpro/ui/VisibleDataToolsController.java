@@ -123,7 +123,7 @@ public final class VisibleDataToolsController {
         MaterialButton button = new MaterialButton(activity);
         button.setText(label);
         button.setTextSize(10);
-        button.setTextAllCaps(false);
+        button.setAllCaps(false);
         button.setMinWidth(0);
         button.setMinimumWidth(0);
         button.setInsetTop(0);
