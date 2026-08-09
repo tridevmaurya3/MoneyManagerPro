@@ -73,6 +73,19 @@ public final class VisibleDataToolsController {
         activity.getWindow().getDecorView().post(() -> export(false, true));
     }
 
+    /** Shares the Dashboard exactly for the month currently selected by the user. */
+    public void shareDashboardMonth(@NonNull Calendar selectedMonth) {
+        start = (Calendar) selectedMonth.clone();
+        clearTime(start);
+        start.set(Calendar.DAY_OF_MONTH, 1);
+        end = (Calendar) start.clone();
+        end.set(Calendar.DAY_OF_MONTH, end.getActualMaximum(Calendar.DAY_OF_MONTH));
+        end.set(Calendar.HOUR_OF_DAY, 23);
+        end.set(Calendar.MINUTE, 59);
+        end.set(Calendar.SECOND, 59);
+        activity.getWindow().getDecorView().post(() -> export(false, true));
+    }
+
     private boolean supported() {
         String name = activity.getClass().getSimpleName();
         if (name.equals("ExportActivity") || name.startsWith("Add") || name.startsWith("Edit") || name.contains("Settings") || name.contains("Backup") || name.contains("Authentication") || name.contains("Pin")) return false;
@@ -87,13 +100,14 @@ public final class VisibleDataToolsController {
         if (contentGroup.getChildCount() == 0) return;
         View original = contentGroup.getChildAt(0);
         contentGroup.removeView(original);
+        hideOriginalBack(original);
 
         LinearLayout wrapper = new LinearLayout(activity);
         wrapper.setOrientation(LinearLayout.VERTICAL);
         wrapper.setLayoutParams(new ViewGroup.LayoutParams(-1, -1));
         toolbar = buildToolbar();
         toolbar.setTag(TAG);
-        wrapper.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(96)));
+        wrapper.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(52)));
         wrapper.addView(original, new LinearLayout.LayoutParams(-1, 0, 1f));
         contentGroup.addView(wrapper);
         selectRange(Range.THIS_MONTH);
@@ -105,17 +119,33 @@ public final class VisibleDataToolsController {
         outer.setPadding(dp(8), dp(6), dp(8), dp(4));
         outer.setBackgroundColor(activity.getColor(R.color.app_surface));
 
-        LinearLayout ranges = actionStrip();
-        for (Range range : Range.values()) ranges.addView(button(range.symbol + "  " + range.label, false, v -> selectRange(range)));
-        outer.addView(scroller(ranges), new LinearLayout.LayoutParams(-1, dp(41)));
-
-        LinearLayout exports = actionStrip();
-        exports.addView(button("⇅  Sort", true, v -> cycleSort()));
-        exports.addView(button("▤  PDF", true, v -> export(false, false)));
-        exports.addView(button("▦  Excel", true, v -> export(true, false)));
-        exports.addView(button("↗  Share PDF", true, v -> export(false, true)));
-        outer.addView(scroller(exports), new LinearLayout.LayoutParams(-1, dp(41)));
+        LinearLayout actions = actionStrip();
+        actions.addView(button("‹", true, v -> activity.finish()));
+        for (Range range : Range.values()) actions.addView(button(range.symbol + "  " + range.label, false, v -> selectRange(range)));
+        actions.addView(button("⇅  Sort", true, v -> cycleSort()));
+        actions.addView(button("▤  PDF", true, v -> export(false, false)));
+        actions.addView(button("▦  Excel", true, v -> export(true, false)));
+        actions.addView(button("↗  Share PDF", true, v -> export(false, true)));
+        outer.addView(scroller(actions), new LinearLayout.LayoutParams(-1, dp(41)));
         return outer;
+    }
+
+    private boolean hideOriginalBack(View view) {
+        if (view instanceof TextView) {
+            CharSequence value = ((TextView) view).getText();
+            String label = value == null ? "" : value.toString().trim();
+            if (label.equals("‹") || label.equals("←") || label.toLowerCase(Locale.ENGLISH).contains("back")) {
+                view.setVisibility(View.GONE);
+                return true;
+            }
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                if (hideOriginalBack(group.getChildAt(index))) return true;
+            }
+        }
+        return false;
     }
 
     private HorizontalScrollView scroller(LinearLayout content) {

@@ -1,6 +1,7 @@
 package com.example.moneymanagerpro.activities;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -95,6 +96,9 @@ public class CreditCardActivity extends AppCompatActivity {
         bindViews();
         setupStaticDropdowns();
         setupActions();
+        findViewById(R.id.btnCreditCardDataCenter).setOnClickListener(view ->
+                startActivity(new Intent(this, AdvancedFinanceDataActivity.class))
+        );
     }
 
     @Override

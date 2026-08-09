@@ -28,12 +28,6 @@
             android:initOrder="150" />
 
         <provider
-            android:name=".ui.AdvancedFinanceDataLauncherInitializer"
-            android:authorities="${applicationId}.advanced_finance_data_launcher"
-            android:exported="false"
-            android:initOrder="145" />
-
-        <provider
             android:name=".ui.GlobalSignedFinanceColorInitializer"
             android:authorities="${applicationId}.global_signed_finance_colors"
             android:exported="false"
@@ -44,6 +38,12 @@
             android:authorities="${applicationId}.visible_data_tools"
             android:exported="false"
             android:initOrder="141" />
+
+        <provider
+            android:name=".widget.WidgetDataSyncInitializer"
+            android:authorities="${applicationId}.widget_data_sync"
+            android:exported="false"
+            android:initOrder="139" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

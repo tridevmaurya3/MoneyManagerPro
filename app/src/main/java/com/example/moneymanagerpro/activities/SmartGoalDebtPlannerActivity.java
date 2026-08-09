@@ -7,6 +7,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -89,8 +90,31 @@ public final class SmartGoalDebtPlannerActivity extends AppCompatActivity {
                 11, R.color.app_text_secondary, false
         ));
 
+        HorizontalScrollView strategyScroll = new HorizontalScrollView(this);
+        strategyScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout strategyChips = new LinearLayout(this);
+        strategyChips.setOrientation(LinearLayout.HORIZONTAL);
+        String[] shortStrategies = {"Snowball", "Avalanche", "EMI Relief", "Highest Balance", "Quick Win"};
+        for (String strategy : shortStrategies) {
+            MaterialButton chip = button(strategy);
+            chip.setTextSize(10);
+            chip.setTextColor(color(R.color.secondary));
+            chip.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color(R.color.info_surface)));
+            chip.setStrokeColor(android.content.res.ColorStateList.valueOf(color(R.color.info_outline)));
+            chip.setStrokeWidth(dp(1));
+            LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, dp(38));
+            chipParams.setMargins(0, dp(10), dp(6), 0);
+            chip.setLayoutParams(chipParams);
+            chip.setOnClickListener(view -> selectStrategy(strategy));
+            strategyChips.addView(chip);
+        }
+        strategyScroll.addView(strategyChips);
+        controlContent.addView(strategyScroll);
+
         TextInputLayout strategyLayout = new TextInputLayout(this);
         strategyLayout.setHint("Debt payoff strategy");
+        strategyLayout.setEndIconMode(TextInputLayout.END_ICON_DROPDOWN_MENU);
         LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         );
@@ -139,6 +163,21 @@ public final class SmartGoalDebtPlannerActivity extends AppCompatActivity {
         resultContainer.setOrientation(LinearLayout.VERTICAL);
         content.addView(resultContainer);
         return scrollView;
+    }
+
+    private void selectStrategy(String strategy) {
+        if (strategy.startsWith("Avalanche")) {
+            strategyDropdown.setText("Avalanche — highest interest first", false);
+        } else if (strategy.startsWith("EMI Relief")) {
+            strategyDropdown.setText("EMI Relief — release highest EMI first", false);
+        } else if (strategy.startsWith("Highest Balance")) {
+            strategyDropdown.setText("Highest Balance — largest debt first", false);
+        } else if (strategy.startsWith("Quick Win")) {
+            strategyDropdown.setText("Quick Win — lowest balance-to-EMI ratio", false);
+        } else {
+            strategyDropdown.setText("Snowball — smallest debt first", false);
+        }
+        generatePlan();
     }
 
     private void generatePlan() {
