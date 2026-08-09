@@ -149,10 +149,13 @@ public final class VisibleDataToolsController {
     }
 
     private void showExportMenu() {
-        String[] choices = {"▤  PDF", "▦  Excel", "↗  Share PDF"};
+        String[] choices = {
+                "▤  Save as PDF",
+                "▦  Save as Excel",
+                "↗  Share as PDF"
+        };
         new AlertDialog.Builder(activity)
-                .setTitle("Export visible data")
-                .setMessage("The current filter and sort will be applied.")
+                .setTitle("Export current filtered data")
                 .setItems(choices, (dialog, which) -> {
                     if (which == 0) export(false, false);
                     else if (which == 1) export(true, false);
