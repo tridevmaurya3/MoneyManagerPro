@@ -751,7 +751,7 @@ public class FinanceIntelligenceHubActivity extends AppCompatActivity {
     private MaterialButton button(String label, boolean strong) {
         MaterialButton button = new MaterialButton(this);
         button.setText(label);
-        button.setTextAllCaps(false);
+        button.setAllCaps(false);
         button.setTextSize(11);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setTextColor(Color.parseColor(strong ? "#FFFFFF" : "#17351F"));
