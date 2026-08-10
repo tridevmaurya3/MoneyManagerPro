@@ -128,13 +128,62 @@
 
         <receiver
             android:name=".widget.FinanceWidgetProvider"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/widget_finance_summary_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/finance_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.QuickActionsWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_quick_actions_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_actions_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.DueReminderWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_due_reminder_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/due_reminder_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.MonthlySnapshotWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_monthly_snapshot_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/monthly_snapshot_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CompactBalanceWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_compact_balance_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/compact_balance_widget_info" />
         </receiver>
 
         <activity

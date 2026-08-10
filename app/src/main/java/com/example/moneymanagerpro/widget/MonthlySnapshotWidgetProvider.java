@@ -5,11 +5,8 @@ import android.widget.RemoteViews;
 
 import androidx.annotation.NonNull;
 
-/** Full Dashboard-style finance summary widget. */
-public final class FinanceWidgetProvider extends BaseFinanceWidgetProvider {
-
-    public static final String ACTION_REFRESH_WIDGET = ACTION_REFRESH_WIDGET_PACK;
-
+/** Monthly income, expense and saving snapshot widget. */
+public final class MonthlySnapshotWidgetProvider extends BaseFinanceWidgetProvider {
     @NonNull
     @Override
     protected RemoteViews buildViews(
@@ -17,11 +14,11 @@ public final class FinanceWidgetProvider extends BaseFinanceWidgetProvider {
             @NonNull WidgetFinanceSnapshot snapshot,
             int widgetId
     ) {
-        return WidgetPackRenderer.summary(
+        return WidgetPackRenderer.monthlySnapshot(
                 context,
                 snapshot,
                 widgetId,
-                FinanceWidgetProvider.class
+                MonthlySnapshotWidgetProvider.class
         );
     }
 }

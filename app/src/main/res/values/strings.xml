@@ -2,4 +2,10 @@
     <string name="app_name">MoneyManagerPro</string>
     <string name="expense_item_number">Item %1$d</string>
     <string name="expense_items_total">Items total: ₹%1$s</string>
+
+    <string name="widget_finance_summary_name">Finance Summary</string>
+    <string name="widget_quick_actions_name">Finance Quick Actions</string>
+    <string name="widget_due_reminder_name">Bills &amp; Due</string>
+    <string name="widget_monthly_snapshot_name">Monthly Snapshot</string>
+    <string name="widget_compact_balance_name">Compact Balance</string>
 </resources>

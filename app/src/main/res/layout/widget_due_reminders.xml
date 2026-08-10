@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetDueRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="11dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/widget_surface_warning"
+            android:gravity="center"
+            android:text="⌁"
+            android:textColor="#9A6700"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:includeFontPadding="false"
+                android:text="Bills &amp; Due"
+                android:textColor="#17351F"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/widgetDueUpdated"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:includeFontPadding="false"
+                android:text="Updated now"
+                android:textColor="#617067"
+                android:textSize="7sp" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/widgetDueCount"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:background="@drawable/widget_surface_blue"
+            android:gravity="center"
+            android:minWidth="48dp"
+            android:paddingStart="7dp"
+            android:paddingEnd="7dp"
+            android:text="0 items"
+            android:textColor="#0F6CBD"
+            android:textSize="8sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/widgetDueRefresh"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/widget_surface_blue"
+            android:gravity="center"
+            android:text="↻"
+            android:textColor="#0F6CBD"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="78dp"
+        android:layout_marginTop="7dp"
+        android:background="@drawable/widget_surface_white"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="10dp">
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <TextView
+                    android:id="@+id/widgetDueStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="24dp"
+                    android:background="@drawable/widget_surface_blue"
+                    android:gravity="center"
+                    android:minWidth="64dp"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:text="UPCOMING"
+                    android:textColor="#0F6CBD"
+                    android:textSize="7sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/widgetDueType"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="7dp"
+                    android:layout_weight="1"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:text="Credit Card"
+                    android:textColor="#4D5B51"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <TextView
+                android:id="@+id/widgetDueDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="Nearest payment item"
+                android:textColor="#17351F"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/widgetDueDate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:includeFontPadding="false"
+                android:text="10 Aug 2026"
+                android:textColor="#617067"
+                android:textSize="8sp" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/widgetDueAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:maxLines="1"
+            android:text="₹0.00"
+            android:textColor="#C42B1C"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginTop="7dp"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/widgetDueOpen"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_surface_blue"
+            android:gravity="center"
+            android:text="Open Due Item"
+            android:textColor="#0F6CBD"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/widgetDueCalendar"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_surface_purple"
+            android:gravity="center"
+            android:text="Calendar"
+            android:textColor="#6B4FA3"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>
