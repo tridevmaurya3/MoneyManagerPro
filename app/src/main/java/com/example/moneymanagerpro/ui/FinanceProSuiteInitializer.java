@@ -148,7 +148,7 @@ public final class FinanceProSuiteInitializer extends ContentProvider {
 
         MaterialButton open = new MaterialButton(activity);
         open.setText("Open Smart Financial Dashboard 2.0");
-        open.setTextAllCaps(false);
+        open.setAllCaps(false);
         open.setTextSize(10);
         open.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         open.setTextColor(Color.WHITE);
