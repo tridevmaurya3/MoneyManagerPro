@@ -4,11 +4,9 @@ import android.app.Activity;
 import android.app.Application;
 import android.content.ContentProvider;
 import android.content.ContentValues;
-import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.database.Cursor;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -20,207 +18,491 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.example.moneymanagerpro.R;
-import com.example.moneymanagerpro.activities.DashboardActivity;
 import com.example.moneymanagerpro.activities.FinanceIntelligenceHubActivity;
-import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Adds a permanent Finance Pro Suite entry directly below the Dashboard period
- * selector. It does not replace or duplicate existing dashboard controllers.
+ * Applies lightweight UI polish to Finance Pro Suite without changing its
+ * database, calculations or navigation. Dashboard placement is handled by
+ * DashboardAccordionController so Finance Pro appears with Dashboard Tools.
  */
 public final class FinanceProSuiteInitializer extends ContentProvider {
 
-    private static final String CARD_TAG = "finance_pro_suite_dashboard_entry";
+    private static final String COMPACT_HERO_TAG =
+            "finance_pro_compact_smart_overview";
 
     @Override
     public boolean onCreate() {
-        if (getContext() == null) return false;
+        if (getContext() == null) {
+            return false;
+        }
 
-        Application application = (Application) getContext().getApplicationContext();
-        application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
-            @Override
-            public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
-            }
+        Application application =
+                (Application) getContext().getApplicationContext();
 
-            @Override
-            public void onActivityStarted(@NonNull Activity activity) {
-            }
+        application.registerActivityLifecycleCallbacks(
+                new Application.ActivityLifecycleCallbacks() {
+                    @Override
+                    public void onActivityCreated(
+                            @NonNull Activity activity,
+                            @Nullable Bundle savedInstanceState
+                    ) {
+                    }
 
-            @Override
-            public void onActivityResumed(@NonNull Activity activity) {
-                if (activity instanceof DashboardActivity) {
-                    activity.getWindow().getDecorView().post(() -> inject(activity));
+                    @Override
+                    public void onActivityStarted(
+                            @NonNull Activity activity
+                    ) {
+                    }
+
+                    @Override
+                    public void onActivityResumed(
+                            @NonNull Activity activity
+                    ) {
+                        if (activity instanceof FinanceIntelligenceHubActivity) {
+                            activity.getWindow()
+                                    .getDecorView()
+                                    .post(() -> polishFinanceProPage(activity));
+                        }
+                    }
+
+                    @Override
+                    public void onActivityPaused(
+                            @NonNull Activity activity
+                    ) {
+                    }
+
+                    @Override
+                    public void onActivityStopped(
+                            @NonNull Activity activity
+                    ) {
+                    }
+
+                    @Override
+                    public void onActivitySaveInstanceState(
+                            @NonNull Activity activity,
+                            @NonNull Bundle outState
+                    ) {
+                    }
+
+                    @Override
+                    public void onActivityDestroyed(
+                            @NonNull Activity activity
+                    ) {
+                    }
                 }
-            }
+        );
 
-            @Override
-            public void onActivityPaused(@NonNull Activity activity) {
-            }
-
-            @Override
-            public void onActivityStopped(@NonNull Activity activity) {
-            }
-
-            @Override
-            public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
-            }
-
-            @Override
-            public void onActivityDestroyed(@NonNull Activity activity) {
-            }
-        });
         return true;
     }
 
-    private void inject(@NonNull Activity activity) {
-        if (activity.isFinishing() || activity.isDestroyed()) return;
+    private void polishFinanceProPage(
+            @NonNull Activity activity
+    ) {
+        if (activity.isFinishing() || activity.isDestroyed()) {
+            return;
+        }
 
-        View existing = activity.getWindow().getDecorView().findViewWithTag(CARD_TAG);
-        if (existing != null) return;
+        View root = activity.findViewById(android.R.id.content);
+        if (!(root instanceof ViewGroup)) {
+            return;
+        }
 
-        View periodCard = activity.findViewById(R.id.cardPeriodSelector);
-        if (periodCard == null || !(periodCard.getParent() instanceof ViewGroup)) return;
-
-        ViewGroup parent = (ViewGroup) periodCard.getParent();
-        MaterialCardView card = new MaterialCardView(activity);
-        card.setTag(CARD_TAG);
-        card.setCardBackgroundColor(Color.parseColor("#F1F7FF"));
-        card.setStrokeColor(Color.parseColor("#B9D4EF"));
-        card.setStrokeWidth(dp(activity, 1));
-        card.setRadius(dp(activity, 18));
-        card.setCardElevation(0f);
-        card.setClickable(true);
-        card.setFocusable(true);
-
-        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        cardParams.setMargins(0, dp(activity, 10), 0, 0);
-        card.setLayoutParams(cardParams);
-
-        LinearLayout content = new LinearLayout(activity);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(activity, 14), dp(activity, 12), dp(activity, 14), dp(activity, 12));
-
-        LinearLayout headingRow = new LinearLayout(activity);
-        headingRow.setOrientation(LinearLayout.HORIZONTAL);
-        headingRow.setGravity(Gravity.CENTER_VERTICAL);
-        headingRow.setBaselineAligned(false);
-
-        LinearLayout labels = new LinearLayout(activity);
-        labels.setOrientation(LinearLayout.VERTICAL);
-        labels.setLayoutParams(new LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f
-        ));
-
-        TextView title = text(activity, "Finance Pro Suite", 15, "#17351F", true);
-        labels.addView(title);
-        TextView subtitle = text(
+        fixBackButton(
                 activity,
-                "Dashboard 2.0 • AI Insights • Analytics • Smart Budget • Accounts & Cards",
-                9,
-                "#617067",
-                false
+                (ViewGroup) root
         );
-        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+
+        compactSmartOverview(
+                activity,
+                (ViewGroup) root
         );
-        subtitleParams.topMargin = dp(activity, 2);
-        subtitle.setLayoutParams(subtitleParams);
-        labels.addView(subtitle);
-        headingRow.addView(labels);
-
-        TextView badge = text(activity, "PRO", 9, "#0F6CBD", true);
-        badge.setGravity(Gravity.CENTER);
-        badge.setPadding(dp(activity, 9), dp(activity, 5), dp(activity, 9), dp(activity, 5));
-        headingRow.addView(badge, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        content.addView(headingRow);
-
-        MaterialButton open = new MaterialButton(activity);
-        open.setText("Open Smart Financial Dashboard 2.0");
-        open.setAllCaps(false);
-        open.setTextSize(10);
-        open.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        open.setTextColor(Color.WHITE);
-        open.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#0F6CBD")));
-        open.setCornerRadius(dp(activity, 13));
-        open.setInsetTop(0);
-        open.setInsetBottom(0);
-        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(activity, 42)
-        );
-        buttonParams.topMargin = dp(activity, 9);
-        open.setLayoutParams(buttonParams);
-        BubbleTouchAnimator.apply(open);
-
-        View.OnClickListener listener = view -> activity.startActivity(
-                new Intent(activity, FinanceIntelligenceHubActivity.class)
-        );
-        open.setOnClickListener(listener);
-        card.setOnClickListener(listener);
-
-        content.addView(open);
-        card.addView(content);
-
-        int index = parent.indexOfChild(periodCard);
-        parent.addView(card, Math.min(parent.getChildCount(), index + 1));
-
-        card.setAlpha(0f);
-        card.setTranslationY(dp(activity, 10));
-        card.animate().alpha(1f).translationY(0f).setDuration(260L).start();
     }
 
-    private TextView text(Activity activity, String value, int size, String color, boolean bold) {
-        TextView view = new TextView(activity);
-        view.setText(value);
-        view.setTextSize(size);
-        view.setTextColor(Color.parseColor(color));
-        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        return view;
+    private void fixBackButton(
+            @NonNull Activity activity,
+            @NonNull ViewGroup root
+    ) {
+        MaterialButton backButton =
+                findBackButton(root);
+
+        if (backButton == null) {
+            return;
+        }
+
+        // Use the standard left arrow instead of the narrow chevron glyph.
+        // It renders reliably across Android fonts and screen densities.
+        backButton.setText("←");
+        backButton.setAllCaps(false);
+        backButton.setTextSize(22);
+        backButton.setTextColor(
+                Color.parseColor("#17351F")
+        );
+        backButton.setGravity(Gravity.CENTER);
+        backButton.setPadding(0, 0, 0, 0);
+        backButton.setMinWidth(0);
+        backButton.setMinHeight(0);
+        backButton.setInsetTop(0);
+        backButton.setInsetBottom(0);
+        backButton.setBackgroundTintList(
+                ColorStateList.valueOf(
+                        Color.parseColor("#FFFFFF")
+                )
+        );
+        backButton.setStrokeColor(
+                ColorStateList.valueOf(
+                        Color.parseColor("#C9D7CD")
+                )
+        );
+        backButton.setStrokeWidth(dp(activity, 1));
+        backButton.setCornerRadius(dp(activity, 13));
+
+        ViewGroup.LayoutParams rawParams =
+                backButton.getLayoutParams();
+
+        if (rawParams instanceof LinearLayout.LayoutParams) {
+            LinearLayout.LayoutParams params =
+                    (LinearLayout.LayoutParams) rawParams;
+            params.width = dp(activity, 42);
+            params.height = dp(activity, 42);
+            backButton.setLayoutParams(params);
+        }
     }
 
-    private int dp(Activity activity, int value) {
-        return Math.round(value * activity.getResources().getDisplayMetrics().density);
+    @Nullable
+    private MaterialButton findBackButton(
+            @NonNull View view
+    ) {
+        if (view instanceof MaterialButton) {
+            CharSequence description =
+                    view.getContentDescription();
+
+            if (description != null
+                    && "Back".equalsIgnoreCase(
+                    description.toString().trim()
+            )) {
+                return (MaterialButton) view;
+            }
+        }
+
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+
+            for (int index = 0;
+                 index < group.getChildCount();
+                 index++) {
+
+                MaterialButton found =
+                        findBackButton(
+                                group.getChildAt(index)
+                        );
+
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void compactSmartOverview(
+            @NonNull Activity activity,
+            @NonNull ViewGroup root
+    ) {
+        TextView heading =
+                findTextView(
+                        root,
+                        "Smart Financial Dashboard 2.0"
+                );
+
+        if (heading == null
+                || !(heading.getParent() instanceof ViewGroup)) {
+            return;
+        }
+
+        ViewGroup parent =
+                (ViewGroup) heading.getParent();
+
+        int headingIndex =
+                parent.indexOfChild(heading);
+
+        MaterialCardView hero = null;
+
+        for (int index = headingIndex + 1;
+             index < parent.getChildCount();
+             index++) {
+
+            View candidate =
+                    parent.getChildAt(index);
+
+            if (candidate instanceof MaterialCardView) {
+                hero = (MaterialCardView) candidate;
+                break;
+            }
+
+            if (candidate instanceof TextView) {
+                String text =
+                        ((TextView) candidate)
+                                .getText()
+                                .toString();
+
+                if (text.startsWith("AI Financial Insights")) {
+                    break;
+                }
+            }
+        }
+
+        if (hero == null
+                || COMPACT_HERO_TAG.equals(hero.getTag())
+                || hero.getChildCount() == 0
+                || !(hero.getChildAt(0) instanceof LinearLayout)) {
+            return;
+        }
+
+        LinearLayout heroContent =
+                (LinearLayout) hero.getChildAt(0);
+
+        List<TextView> metrics =
+                collectMetricViews(heroContent);
+
+        if (metrics.size() != 6) {
+            return;
+        }
+
+        hero.setTag(COMPACT_HERO_TAG);
+        hero.setRadius(dp(activity, 16));
+        heroContent.removeAllViews();
+        heroContent.setPadding(
+                dp(activity, 8),
+                dp(activity, 8),
+                dp(activity, 8),
+                dp(activity, 8)
+        );
+
+        LinearLayout firstRow =
+                compactMetricRow(activity);
+        LinearLayout secondRow =
+                compactMetricRow(activity);
+
+        for (int index = 0;
+             index < metrics.size();
+             index++) {
+
+            TextView metric =
+                    metrics.get(index);
+
+            metric.setMinHeight(0);
+            metric.setGravity(Gravity.CENTER);
+            metric.setTextSize(9.5f);
+            metric.setPadding(
+                    dp(activity, 2),
+                    dp(activity, 3),
+                    dp(activity, 2),
+                    dp(activity, 3)
+            );
+            metric.setMaxLines(3);
+
+            LinearLayout.LayoutParams metricParams =
+                    new LinearLayout.LayoutParams(
+                            0,
+                            dp(activity, 54),
+                            1f
+                    );
+            metricParams.setMargins(
+                    dp(activity, 2),
+                    0,
+                    dp(activity, 2),
+                    0
+            );
+            metric.setLayoutParams(metricParams);
+
+            if (index < 3) {
+                firstRow.addView(metric);
+            } else {
+                secondRow.addView(metric);
+            }
+        }
+
+        heroContent.addView(firstRow);
+
+        LinearLayout.LayoutParams secondRowParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+        secondRowParams.topMargin =
+                dp(activity, 4);
+        secondRow.setLayoutParams(secondRowParams);
+        heroContent.addView(secondRow);
+    }
+
+    @NonNull
+    private List<TextView> collectMetricViews(
+            @NonNull LinearLayout heroContent
+    ) {
+        List<TextView> metrics =
+                new ArrayList<>();
+
+        for (int rowIndex = 0;
+             rowIndex < heroContent.getChildCount();
+             rowIndex++) {
+
+            View rowView =
+                    heroContent.getChildAt(rowIndex);
+
+            if (!(rowView instanceof LinearLayout)) {
+                continue;
+            }
+
+            LinearLayout row =
+                    (LinearLayout) rowView;
+
+            for (int metricIndex = 0;
+                 metricIndex < row.getChildCount();
+                 metricIndex++) {
+
+                View metricView =
+                        row.getChildAt(metricIndex);
+
+                if (metricView instanceof TextView) {
+                    metrics.add(
+                            (TextView) metricView
+                    );
+                }
+            }
+        }
+
+        for (TextView metric : metrics) {
+            if (metric.getParent() instanceof ViewGroup) {
+                ((ViewGroup) metric.getParent())
+                        .removeView(metric);
+            }
+        }
+
+        return metrics;
+    }
+
+    @NonNull
+    private LinearLayout compactMetricRow(
+            @NonNull Activity activity
+    ) {
+        LinearLayout row =
+                new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setBaselineAligned(false);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setLayoutParams(
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+        );
+        return row;
+    }
+
+    @Nullable
+    private TextView findTextView(
+            @NonNull View view,
+            @NonNull String expectedText
+    ) {
+        if (view instanceof TextView) {
+            CharSequence value =
+                    ((TextView) view).getText();
+
+            if (value != null
+                    && expectedText.equals(
+                    value.toString().trim()
+            )) {
+                return (TextView) view;
+            }
+        }
+
+        if (view instanceof ViewGroup) {
+            ViewGroup group =
+                    (ViewGroup) view;
+
+            for (int index = 0;
+                 index < group.getChildCount();
+                 index++) {
+
+                TextView found =
+                        findTextView(
+                                group.getChildAt(index),
+                                expectedText
+                        );
+
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private int dp(
+            @NonNull Activity activity,
+            int value
+    ) {
+        return Math.round(
+                value
+                        * activity
+                        .getResources()
+                        .getDisplayMetrics()
+                        .density
+        );
     }
 
     @Nullable
     @Override
-    public Cursor query(@NonNull Uri uri, @Nullable String[] projection, @Nullable String selection,
-                        @Nullable String[] selectionArgs, @Nullable String sortOrder) {
+    public Cursor query(
+            @NonNull Uri uri,
+            @Nullable String[] projection,
+            @Nullable String selection,
+            @Nullable String[] selectionArgs,
+            @Nullable String sortOrder
+    ) {
         return null;
     }
 
     @Nullable
     @Override
-    public String getType(@NonNull Uri uri) {
+    public String getType(
+            @NonNull Uri uri
+    ) {
         return null;
     }
 
     @Nullable
     @Override
-    public Uri insert(@NonNull Uri uri, @Nullable ContentValues values) {
+    public Uri insert(
+            @NonNull Uri uri,
+            @Nullable ContentValues values
+    ) {
         return null;
     }
 
     @Override
-    public int delete(@NonNull Uri uri, @Nullable String selection, @Nullable String[] selectionArgs) {
+    public int delete(
+            @NonNull Uri uri,
+            @Nullable String selection,
+            @Nullable String[] selectionArgs
+    ) {
         return 0;
     }
 
     @Override
-    public int update(@NonNull Uri uri, @Nullable ContentValues values,
-                      @Nullable String selection, @Nullable String[] selectionArgs) {
+    public int update(
+            @NonNull Uri uri,
+            @Nullable ContentValues values,
+            @Nullable String selection,
+            @Nullable String[] selectionArgs
+    ) {
         return 0;
     }
 }
