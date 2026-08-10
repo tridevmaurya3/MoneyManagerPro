@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat;
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.activities.CalendarActivity;
 import com.example.moneymanagerpro.activities.DashboardActivity;
+import com.example.moneymanagerpro.activities.FinanceIntelligenceHubActivity;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -81,16 +82,60 @@ public final class DashboardAccordionController {
         normalizeGoalDebtCard(goalDebt);
 
         sections.clear();
-        sections.add(new Section("Smart Overview", "Cash flow and budget health", "▥", smart,
-                R.color.success, R.color.success_surface, R.color.success_outline));
-        sections.add(new Section("Trends & Insights", "Cash-flow chart and category spending", "↗", trends,
-                R.color.secondary, R.color.info_surface, R.color.info_outline));
-        sections.add(new Section("Bills & Net Worth", "Upcoming dues and financial position", "▣", obligations,
-                R.color.expense, R.color.error_surface, R.color.error_outline));
-        sections.add(new Section("Goal & Debt Planner", "Debt payoff and savings forecasts", "◎", goalDebt,
-                R.color.purple, R.color.purple_surface, R.color.purple_outline));
-        sections.add(new Section("Calendar & Alerts", "Transactions, EMI, card dues and deadlines", "▦",
-                buildCalendarLauncher(), R.color.expense, R.color.error_surface, R.color.error_outline));
+        sections.add(new Section(
+                "Smart Overview",
+                "Cash flow and budget health",
+                "▥",
+                smart,
+                R.color.success,
+                R.color.success_surface,
+                R.color.success_outline
+        ));
+        sections.add(new Section(
+                "Finance Pro Suite",
+                "AI insights, analytics, budgets, accounts and cards",
+                "₹",
+                buildFinanceProLauncher(),
+                R.color.secondary,
+                R.color.info_surface,
+                R.color.info_outline
+        ));
+        sections.add(new Section(
+                "Trends & Insights",
+                "Cash-flow chart and category spending",
+                "↗",
+                trends,
+                R.color.secondary,
+                R.color.info_surface,
+                R.color.info_outline
+        ));
+        sections.add(new Section(
+                "Bills & Net Worth",
+                "Upcoming dues and financial position",
+                "▣",
+                obligations,
+                R.color.expense,
+                R.color.error_surface,
+                R.color.error_outline
+        ));
+        sections.add(new Section(
+                "Goal & Debt Planner",
+                "Debt payoff and savings forecasts",
+                "◎",
+                goalDebt,
+                R.color.purple,
+                R.color.purple_surface,
+                R.color.purple_outline
+        ));
+        sections.add(new Section(
+                "Calendar & Alerts",
+                "Transactions, EMI, card dues and deadlines",
+                "▦",
+                buildCalendarLauncher(),
+                R.color.expense,
+                R.color.error_surface,
+                R.color.error_outline
+        ));
 
         buildHubAfterMoreFinancialTools();
         closeAll(false);
@@ -178,6 +223,57 @@ public final class DashboardAccordionController {
         card.addView(row);
         card.setOnClickListener(v -> toggle(section));
         BubbleTouchAnimator.apply(card);
+        return card;
+    }
+
+    @NonNull
+    private View buildFinanceProLauncher() {
+        MaterialCardView card = new MaterialCardView(activity);
+        card.setCardBackgroundColor(color(R.color.info_surface));
+        card.setStrokeColor(color(R.color.info_outline));
+        card.setStrokeWidth(dp(1));
+        card.setRadius(dp(16));
+        card.setCardElevation(0f);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, 0, 0, dp(8));
+        card.setLayoutParams(params);
+
+        LinearLayout content = new LinearLayout(activity);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(14), dp(12), dp(14), dp(12));
+
+        content.addView(text(
+                "Finance Pro Suite",
+                15,
+                R.color.secondary,
+                true
+        ));
+
+        TextView detail = text(
+                "Open the unified workspace for Smart Financial Dashboard 2.0, AI financial insights, advanced analytics, smart budget controls, accounts, credit cards and loan overview.",
+                10,
+                R.color.app_text_secondary,
+                false
+        );
+        detail.setLineSpacing(dp(2), 1f);
+        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
+        detailParams.setMargins(0, dp(4), 0, dp(9));
+        detail.setLayoutParams(detailParams);
+        content.addView(detail);
+
+        MaterialButton open = new MaterialButton(activity);
+        open.setText("Open Finance Pro Suite");
+        open.setAllCaps(false);
+        open.setTextSize(12);
+        open.setCornerRadius(dp(14));
+        open.setOnClickListener(v -> activity.startActivity(
+                new Intent(activity, FinanceIntelligenceHubActivity.class)
+        ));
+        BubbleTouchAnimator.apply(open);
+        content.addView(open, new LinearLayout.LayoutParams(-1, dp(46)));
+
+        card.addView(content);
         return card;
     }
 
