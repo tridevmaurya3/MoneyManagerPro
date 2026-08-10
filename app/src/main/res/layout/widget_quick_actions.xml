@@ -71,6 +71,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widgetQuickPrimaryRow"
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:layout_marginTop="7dp"
@@ -102,6 +103,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widgetQuickSecondaryRow"
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:layout_marginTop="6dp"

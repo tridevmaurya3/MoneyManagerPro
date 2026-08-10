@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver.PendingResult;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.widget.RemoteViews;
 
 import androidx.annotation.NonNull;
@@ -23,6 +24,17 @@ public abstract class BaseFinanceWidgetProvider extends AppWidgetProvider {
             int[] appWidgetIds
     ) {
         updateAsync(context, appWidgetManager, appWidgetIds);
+    }
+
+    @Override
+    public void onAppWidgetOptionsChanged(
+            Context context,
+            AppWidgetManager appWidgetManager,
+            int appWidgetId,
+            Bundle newOptions
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions);
+        updateAsync(context, appWidgetManager, new int[]{appWidgetId});
     }
 
     @Override
@@ -49,10 +61,25 @@ public abstract class BaseFinanceWidgetProvider extends AppWidgetProvider {
                 WidgetFinanceSnapshot snapshot = WidgetFinanceSnapshot.load(app);
                 for (int widgetId : safeIds) {
                     RemoteViews views = buildViews(app, snapshot, widgetId);
+                    Bundle options = manager.getAppWidgetOptions(widgetId);
+                    int widthDp = options == null ? 0 : options.getInt(
+                            AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,
+                            0
+                    );
+                    int heightDp = options == null ? 0 : options.getInt(
+                            AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,
+                            0
+                    );
+                    WidgetPackRenderer.applyResponsiveState(
+                            views,
+                            getClass(),
+                            widthDp,
+                            heightDp
+                    );
                     manager.updateAppWidget(widgetId, views);
                 }
             } catch (Exception ignored) {
-                // Keep the last valid widget state if Room is temporarily unavailable.
+                // Keep the last valid widget state if Room or launcher options are temporarily unavailable.
             } finally {
                 pendingResult.finish();
             }

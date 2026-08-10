@@ -62,6 +62,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widgetCompactBalanceCard"
         android:layout_width="match_parent"
         android:layout_height="54dp"
         android:layout_marginTop="6dp"
@@ -98,6 +99,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widgetCompactActionsRow"
         android:layout_width="match_parent"
         android:layout_height="36dp"
         android:layout_marginTop="6dp"

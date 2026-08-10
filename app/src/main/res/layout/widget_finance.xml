@@ -63,6 +63,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widgetSummaryBalanceCard"
         android:layout_width="match_parent"
         android:layout_height="58dp"
         android:layout_marginTop="7dp"
@@ -101,6 +102,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/widgetSummaryBalanceMeta"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="end"
@@ -130,6 +132,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widgetSummaryMetricsRow"
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:layout_marginTop="7dp"
@@ -204,6 +207,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widgetSummaryQuickTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="7dp"
@@ -231,6 +235,7 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widgetSummaryActionsRow"
         android:layout_width="match_parent"
         android:layout_height="38dp"
         android:layout_marginTop="5dp"

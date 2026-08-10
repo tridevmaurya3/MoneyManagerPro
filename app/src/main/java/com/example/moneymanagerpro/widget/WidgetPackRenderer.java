@@ -4,6 +4,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import androidx.annotation.NonNull;
@@ -181,6 +182,78 @@ final class WidgetPackRenderer {
         views.setOnClickPendingIntent(R.id.widgetCompactExpense, activity(context, AddExpenseActivity.class, widgetId, 42));
         views.setOnClickPendingIntent(R.id.widgetCompactRefresh, refresh(context, providerClass, widgetId, 43));
         return views;
+    }
+
+    static void applyResponsiveState(
+            @NonNull RemoteViews views,
+            @NonNull Class<?> providerClass,
+            int widthDp,
+            int heightDp
+    ) {
+        boolean hasWidth = widthDp > 0;
+        boolean hasHeight = heightDp > 0;
+
+        if (providerClass == FinanceWidgetProvider.class) {
+            boolean narrow = hasWidth && widthDp < 235;
+            boolean veryShort = hasHeight && heightDp < 135;
+            boolean shortHeight = hasHeight && heightDp < 190;
+
+            setVisible(views, R.id.widgetSummaryBalanceMeta, !narrow && !veryShort);
+            setVisible(views, R.id.widgetSummaryMetricsRow, !shortHeight);
+            setVisible(views, R.id.widgetSummaryQuickTitle, !veryShort);
+            setVisible(views, R.id.widgetSummaryActionsRow, !veryShort);
+            views.setTextViewText(R.id.widgetRefresh, narrow ? "↻" : "↻ Refresh");
+            return;
+        }
+
+        if (providerClass == QuickActionsWidgetProvider.class) {
+            boolean narrow = hasWidth && widthDp < 210;
+            boolean veryShort = hasHeight && heightDp < 92;
+            boolean shortHeight = hasHeight && heightDp < 132;
+
+            setVisible(views, R.id.widgetQuickBalance, !narrow);
+            setVisible(views, R.id.widgetQuickMonth, !veryShort);
+            setVisible(views, R.id.widgetQuickPrimaryRow, !veryShort);
+            setVisible(views, R.id.widgetQuickSecondaryRow, !shortHeight);
+            setVisible(views, R.id.widgetQuickUpdated, !shortHeight);
+            return;
+        }
+
+        if (providerClass == DueReminderWidgetProvider.class) {
+            boolean narrow = hasWidth && widthDp < 215;
+            boolean veryShort = hasHeight && heightDp < 105;
+            boolean shortHeight = hasHeight && heightDp < 138;
+
+            setVisible(views, R.id.widgetDueCount, !narrow && !veryShort);
+            setVisible(views, R.id.widgetDueType, !narrow);
+            setVisible(views, R.id.widgetDueDetail, !veryShort);
+            setVisible(views, R.id.widgetDueActionsRow, !shortHeight);
+            return;
+        }
+
+        if (providerClass == MonthlySnapshotWidgetProvider.class) {
+            boolean narrow = hasWidth && widthDp < 225;
+            boolean veryShort = hasHeight && heightDp < 105;
+            boolean shortHeight = hasHeight && heightDp < 142;
+
+            setVisible(views, R.id.widgetMonthlySavingCard, !narrow);
+            setVisible(views, R.id.widgetMonthlyStatusRow, !veryShort);
+            setVisible(views, R.id.widgetMonthlyAnalytics, !narrow && !veryShort);
+            setVisible(views, R.id.widgetMonthlyUpdated, !shortHeight);
+            return;
+        }
+
+        if (providerClass == CompactBalanceWidgetProvider.class) {
+            boolean narrow = hasWidth && widthDp < 195;
+            boolean shortHeight = hasHeight && heightDp < 112;
+
+            setVisible(views, R.id.widgetCompactSaving, !narrow);
+            setVisible(views, R.id.widgetCompactActionsRow, !shortHeight);
+        }
+    }
+
+    private static void setVisible(@NonNull RemoteViews views, int viewId, boolean visible) {
+        views.setViewVisibility(viewId, visible ? View.VISIBLE : View.GONE);
     }
 
     @NonNull
