@@ -1,21 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Base.Theme.MoneyManagerPro"
+    <style
+        name="Base.Theme.MoneyManagerPro"
         parent="Theme.Material3.DayNight.NoActionBar">
 
+        <!-- Same typography and component contract as the light Dashboard -->
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="fontFamily">sans-serif</item>
+
+        <!-- Primary colors -->
         <item name="colorPrimary">@color/primary</item>
-        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorOnPrimary">@color/text_on_primary</item>
+        <item name="colorPrimaryContainer">@color/primaryLight</item>
+        <item name="colorOnPrimaryContainer">@color/primaryDark</item>
+
+        <!-- Secondary colors -->
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="colorOnSecondary">@color/text_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/info_surface</item>
+        <item name="colorOnSecondaryContainer">@color/secondaryDark</item>
+
+        <!-- Tertiary colors -->
+        <item name="colorTertiary">@color/purple</item>
+        <item name="colorOnTertiary">@color/black</item>
+        <item name="colorTertiaryContainer">@color/purple_surface</item>
+        <item name="colorOnTertiaryContainer">@color/purple</item>
+
+        <!-- Background and surfaces -->
+        <item name="android:colorBackground">@color/app_background</item>
         <item name="colorSurface">@color/app_surface</item>
         <item name="colorOnSurface">@color/app_text_primary</item>
+        <item name="colorSurfaceVariant">@color/app_surface_soft</item>
+        <item name="colorOnSurfaceVariant">@color/app_text_secondary</item>
 
+        <!-- Outlines -->
+        <item name="colorOutline">@color/app_outline</item>
+        <item name="colorOutlineVariant">@color/app_outline_soft</item>
+
+        <!-- Error colors -->
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/black</item>
+        <item name="colorErrorContainer">@color/error_surface</item>
+        <item name="colorOnErrorContainer">@color/expense_dark</item>
+
+        <!-- Text and controls -->
+        <item name="android:textColorPrimary">@color/app_text_primary</item>
+        <item name="android:textColorSecondary">@color/app_text_secondary</item>
+        <item name="colorControlNormal">@color/app_text_secondary</item>
+        <item name="colorControlActivated">@color/primary</item>
+        <item name="colorControlHighlight">@color/app_surface_muted</item>
+        <item name="android:colorAccent">@color/primary</item>
+        <item name="android:listDivider">@color/app_divider</item>
+
+        <!-- Window -->
         <item name="android:windowBackground">@color/app_background</item>
-        <item name="android:statusBarColor">@color/app_background</item>
-        <item name="android:navigationBarColor">@color/app_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowDisablePreview">false</item>
+        <item name="android:windowActivityTransitions">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
 
+        <!-- Theme-aware dark system bars -->
+        <item name="android:statusBarColor">@color/status_bar_color</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/navigation_bar_color</item>
         <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:forceDarkAllowed">true</item>
+
+        <!-- Do not let the framework re-darken custom semantic surfaces -->
+        <item name="android:forceDarkAllowed">false</item>
 
     </style>
 

@@ -2,46 +2,43 @@ package com.example.moneymanagerpro.pro;
 
 import android.app.Activity;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.EditText;
 import android.widget.ScrollView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 import androidx.core.widget.NestedScrollView;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.activities.DashboardActivity;
+import com.example.moneymanagerpro.activities.SplashActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.textfield.TextInputLayout;
 
 /**
- * Safe Fluent-style polish that preserves each screen's semantic colors while
- * standardising shape, elevation, controls and light system surfaces.
+ * Final app-wide Fluent polish.
+ *
+ * Dashboard is the visual source of truth. Non-dashboard screens are normalized
+ * to the same compact typography, low-elevation cards, rounded controls and
+ * soft semantic button surfaces without changing finance colors or business
+ * logic. The pass is theme-aware and therefore does not force light system bars
+ * when the app is using dark mode.
  */
 public final class FluentProfessionalPolish {
 
-    private static final int SYSTEM_SURFACE =
-            Color.rgb(247, 249, 252);
-
     private static final String DATA_CENTER_BUTTON_TAG =
             "credit_card_data_center_fab";
-
-    /*
-     * Translucent Fluent surface used only by the floating Data Center action.
-     * The alpha keeps underlying content softly visible without reducing
-     * readability of the blue label and icon.
-     */
-    private static final int DATA_CENTER_GLASS_SURFACE =
-            Color.argb(218, 238, 247, 255);
-
-    private static final int DATA_CENTER_ACCENT =
-            Color.rgb(15, 108, 189);
-
-    private static final int DATA_CENTER_OUTLINE =
-            Color.rgb(137, 190, 232);
 
     private FluentProfessionalPolish() {
     }
@@ -51,42 +48,89 @@ public final class FluentProfessionalPolish {
             return;
         }
 
+        applySystemSurfaces(activity);
+
+        View decor = activity.getWindow().getDecorView();
+
+        if (!(activity instanceof DashboardActivity)
+                && !(activity instanceof SplashActivity)
+                && decor instanceof ViewGroup) {
+
+            applyContentBackground(activity);
+            polishTree(activity, (ViewGroup) decor);
+
+            /*
+             * Several existing controllers add cards shortly after onResume().
+             * One delayed pass catches those dynamic views without installing
+             * a permanent layout observer on every screen.
+             */
+            decor.postDelayed(
+                    () -> {
+                        if (activity.isFinishing() || activity.isDestroyed()) {
+                            return;
+                        }
+
+                        View latestDecor = activity.getWindow().getDecorView();
+                        if (latestDecor instanceof ViewGroup) {
+                            polishTree(activity, (ViewGroup) latestDecor);
+                        }
+                        styleDataCenterButton(activity);
+                    },
+                    260L
+            );
+        }
+
+        styleDataCenterButton(activity);
+    }
+
+    private static void applySystemSurfaces(@NonNull Activity activity) {
+        boolean night = isNightMode(activity);
+
+        int appBackground = ContextCompat.getColor(
+                activity,
+                R.color.app_background
+        );
+        int surface = ContextCompat.getColor(
+                activity,
+                R.color.app_surface
+        );
+
         Window window = activity.getWindow();
-        window.setStatusBarColor(SYSTEM_SURFACE);
-        window.setNavigationBarColor(SYSTEM_SURFACE);
+        window.setStatusBarColor(appBackground);
+        window.setNavigationBarColor(surface);
 
         View decor = window.getDecorView();
         int flags = decor.getSystemUiVisibility();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (night) {
+                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            } else {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            }
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            if (night) {
+                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            } else {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
         }
 
         decor.setSystemUiVisibility(flags);
+    }
 
-        if (decor instanceof ViewGroup) {
-            polishTree(
-                    activity,
-                    (ViewGroup) decor
+    private static void applyContentBackground(@NonNull Activity activity) {
+        View content = activity.findViewById(android.R.id.content);
+        if (content != null) {
+            content.setBackgroundColor(
+                    ContextCompat.getColor(
+                            activity,
+                            R.color.app_background
+                    )
             );
         }
-
-        /*
-         * CreditCardActivity creates its floating Data Center button from a
-         * posted onResume callback. Try immediately and once again shortly
-         * afterwards so the Fluent glass treatment is reliable regardless of
-         * lifecycle callback ordering.
-         */
-        styleDataCenterButton(activity);
-
-        decor.postDelayed(
-                () -> styleDataCenterButton(activity),
-                100L
-        );
     }
 
     private static void polishTree(
@@ -97,61 +141,34 @@ public final class FluentProfessionalPolish {
             View child = group.getChildAt(i);
 
             if (child instanceof MaterialCardView) {
-                MaterialCardView card =
-                        (MaterialCardView) child;
-
-                if (card.getRadius() < dp(activity, 12)) {
-                    card.setRadius(
-                            dp(activity, 12)
-                    );
-                }
-
-                if (card.getCardElevation() > dp(activity, 2)) {
-                    card.setCardElevation(
-                            dp(activity, 1)
-                    );
-                }
-
-                card.setUseCompatPadding(false);
+                normalizeCard(
+                        activity,
+                        (MaterialCardView) child
+                );
             }
 
             if (child instanceof MaterialButton) {
-                MaterialButton button =
-                        (MaterialButton) child;
-
-                button.setAllCaps(false);
-                button.setInsetTop(0);
-                button.setInsetBottom(0);
-                button.setMinHeight(
-                        dp(activity, 40)
+                normalizeButton(
+                        activity,
+                        (MaterialButton) child
                 );
-
-                if (button.getCornerRadius()
-                        < dp(activity, 11)) {
-
-                    button.setCornerRadius(
-                            dp(activity, 11)
-                    );
-                }
+            } else if (child instanceof EditText) {
+                normalizeEditText(
+                        activity,
+                        (EditText) child
+                );
+            } else if (child instanceof TextView) {
+                normalizeText(
+                        activity,
+                        (TextView) child
+                );
             }
 
             if (child instanceof TextInputLayout) {
-                TextInputLayout input =
-                        (TextInputLayout) child;
-
-                if (input.getBoxBackgroundMode()
-                        != TextInputLayout.BOX_BACKGROUND_NONE) {
-
-                    float radius =
-                            dp(activity, 12);
-
-                    input.setBoxCornerRadii(
-                            radius,
-                            radius,
-                            radius,
-                            radius
-                    );
-                }
+                normalizeInputLayout(
+                        activity,
+                        (TextInputLayout) child
+                );
             }
 
             if (child instanceof RecyclerView) {
@@ -181,68 +198,457 @@ public final class FluentProfessionalPolish {
         }
     }
 
-    private static void styleDataCenterButton(
-            @NonNull Activity activity
+    private static void normalizeCard(
+            @NonNull Activity activity,
+            @NonNull MaterialCardView card
     ) {
-        if (activity.isFinishing()
-                || activity.isDestroyed()) {
+        if (isSmallSquareView(activity, card)) {
+            card.setCardElevation(0f);
+            card.setUseCompatPadding(false);
             return;
         }
 
-        View decor =
-                activity.getWindow()
-                        .getDecorView();
+        float radius = card.getRadius();
+        if (radius < dp(activity, 14)
+                || radius > dp(activity, 22)) {
+            card.setRadius(dp(activity, 16));
+        }
 
-        View taggedView =
-                decor.findViewWithTag(
-                        DATA_CENTER_BUTTON_TAG
+        if (card.getCardElevation() > dp(activity, 1)) {
+            card.setCardElevation(dp(activity, 1));
+        }
+
+        if (card.getStrokeWidth() <= 0) {
+            card.setStrokeWidth(dp(activity, 1));
+            card.setStrokeColor(
+                    ContextCompat.getColor(
+                            activity,
+                            R.color.app_outline_soft
+                    )
+            );
+        }
+
+        card.setUseCompatPadding(false);
+    }
+
+    private static void normalizeButton(
+            @NonNull Activity activity,
+            @NonNull MaterialButton button
+    ) {
+        button.setAllCaps(false);
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setElevation(0f);
+
+        String label = safeText(button);
+        boolean compactIcon = isSmallSquareView(activity, button)
+                || isSymbolOnly(label);
+
+        if (!compactIcon) {
+            button.setMinHeight(dp(activity, 44));
+            button.setMinimumHeight(dp(activity, 44));
+
+            float currentSp = toSp(
+                    activity,
+                    button.getTextSize()
+            );
+            if (currentSp > 12.5f) {
+                button.setTextSize(12.5f);
+            }
+
+            button.setTypeface(
+                    Typeface.create(
+                            "sans-serif-medium",
+                            Typeface.NORMAL
+                    )
+            );
+
+            if (button.getCornerRadius() < dp(activity, 12)
+                    || button.getCornerRadius() > dp(activity, 18)) {
+                button.setCornerRadius(dp(activity, 13));
+            }
+
+            ViewGroup.LayoutParams params = button.getLayoutParams();
+            if (params != null
+                    && params.height >= dp(activity, 52)
+                    && params.height <= dp(activity, 66)) {
+                params.height = dp(activity, 46);
+                button.setLayoutParams(params);
+            }
+
+            if (!isThemeChoice(label)
+                    && shouldSoftenButton(button)) {
+                applyActionPalette(
+                        activity,
+                        button,
+                        label
                 );
+            }
+        }
+    }
+
+    private static boolean shouldSoftenButton(
+            @NonNull MaterialButton button
+    ) {
+        ColorStateList tint = button.getBackgroundTintList();
+        if (tint == null) return false;
+
+        int color = tint.getDefaultColor();
+        if (Color.alpha(color) < 220) return false;
+
+        float[] hsv = new float[3];
+        Color.colorToHSV(color, hsv);
+
+        double luminance = ColorUtils.calculateLuminance(color);
+
+        return hsv[1] >= 0.32f
+                && luminance <= 0.58d;
+    }
+
+    private static void applyActionPalette(
+            @NonNull Activity activity,
+            @NonNull MaterialButton button,
+            @NonNull String label
+    ) {
+        String normalized = label.toLowerCase();
+
+        int backgroundRes;
+        int foregroundRes;
+        int outlineRes;
+
+        if (containsAny(
+                normalized,
+                "delete",
+                "remove",
+                "disable",
+                "permanent",
+                "erase"
+        )) {
+            backgroundRes = R.color.error_surface;
+            foregroundRes = R.color.error;
+            outlineRes = R.color.error_outline;
+
+        } else if (containsAny(
+                normalized,
+                "archive",
+                "duplicate",
+                "audit",
+                "warning"
+        )) {
+            backgroundRes = R.color.warning_surface;
+            foregroundRes = R.color.warning;
+            outlineRes = R.color.warning_outline;
+
+        } else if (containsAny(
+                normalized,
+                "merge",
+                "rename",
+                "planner",
+                "smart",
+                "advisor",
+                "ai "
+        )) {
+            backgroundRes = R.color.purple_surface;
+            foregroundRes = R.color.purple;
+            outlineRes = R.color.purple_outline;
+
+        } else if (containsAny(
+                normalized,
+                "save",
+                "add",
+                "create",
+                "import",
+                "restore",
+                "record payment",
+                "pay now",
+                "backup"
+        )) {
+            backgroundRes = R.color.success_surface;
+            foregroundRes = R.color.success;
+            outlineRes = R.color.success_outline;
+
+        } else if (containsAny(
+                normalized,
+                "cancel",
+                "close",
+                "back"
+        )) {
+            backgroundRes = R.color.app_surface;
+            foregroundRes = R.color.app_text_primary;
+            outlineRes = R.color.app_outline;
+
+        } else {
+            backgroundRes = R.color.info_surface;
+            foregroundRes = R.color.info;
+            outlineRes = R.color.info_outline;
+        }
+
+        int background = ContextCompat.getColor(
+                activity,
+                backgroundRes
+        );
+        int foreground = ContextCompat.getColor(
+                activity,
+                foregroundRes
+        );
+        int outline = ContextCompat.getColor(
+                activity,
+                outlineRes
+        );
+
+        button.setBackgroundTintList(
+                ColorStateList.valueOf(background)
+        );
+        button.setTextColor(foreground);
+        button.setIconTint(
+                ColorStateList.valueOf(foreground)
+        );
+        button.setStrokeColor(
+                ColorStateList.valueOf(outline)
+        );
+        button.setStrokeWidth(dp(activity, 1));
+    }
+
+    private static void normalizeInputLayout(
+            @NonNull Activity activity,
+            @NonNull TextInputLayout input
+    ) {
+        if (input.getBoxBackgroundMode()
+                == TextInputLayout.BOX_BACKGROUND_NONE) {
+            return;
+        }
+
+        float radius = dp(activity, 13);
+        input.setBoxCornerRadii(
+                radius,
+                radius,
+                radius,
+                radius
+        );
+        input.setBoxBackgroundColor(
+                ContextCompat.getColor(
+                        activity,
+                        R.color.app_surface
+                )
+        );
+    }
+
+    private static void normalizeEditText(
+            @NonNull Activity activity,
+            @NonNull EditText editText
+    ) {
+        float currentSp = toSp(
+                activity,
+                editText.getTextSize()
+        );
+
+        if (currentSp > 14f) {
+            editText.setTextSize(14f);
+        }
+
+        editText.setTypeface(
+                Typeface.create(
+                        "sans-serif",
+                        Typeface.NORMAL
+                )
+        );
+
+        if (editText.getMaxLines() <= 1) {
+            editText.setMinHeight(dp(activity, 48));
+            editText.setMinimumHeight(dp(activity, 48));
+        }
+    }
+
+    private static void normalizeText(
+            @NonNull Activity activity,
+            @NonNull TextView textView
+    ) {
+        String value = safeText(textView);
+        if (value.isEmpty() || isSymbolOnly(value)) {
+            return;
+        }
+
+        Typeface currentTypeface = textView.getTypeface();
+        boolean bold = currentTypeface != null
+                && (currentTypeface.getStyle() & Typeface.BOLD) != 0;
+
+        textView.setTypeface(
+                Typeface.create(
+                        bold
+                                ? "sans-serif-medium"
+                                : "sans-serif",
+                        Typeface.NORMAL
+                )
+        );
+
+        if (isFinancialValue(value)) {
+            return;
+        }
+
+        float sp = toSp(
+                activity,
+                textView.getTextSize()
+        );
+
+        if (sp >= 26f) {
+            textView.setTextSize(26f);
+        } else if (sp >= 21f) {
+            textView.setTextSize(18f);
+        } else if (sp >= 18f) {
+            textView.setTextSize(17f);
+        } else if (sp >= 16f) {
+            textView.setTextSize(
+                    bold ? 15.5f : 14f
+            );
+        } else if (sp >= 14f) {
+            textView.setTextSize(13f);
+        } else if (sp >= 12f) {
+            textView.setTextSize(11.5f);
+        }
+    }
+
+    private static void styleDataCenterButton(
+            @NonNull Activity activity
+    ) {
+        if (activity.isFinishing() || activity.isDestroyed()) {
+            return;
+        }
+
+        View decor = activity.getWindow().getDecorView();
+        View taggedView = decor.findViewWithTag(
+                DATA_CENTER_BUTTON_TAG
+        );
 
         if (!(taggedView instanceof MaterialButton)) {
             return;
         }
 
-        MaterialButton button =
-                (MaterialButton) taggedView;
+        MaterialButton button = (MaterialButton) taggedView;
+
+        int backgroundBase = ContextCompat.getColor(
+                activity,
+                R.color.info_surface
+        );
+        int background = ColorUtils.setAlphaComponent(
+                backgroundBase,
+                isNightMode(activity) ? 242 : 222
+        );
+        int accent = ContextCompat.getColor(
+                activity,
+                R.color.secondary
+        );
+        int outline = ContextCompat.getColor(
+                activity,
+                R.color.info_outline
+        );
 
         button.setBackgroundTintList(
-                ColorStateList.valueOf(
-                        DATA_CENTER_GLASS_SURFACE
-                )
+                ColorStateList.valueOf(background)
         );
-
-        button.setTextColor(
-                DATA_CENTER_ACCENT
-        );
-
+        button.setTextColor(accent);
         button.setIconTint(
-                ColorStateList.valueOf(
-                        DATA_CENTER_ACCENT
-                )
+                ColorStateList.valueOf(accent)
         );
-
         button.setStrokeColor(
-                ColorStateList.valueOf(
-                        DATA_CENTER_OUTLINE
-                )
+                ColorStateList.valueOf(outline)
         );
-
-        button.setStrokeWidth(
-                dp(activity, 1)
-        );
-
-        button.setCornerRadius(
-                dp(activity, 20)
-        );
-
+        button.setStrokeWidth(dp(activity, 1));
+        button.setCornerRadius(dp(activity, 20));
         button.setInsetTop(0);
         button.setInsetBottom(0);
-        button.setElevation(
-                dp(activity, 1)
-        );
-
+        button.setElevation(dp(activity, 1));
         button.setAllCaps(false);
+        button.setTextSize(11f);
+        button.setTypeface(
+                Typeface.create(
+                        "sans-serif-medium",
+                        Typeface.NORMAL
+                )
+        );
         button.bringToFront();
+    }
+
+    private static boolean isSmallSquareView(
+            @NonNull Activity activity,
+            @NonNull View view
+    ) {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        if (params == null
+                || params.width <= 0
+                || params.height <= 0) {
+            return false;
+        }
+
+        int max = Math.max(params.width, params.height);
+        int difference = Math.abs(params.width - params.height);
+
+        return max <= dp(activity, 72)
+                && difference <= dp(activity, 8);
+    }
+
+    private static boolean isNightMode(@NonNull Activity activity) {
+        int mask = activity.getResources()
+                .getConfiguration()
+                .uiMode
+                & Configuration.UI_MODE_NIGHT_MASK;
+
+        return mask == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    private static boolean isFinancialValue(@NonNull String value) {
+        return value.contains("₹")
+                || value.contains("$")
+                || value.contains("€")
+                || value.contains("£")
+                || value.matches(".*\\d+(?:[.,]\\d+)?%.*");
+    }
+
+    private static boolean isThemeChoice(@NonNull String value) {
+        String normalized = value.trim().toLowerCase();
+
+        return normalized.equals("system")
+                || normalized.equals("light")
+                || normalized.equals("dark")
+                || normalized.equals("system theme")
+                || normalized.equals("light theme")
+                || normalized.equals("dark theme");
+    }
+
+    private static boolean isSymbolOnly(@NonNull String value) {
+        String normalized = value.trim();
+        if (normalized.isEmpty()) return true;
+        if (normalized.length() > 3) return false;
+
+        return normalized.matches("[←→‹›<>+−–—⋮☰✓×✕•]+")
+                || normalized.equals("₹");
+    }
+
+    private static boolean containsAny(
+            @NonNull String value,
+            @NonNull String... needles
+    ) {
+        for (String needle : needles) {
+            if (value.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @NonNull
+    private static String safeText(@NonNull TextView view) {
+        CharSequence value = view.getText();
+        return value == null ? "" : value.toString().trim();
+    }
+
+    private static float toSp(
+            @NonNull Activity activity,
+            float pixels
+    ) {
+        return pixels
+                / activity.getResources()
+                .getDisplayMetrics()
+                .scaledDensity;
     }
 
     private static int dp(
@@ -251,8 +657,7 @@ public final class FluentProfessionalPolish {
     ) {
         return Math.round(
                 value
-                        * activity
-                        .getResources()
+                        * activity.getResources()
                         .getDisplayMetrics()
                         .density
         );

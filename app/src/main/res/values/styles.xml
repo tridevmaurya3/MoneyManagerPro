@@ -3,7 +3,7 @@
 <resources>
 
     <!-- =========================================================
-         PAGE TEXT STYLES
+         DASHBOARD-ALIGNED TEXT STYLES
          ========================================================= -->
 
     <style
@@ -13,6 +13,7 @@
         <item name="android:textColor">@color/app_text_primary</item>
         <item name="android:textSize">27sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
@@ -22,7 +23,8 @@
         parent="TextAppearance.Material3.BodyMedium">
 
         <item name="android:textColor">@color/app_text_secondary</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
@@ -32,8 +34,9 @@
         parent="TextAppearance.Material3.TitleLarge">
 
         <item name="android:textColor">@color/app_text_primary</item>
-        <item name="android:textSize">19sp</item>
+        <item name="android:textSize">18sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
@@ -43,7 +46,8 @@
         parent="TextAppearance.Material3.BodySmall">
 
         <item name="android:textColor">@color/app_text_secondary</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
@@ -53,8 +57,9 @@
         parent="TextAppearance.Material3.TitleMedium">
 
         <item name="android:textColor">@color/app_text_primary</item>
-        <item name="android:textSize">18sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
@@ -64,7 +69,8 @@
         parent="TextAppearance.Material3.BodyMedium">
 
         <item name="android:textColor">@color/app_text_secondary</item>
-        <item name="android:textSize">13sp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
@@ -74,8 +80,9 @@
         parent="TextAppearance.Material3.HeadlineLarge">
 
         <item name="android:textColor">@color/app_text_primary</item>
-        <item name="android:textSize">32sp</item>
+        <item name="android:textSize">28sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
@@ -85,8 +92,9 @@
         parent="TextAppearance.Material3.TitleLarge">
 
         <item name="android:textColor">@color/app_text_primary</item>
-        <item name="android:textSize">22sp</item>
+        <item name="android:textSize">20sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
@@ -96,14 +104,15 @@
         parent="TextAppearance.Material3.BodyMedium">
 
         <item name="android:textColor">@color/app_text_secondary</item>
-        <item name="android:textSize">14sp</item>
-        <item name="android:lineSpacingExtra">3dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingExtra">2dp</item>
+        <item name="android:fontFamily">sans-serif</item>
 
     </style>
 
 
     <!-- =========================================================
-         COMMON CARD STYLES
+         COMPACT FLUENT CARD STYLES
          ========================================================= -->
 
     <style
@@ -111,8 +120,8 @@
         parent="Widget.Material3.CardView.Elevated">
 
         <item name="cardBackgroundColor">@color/card_background</item>
-        <item name="cardCornerRadius">18dp</item>
-        <item name="cardElevation">1dp</item>
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">0dp</item>
         <item name="strokeColor">@color/app_outline_soft</item>
         <item name="strokeWidth">1dp</item>
 
@@ -125,7 +134,7 @@
 
         <item name="cardBackgroundColor">@color/balance_surface</item>
         <item name="strokeColor">@color/balance_outline</item>
-        <item name="cardCornerRadius">22dp</item>
+        <item name="cardCornerRadius">18dp</item>
 
     </style>
 
@@ -181,20 +190,24 @@
 
 
     <!-- =========================================================
-         COMMON BUTTON STYLES
+         DASHBOARD-LIKE LIGHT ACTION BUTTONS
          ========================================================= -->
 
     <style
         name="Widget.MoneyManagerPro.Button.Primary"
         parent="Widget.Material3.Button">
 
-        <item name="android:minHeight">54dp</item>
+        <item name="android:minHeight">46dp</item>
         <item name="android:textAllCaps">false</item>
-        <item name="android:textColor">@color/text_on_primary</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/primary</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>
-        <item name="backgroundTint">@color/button_primary</item>
-        <item name="cornerRadius">14dp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:elevation">0dp</item>
+        <item name="backgroundTint">@color/success_surface</item>
+        <item name="cornerRadius">13dp</item>
+        <item name="strokeColor">@color/success_outline</item>
+        <item name="strokeWidth">1dp</item>
 
     </style>
 
@@ -203,13 +216,17 @@
         name="Widget.MoneyManagerPro.Button.Secondary"
         parent="Widget.Material3.Button">
 
-        <item name="android:minHeight">54dp</item>
+        <item name="android:minHeight">46dp</item>
         <item name="android:textAllCaps">false</item>
-        <item name="android:textColor">@color/text_on_secondary</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/secondary</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>
-        <item name="backgroundTint">@color/button_secondary</item>
-        <item name="cornerRadius">14dp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:elevation">0dp</item>
+        <item name="backgroundTint">@color/info_surface</item>
+        <item name="cornerRadius">13dp</item>
+        <item name="strokeColor">@color/info_outline</item>
+        <item name="strokeWidth">1dp</item>
 
     </style>
 
@@ -218,13 +235,17 @@
         name="Widget.MoneyManagerPro.Button.Danger"
         parent="Widget.Material3.Button">
 
-        <item name="android:minHeight">54dp</item>
+        <item name="android:minHeight">46dp</item>
         <item name="android:textAllCaps">false</item>
-        <item name="android:textColor">@color/white</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/error</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>
-        <item name="backgroundTint">@color/button_danger</item>
-        <item name="cornerRadius">14dp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:elevation">0dp</item>
+        <item name="backgroundTint">@color/error_surface</item>
+        <item name="cornerRadius">13dp</item>
+        <item name="strokeColor">@color/error_outline</item>
+        <item name="strokeWidth">1dp</item>
 
     </style>
 
@@ -233,13 +254,15 @@
         name="Widget.MoneyManagerPro.Button.Outlined"
         parent="Widget.Material3.Button.OutlinedButton">
 
-        <item name="android:minHeight">54dp</item>
+        <item name="android:minHeight">46dp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:textColor">@color/secondary</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:elevation">0dp</item>
         <item name="backgroundTint">@color/app_surface</item>
-        <item name="cornerRadius">14dp</item>
+        <item name="cornerRadius">13dp</item>
         <item name="strokeColor">@color/info_outline</item>
         <item name="strokeWidth">1dp</item>
 
@@ -250,13 +273,15 @@
         name="Widget.MoneyManagerPro.Button.SuccessOutlined"
         parent="Widget.Material3.Button.OutlinedButton">
 
-        <item name="android:minHeight">54dp</item>
+        <item name="android:minHeight">46dp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:textColor">@color/success</item>
-        <item name="android:textSize">14sp</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:elevation">0dp</item>
         <item name="backgroundTint">@color/success_surface</item>
-        <item name="cornerRadius">14dp</item>
+        <item name="cornerRadius">13dp</item>
         <item name="strokeColor">@color/success_outline</item>
         <item name="strokeWidth">1dp</item>
 
@@ -272,10 +297,10 @@
         parent="Widget.Material3.TextInputLayout.OutlinedBox">
 
         <item name="boxBackgroundColor">@color/app_surface</item>
-        <item name="boxCornerRadiusTopStart">14dp</item>
-        <item name="boxCornerRadiusTopEnd">14dp</item>
-        <item name="boxCornerRadiusBottomStart">14dp</item>
-        <item name="boxCornerRadiusBottomEnd">14dp</item>
+        <item name="boxCornerRadiusTopStart">13dp</item>
+        <item name="boxCornerRadiusTopEnd">13dp</item>
+        <item name="boxCornerRadiusBottomStart">13dp</item>
+        <item name="boxCornerRadiusBottomEnd">13dp</item>
         <item name="boxStrokeColor">@color/app_outline</item>
         <item name="hintTextColor">@color/app_text_secondary</item>
 
@@ -298,30 +323,21 @@
     </style>
 
 
-    <!-- =========================================================
-         SUPPORTING STYLES
-         Names without dots prevent automatic missing parent errors.
-         ========================================================= -->
-
     <style name="MoneyManagerProDivider">
-
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">1dp</item>
         <item name="android:background">@color/app_divider</item>
-
     </style>
 
 
     <style name="MoneyManagerProScreenContainer">
-
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:orientation">vertical</item>
         <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingTop">18dp</item>
+        <item name="android:paddingTop">16dp</item>
         <item name="android:paddingEnd">16dp</item>
         <item name="android:paddingBottom">36dp</item>
-
     </style>
 
 </resources>

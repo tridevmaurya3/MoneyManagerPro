@@ -1,23 +1,124 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- Core brand colors adapted for dark surfaces -->
     <color name="primary">#81C784</color>
-    <color name="primaryDark">#0D3513</color>
-    <color name="primaryLight">#B9F6CA</color>
+    <color name="primaryDark">#B7E7BC</color>
+    <color name="primaryLight">#1D3524</color>
+
+    <color name="secondary">#86C5F4</color>
+    <color name="secondaryDark">#B9DCF6</color>
+    <color name="secondaryLight">#20394E</color>
+
+    <color name="accent">#C6A7EA</color>
 
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
 
+    <!-- App background and surfaces -->
     <color name="background">#101418</color>
-    <color name="income">#81C784</color>
-    <color name="expense">#FF8A80</color>
-    <color name="card">#1B2229</color>
-
     <color name="app_background">#101418</color>
     <color name="app_surface">#1B2229</color>
-    <color name="app_surface_soft">#28323C</color>
-    <color name="app_text_primary">#F8FAFC</color>
-    <color name="app_text_secondary">#CBD5E1</color>
-    <color name="app_outline">#475569</color>
+    <color name="app_surface_soft">#232C34</color>
+    <color name="app_surface_muted">#2B3640</color>
+    <color name="app_surface_elevated">#202830</color>
+    <color name="card">#1B2229</color>
+    <color name="card_background">#1B2229</color>
+
+    <!-- Text -->
+    <color name="app_text_primary">#F3F6F8</color>
+    <color name="app_text_secondary">#C4CDD6</color>
+    <color name="app_text_tertiary">#96A3AF</color>
+    <color name="app_text_disabled">#687581</color>
+    <color name="text_on_primary">#102214</color>
+    <color name="text_on_secondary">#0B2236</color>
+    <color name="text_success">#81C784</color>
+    <color name="text_error">#FF9A90</color>
+    <color name="text_warning">#F3C969</color>
+    <color name="text_info">#86C5F4</color>
+
+    <!-- Outlines and dividers -->
+    <color name="app_outline">#46525E</color>
+    <color name="app_outline_soft">#33404B</color>
+    <color name="app_divider">#2E3943</color>
+    <color name="app_scrim">#99000000</color>
+
+    <!-- Financial semantic colors -->
+    <color name="income">#81C784</color>
+    <color name="income_dark">#B7E7BC</color>
+    <color name="income_light">#1D3524</color>
+    <color name="income_surface">#182C20</color>
+    <color name="income_outline">#355A40</color>
+
+    <color name="expense">#FF8A80</color>
+    <color name="expense_dark">#FFC0BA</color>
+    <color name="expense_light">#3A201F</color>
+    <color name="expense_surface">#321C1A</color>
+    <color name="expense_outline">#68403C</color>
+
+    <color name="balance">#81C784</color>
+    <color name="balance_surface">#182C20</color>
+    <color name="balance_outline">#355A40</color>
+
+    <color name="cash">#86C5F4</color>
+    <color name="cash_surface">#192B3A</color>
+    <color name="cash_outline">#355469</color>
+
+    <!-- Semantic surfaces -->
+    <color name="success">#81C784</color>
+    <color name="success_surface">#182C20</color>
+    <color name="success_outline">#355A40</color>
+
+    <color name="error">#FF8A80</color>
+    <color name="error_surface">#321C1A</color>
+    <color name="error_outline">#68403C</color>
+
+    <color name="warning">#F3C969</color>
+    <color name="warning_surface">#332A16</color>
+    <color name="warning_outline">#635329</color>
+
+    <color name="info">#86C5F4</color>
+    <color name="info_surface">#172A39</color>
+    <color name="info_outline">#34536A</color>
+
+    <!-- Feature colors -->
+    <color name="purple">#C6A7EA</color>
+    <color name="purple_surface">#2A2136</color>
+    <color name="purple_outline">#574369</color>
+
+    <color name="teal">#70D0D3</color>
+    <color name="teal_surface">#173033</color>
+    <color name="teal_outline">#376064</color>
+
+    <color name="orange">#F2B466</color>
+    <color name="orange_surface">#352718</color>
+    <color name="orange_outline">#684C29</color>
+
+    <color name="pink">#E99AC7</color>
+    <color name="pink_surface">#35202D</color>
+    <color name="pink_outline">#694057</color>
+
+    <!-- Buttons -->
+    <color name="button_primary">#81C784</color>
+    <color name="button_primary_pressed">#A5DCAA</color>
+    <color name="button_secondary">#86C5F4</color>
+    <color name="button_secondary_pressed">#A7D5F6</color>
+    <color name="button_danger">#FF8A80</color>
+    <color name="button_disabled">#48545F</color>
+
+    <!-- Charts -->
+    <color name="chart_green">#81C784</color>
+    <color name="chart_red">#FF8A80</color>
+    <color name="chart_blue">#86C5F4</color>
+    <color name="chart_purple">#C6A7EA</color>
+    <color name="chart_orange">#F2B466</color>
+    <color name="chart_teal">#70D0D3</color>
+    <color name="chart_pink">#E99AC7</color>
+    <color name="chart_gray">#96A3AF</color>
+
+    <!-- System bars -->
+    <color name="status_bar_color">#101418</color>
+    <color name="navigation_bar_color">#1B2229</color>
 
 </resources>

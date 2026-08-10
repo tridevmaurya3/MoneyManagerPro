@@ -8,6 +8,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.activities.DashboardActivity;
 import com.google.android.material.card.MaterialCardView;
 
@@ -18,10 +19,11 @@ import java.util.List;
  * Removes the redundant introductory title/subtitle shown above a page's
  * primary hero/manager card. Back navigation remains visible and pages without
  * a hero card are left unchanged.
+ *
+ * A keyed view tag is used so this controller never overwrites another
+ * feature's runtime tag on android.R.id.content.
  */
 public final class DuplicatePageHeadingController {
-
-    private static final String PROCESSED_TAG = "duplicate_page_heading_processed";
 
     private final Activity activity;
     private int attempts;
@@ -41,8 +43,11 @@ public final class DuplicatePageHeadingController {
         if (!(content instanceof ViewGroup)) return;
 
         ViewGroup root = (ViewGroup) content;
-        Object processed = root.getTag();
-        if (PROCESSED_TAG.equals(processed)) return;
+        if (Boolean.TRUE.equals(
+                root.getTag(R.id.duplicate_page_heading_processed)
+        )) {
+            return;
+        }
 
         if (!removeDuplicateHeading(root) && attempts++ < 12) {
             root.postDelayed(this::attach, 140L);
@@ -55,7 +60,7 @@ public final class DuplicatePageHeadingController {
 
         int firstHeroIndex = findFirstHeroCardIndex(pageColumn);
         if (firstHeroIndex < 0) {
-            root.setTag(PROCESSED_TAG);
+            markProcessed(root);
             return true;
         }
 
@@ -68,15 +73,21 @@ public final class DuplicatePageHeadingController {
         for (TextView candidate : candidates) {
             String value = safeText(candidate);
             if (isBackNavigation(value)) continue;
-            if (candidate.getTextSize() / activity.getResources().getDisplayMetrics().scaledDensity >= 21f
-                    && value.length() >= 2) {
+
+            float sizeSp = candidate.getTextSize()
+                    / activity.getResources().getDisplayMetrics().scaledDensity;
+
+            if (sizeSp >= 21f && value.length() >= 2) {
                 heading = candidate;
                 break;
             }
         }
 
-        if (heading == null || !heroCardHasHeading((MaterialCardView) pageColumn.getChildAt(firstHeroIndex))) {
-            root.setTag(PROCESSED_TAG);
+        if (heading == null
+                || !heroCardHasHeading(
+                (MaterialCardView) pageColumn.getChildAt(firstHeroIndex)
+        )) {
+            markProcessed(root);
             return true;
         }
 
@@ -84,26 +95,38 @@ public final class DuplicatePageHeadingController {
         heading.setVisibility(View.GONE);
         collapseMargins(heading);
 
-        if (headingPosition >= 0 && headingPosition + 1 < candidates.size()) {
+        if (headingPosition >= 0
+                && headingPosition + 1 < candidates.size()) {
+
             TextView subtitle = candidates.get(headingPosition + 1);
             String subtitleText = safeText(subtitle);
             float subtitleSp = subtitle.getTextSize()
                     / activity.getResources().getDisplayMetrics().scaledDensity;
+
             if (!isBackNavigation(subtitleText)
                     && subtitleSp <= 18f
                     && subtitleText.length() > 3) {
+
                 subtitle.setVisibility(View.GONE);
                 collapseMargins(subtitle);
             }
         }
 
-        root.setTag(PROCESSED_TAG);
+        markProcessed(root);
         return true;
+    }
+
+    private void markProcessed(@NonNull ViewGroup root) {
+        root.setTag(
+                R.id.duplicate_page_heading_processed,
+                Boolean.TRUE
+        );
     }
 
     private LinearLayout findPageColumn(@NonNull ViewGroup group) {
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
+
             if (child instanceof LinearLayout) {
                 LinearLayout layout = (LinearLayout) child;
                 if (layout.getOrientation() == LinearLayout.VERTICAL
@@ -111,44 +134,58 @@ public final class DuplicatePageHeadingController {
                     return layout;
                 }
             }
+
             if (child instanceof ViewGroup) {
                 LinearLayout nested = findPageColumn((ViewGroup) child);
                 if (nested != null) return nested;
             }
         }
+
         return null;
     }
 
     private int findFirstHeroCardIndex(@NonNull LinearLayout column) {
         int limit = Math.min(column.getChildCount(), 10);
+
         for (int i = 0; i < limit; i++) {
             View child = column.getChildAt(i);
+
             if (child instanceof MaterialCardView
                     && heroCardHasHeading((MaterialCardView) child)) {
                 return i;
             }
         }
+
         return -1;
     }
 
     private boolean heroCardHasHeading(@NonNull MaterialCardView card) {
         List<TextView> textViews = new ArrayList<>();
         collectTopTextViews(card, textViews);
+
         for (TextView textView : textViews) {
             String value = safeText(textView);
             float sizeSp = textView.getTextSize()
                     / activity.getResources().getDisplayMetrics().scaledDensity;
-            if (sizeSp >= 16f && value.length() >= 3 && !isBackNavigation(value)) {
+
+            if (sizeSp >= 16f
+                    && value.length() >= 3
+                    && !isBackNavigation(value)) {
                 return true;
             }
         }
+
         return false;
     }
 
-    private void collectTopTextViews(@NonNull View view, @NonNull List<TextView> out) {
+    private void collectTopTextViews(
+            @NonNull View view,
+            @NonNull List<TextView> out
+    ) {
         if (view instanceof TextView) {
             out.add((TextView) view);
         }
+
         if (view instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) {
@@ -159,8 +196,11 @@ public final class DuplicatePageHeadingController {
 
     private void collapseMargins(@NonNull View view) {
         ViewGroup.LayoutParams params = view.getLayoutParams();
+
         if (params instanceof ViewGroup.MarginLayoutParams) {
-            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
+            ViewGroup.MarginLayoutParams margins =
+                    (ViewGroup.MarginLayoutParams) params;
+
             margins.topMargin = 0;
             margins.bottomMargin = 0;
             view.setLayoutParams(margins);
@@ -175,6 +215,7 @@ public final class DuplicatePageHeadingController {
 
     private boolean isBackNavigation(@NonNull String value) {
         String normalized = value.toLowerCase();
+
         return normalized.equals("back")
                 || normalized.contains("←")
                 || normalized.startsWith("‹")
