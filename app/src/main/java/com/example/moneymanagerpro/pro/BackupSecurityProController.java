@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,20 +12,31 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 
+import com.example.moneymanagerpro.backup.BackupIntegrity;
+import com.example.moneymanagerpro.utils.BackupStorageManager;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /** Adds automatic history, restore-point and integrity tools to BackupActivity. */
 public final class BackupSecurityProController {
 
     private static final String PANEL_TAG = "backup_security_pro_panel";
+    private static final int MAX_VERIFY_BYTES = 25 * 1024 * 1024;
 
     private final Activity activity;
     private final BackupHistoryManager historyManager;
+    private final BackupStorageManager storageManager;
 
     private LinearLayout panel;
     private LinearLayout restoreContainer;
@@ -37,6 +49,7 @@ public final class BackupSecurityProController {
     public BackupSecurityProController(@NonNull Activity activity) {
         this.activity = activity;
         this.historyManager = new BackupHistoryManager(activity);
+        this.storageManager = new BackupStorageManager(activity);
     }
 
     public void attach() {
@@ -115,7 +128,7 @@ public final class BackupSecurityProController {
         panel.addView(restoreTitle);
 
         TextView restoreHelp = text(
-                "Restore points are saved beside your normal backup. To restore one, use the existing Restore action on this page and select a MoneyManagerPro_RestorePoint file.",
+                "Tap Verify & Restore on a restore point. The file is checked again with SHA-256 before the normal restore engine is allowed to replace current data.",
                 10,
                 "#667085",
                 false
@@ -261,14 +274,7 @@ public final class BackupSecurityProController {
         } else {
             int visible = Math.min(5, points.size());
             for (int i = 0; i < visible; i++) {
-                BackupHistoryManager.RestorePoint point = points.get(i);
-                restoreContainer.addView(infoRow(
-                        "Restore Point " + (i + 1),
-                        BackupHistoryManager.formatTime(point.lastModified)
-                                + " • " + BackupHistoryManager.formatSize(point.sizeBytes),
-                        "#EFF9F1",
-                        "#B9DFC3"
-                ));
+                restoreContainer.addView(restorePointRow(points.get(i), i));
             }
         }
 
@@ -294,6 +300,114 @@ public final class BackupSecurityProController {
                         "Encrypted cloud".equals(item.type) ? "#BDD5EE" : "#D8E0E8"
                 ));
             }
+        }
+    }
+
+    private MaterialCardView restorePointRow(
+            @NonNull BackupHistoryManager.RestorePoint point,
+            int index
+    ) {
+        MaterialCardView card = card("#EFF9F1", "#B9DFC3");
+        LinearLayout content = verticalPadding(11);
+        content.addView(text("Restore Point " + (index + 1), 12, "#17351F", true));
+
+        TextView details = text(
+                BackupHistoryManager.formatTime(point.lastModified)
+                        + " • " + BackupHistoryManager.formatSize(point.sizeBytes),
+                10,
+                "#667085",
+                false
+        );
+        setMargins(details, 0, 3, 0, 7);
+        content.addView(details);
+
+        MaterialButton restore = button("Verify & Restore", true);
+        LinearLayout.LayoutParams restoreParams = new LinearLayout.LayoutParams(-1, dp(40));
+        restore.setLayoutParams(restoreParams);
+        restore.setOnClickListener(v -> verifyAndRestore(point));
+        BubbleTouchAnimator.apply(restore);
+        content.addView(restore);
+
+        card.addView(content);
+        setMargins(card, 0, 0, 0, 6);
+        return card;
+    }
+
+    private void verifyAndRestore(@NonNull BackupHistoryManager.RestorePoint point) {
+        txtStatus.setText("Verifying selected restore point…");
+        txtStatus.setTextColor(Color.parseColor("#0F6CBD"));
+
+        new Thread(() -> {
+            boolean valid = false;
+            String failure = "Selected restore point failed integrity verification.";
+            try {
+                valid = verifyRestorePoint(point.uri);
+            } catch (Exception exception) {
+                failure = useful(exception, failure);
+            }
+
+            final boolean verified = valid;
+            final String failureMessage = failure;
+            activity.runOnUiThread(() -> {
+                if (activity.isFinishing() || activity.isDestroyed()) return;
+                if (!verified) {
+                    txtStatus.setText(failureMessage);
+                    txtStatus.setTextColor(Color.parseColor("#C42B1C"));
+                    return;
+                }
+                txtStatus.setText("Restore point verified. Confirmation required.");
+                txtStatus.setTextColor(Color.parseColor("#107C41"));
+                showRestoreConfirmation(point);
+            });
+        }).start();
+    }
+
+    private boolean verifyRestorePoint(@NonNull Uri uri) throws Exception {
+        long size = storageManager.getDocumentSize(uri);
+        if (size > MAX_VERIFY_BYTES) return false;
+
+        byte[] bytes;
+        try (InputStream input = storageManager.openBackupInputStream(uri);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int total = 0;
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_VERIFY_BYTES) return false;
+                output.write(buffer, 0, read);
+            }
+            bytes = output.toByteArray();
+        }
+
+        JSONObject root = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
+        return BackupIntegrity.verify(root, root.optString("integritySha256", ""));
+    }
+
+    private void showRestoreConfirmation(@NonNull BackupHistoryManager.RestorePoint point) {
+        new AlertDialog.Builder(activity)
+                .setTitle("Restore this point?")
+                .setMessage(
+                        "Verified restore point:\n"
+                                + BackupHistoryManager.formatTime(point.lastModified)
+                                + "\n"
+                                + BackupHistoryManager.formatSize(point.sizeBytes)
+                                + "\n\nCurrent app data will be replaced by this backup. "
+                                + "The normal Money Manager Pro restore engine will validate the file again before applying it."
+                )
+                .setPositiveButton("Restore", (dialog, which) -> invokeExistingRestore(point.uri))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void invokeExistingRestore(@NonNull Uri restorePointUri) {
+        try {
+            Method method = activity.getClass().getDeclaredMethod("restoreBackup", Uri.class);
+            method.setAccessible(true);
+            method.invoke(activity, restorePointUri);
+        } catch (Exception exception) {
+            txtStatus.setText(useful(exception, "Restore engine could not be opened."));
+            txtStatus.setTextColor(Color.parseColor("#C42B1C"));
         }
     }
 
@@ -371,11 +485,7 @@ public final class BackupSecurityProController {
         ));
         button.setStrokeColor(ColorStateList.valueOf(Color.parseColor(strong ? "#0F6CBD" : "#C9D7CD")));
         button.setStrokeWidth(dp(1));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                strong ? 0 : 0,
-                dp(43),
-                1f
-        );
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(43), 1f);
         params.setMargins(dp(3), 0, dp(3), 0);
         button.setLayoutParams(params);
         return button;
