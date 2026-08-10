@@ -122,7 +122,10 @@ final class WidgetPackRenderer {
             views.setTextViewText(R.id.widgetDueType, due.type);
             views.setTextViewText(R.id.widgetDueDetail, due.detail);
             views.setTextViewText(R.id.widgetDueAmount, formatMoney(due.amount));
-            views.setTextViewText(R.id.widgetDueDate, new SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(new Date(due.dueAt)));
+            views.setTextViewText(
+                    R.id.widgetDueDate,
+                    new SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(new Date(due.dueAt))
+            );
             views.setTextColor(R.id.widgetDueStatus, statusColor);
             views.setInt(R.id.widgetDueStatus, "setBackgroundResource", statusBackground);
 
@@ -194,61 +197,60 @@ final class WidgetPackRenderer {
         boolean hasHeight = heightDp > 0;
 
         if (providerClass == FinanceWidgetProvider.class) {
-            boolean narrow = hasWidth && widthDp < 235;
-            boolean veryShort = hasHeight && heightDp < 135;
-            boolean shortHeight = hasHeight && heightDp < 190;
+            boolean narrow = hasWidth && widthDp < 225;
+            boolean oneRow = hasHeight && heightDp < 120;
+            boolean mediumHeight = hasHeight && heightDp < 170;
 
-            setVisible(views, R.id.widgetSummaryBalanceMeta, !narrow && !veryShort);
-            setVisible(views, R.id.widgetSummaryMetricsRow, !shortHeight);
-            setVisible(views, R.id.widgetSummaryQuickTitle, !veryShort);
-            setVisible(views, R.id.widgetSummaryActionsRow, !veryShort);
+            setVisible(views, R.id.widgetSummaryBalanceMeta, !narrow && !oneRow);
+            setVisible(views, R.id.widgetSummaryMetricsRow, !oneRow);
+            setVisible(views, R.id.widgetSummaryQuickTitle, !mediumHeight);
+            setVisible(views, R.id.widgetSummaryActionsRow, !mediumHeight);
             views.setTextViewText(R.id.widgetRefresh, narrow ? "↻" : "↻ Refresh");
             return;
         }
 
         if (providerClass == QuickActionsWidgetProvider.class) {
-            boolean narrow = hasWidth && widthDp < 210;
-            boolean veryShort = hasHeight && heightDp < 92;
-            boolean shortHeight = hasHeight && heightDp < 132;
+            boolean narrow = hasWidth && widthDp < 200;
+            boolean tinyHeight = hasHeight && heightDp < 72;
+            boolean oneRow = hasHeight && heightDp < 120;
 
             setVisible(views, R.id.widgetQuickBalance, !narrow);
-            setVisible(views, R.id.widgetQuickMonth, !veryShort);
-            setVisible(views, R.id.widgetQuickPrimaryRow, !veryShort);
-            setVisible(views, R.id.widgetQuickSecondaryRow, !shortHeight);
-            setVisible(views, R.id.widgetQuickUpdated, !shortHeight);
+            setVisible(views, R.id.widgetQuickMonth, !tinyHeight);
+            setVisible(views, R.id.widgetQuickPrimaryRow, true);
+            setVisible(views, R.id.widgetQuickSecondaryRow, !oneRow);
+            setVisible(views, R.id.widgetQuickUpdated, !oneRow);
             return;
         }
 
         if (providerClass == DueReminderWidgetProvider.class) {
-            boolean narrow = hasWidth && widthDp < 215;
-            boolean veryShort = hasHeight && heightDp < 105;
-            boolean shortHeight = hasHeight && heightDp < 138;
+            boolean narrow = hasWidth && widthDp < 205;
+            boolean oneRow = hasHeight && heightDp < 120;
 
-            setVisible(views, R.id.widgetDueCount, !narrow && !veryShort);
+            setVisible(views, R.id.widgetDueCount, !narrow && !oneRow);
             setVisible(views, R.id.widgetDueType, !narrow);
-            setVisible(views, R.id.widgetDueDetail, !veryShort);
-            setVisible(views, R.id.widgetDueActionsRow, !shortHeight);
+            setVisible(views, R.id.widgetDueDetail, !oneRow);
+            setVisible(views, R.id.widgetDueDate, !oneRow);
+            setVisible(views, R.id.widgetDueActionsRow, !oneRow);
             return;
         }
 
         if (providerClass == MonthlySnapshotWidgetProvider.class) {
-            boolean narrow = hasWidth && widthDp < 225;
-            boolean veryShort = hasHeight && heightDp < 105;
-            boolean shortHeight = hasHeight && heightDp < 142;
+            boolean narrow = hasWidth && widthDp < 215;
+            boolean oneRow = hasHeight && heightDp < 120;
 
             setVisible(views, R.id.widgetMonthlySavingCard, !narrow);
-            setVisible(views, R.id.widgetMonthlyStatusRow, !veryShort);
-            setVisible(views, R.id.widgetMonthlyAnalytics, !narrow && !veryShort);
-            setVisible(views, R.id.widgetMonthlyUpdated, !shortHeight);
+            setVisible(views, R.id.widgetMonthlyStatusRow, !oneRow);
+            setVisible(views, R.id.widgetMonthlyAnalytics, !narrow && !oneRow);
+            setVisible(views, R.id.widgetMonthlyUpdated, !oneRow);
             return;
         }
 
         if (providerClass == CompactBalanceWidgetProvider.class) {
-            boolean narrow = hasWidth && widthDp < 195;
-            boolean shortHeight = hasHeight && heightDp < 112;
+            boolean narrow = hasWidth && widthDp < 185;
+            boolean oneRow = hasHeight && heightDp < 120;
 
             setVisible(views, R.id.widgetCompactSaving, !narrow);
-            setVisible(views, R.id.widgetCompactActionsRow, !shortHeight);
+            setVisible(views, R.id.widgetCompactActionsRow, !oneRow);
         }
     }
 
