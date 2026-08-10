@@ -41,6 +41,12 @@
             android:initOrder="141" />
 
         <provider
+            android:name=".ui.FinanceProSuiteInitializer"
+            android:authorities="${applicationId}.finance_pro_suite_initializer"
+            android:exported="false"
+            android:initOrder="140" />
+
+        <provider
             android:name=".widget.WidgetDataSyncInitializer"
             android:authorities="${applicationId}.widget_data_sync"
             android:exported="false"
@@ -80,6 +86,7 @@
             android:exported="false"
             android:initOrder="90" />
 
+        <activity android:name=".activities.FinanceIntelligenceHubActivity" android:exported="false" />
         <activity android:name=".activities.AdvancedFinanceDataActivity" android:exported="false" />
         <activity android:name=".activities.UserProfileActivity" android:exported="false" />
         <activity android:name=".activities.AuthenticationActivity" android:exported="false" />
