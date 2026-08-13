@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bridge_back">Back</string>
+    <string name="bridge_title">Review Smart SMS Transaction</string>
+    <string name="bridge_subtitle">Confirm details before saving to Money Manager Pro</string>
+    <string name="bridge_detected_transaction">Detected transaction</string>
+    <string name="bridge_review_note">Smart SMS Pro detected these details. Nothing is saved until you confirm.</string>
+    <string name="bridge_duplicate_warning">This SMS transaction was already imported. Duplicate saving is blocked.</string>
+    <string name="bridge_type">Transaction type</string>
+    <string name="bridge_amount">Amount</string>
+    <string name="bridge_category">Category</string>
+    <string name="bridge_account">Account</string>
+    <string name="bridge_date">Date &amp; time</string>
+    <string name="bridge_note">Note</string>
+    <string name="bridge_source_label">Source SMS</string>
+    <string name="bridge_review_save">Review &amp; Save Transaction</string>
+    <string name="bridge_saving">Saving…</string>
+    <string name="bridge_no_auto_save">User confirmation is required. Smart SMS Pro cannot silently add finance records.</string>
+    <string name="bridge_source_unavailable">Source message text is unavailable.</string>
+    <string name="bridge_invalid_request">This finance handoff could not be verified.</string>
+    <string name="bridge_duplicate_blocked">This SMS has already been imported.</string>
+    <string name="bridge_invalid_type">Choose Expense or Income.</string>
+    <string name="bridge_invalid_amount">Enter an amount greater than zero.</string>
+    <string name="bridge_complete_fields">Complete category, account and date before saving.</string>
+    <string name="bridge_saved">Transaction saved from Smart SMS review.</string>
+    <string name="bridge_save_failed">Transaction could not be saved. No finance data was changed.</string>
+</resources>
