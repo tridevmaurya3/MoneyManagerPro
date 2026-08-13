@@ -1272,13 +1272,14 @@ public class BackupActivity
                         if (payload.accounts.length() == 0) {
                             sqlDatabase.execSQL(
                                     "INSERT INTO `accounts` "
-                                            + "(`name`,`type`,`openingBalance`,`color`) "
-                                            + "VALUES (?,?,?,?)",
+                                            + "(`name`,`type`,`openingBalance`,`color`,`archived`) "
+                                            + "VALUES (?,?,?,?,?)",
                                     new Object[]{
                                             "Cash",
                                             "Cash",
                                             0D,
-                                            "#2E7D32"
+                                            "#2E7D32",
+                                            0
                                     }
                             );
 
@@ -1286,8 +1287,8 @@ public class BackupActivity
                             insertRows(
                                     sqlDatabase,
                                     "INSERT INTO `accounts` "
-                                            + "(`id`,`name`,`type`,`openingBalance`,`color`) "
-                                            + "VALUES (?,?,?,?,?)",
+                                            + "(`id`,`name`,`type`,`openingBalance`,`color`,`archived`) "
+                                            + "VALUES (?,?,?,?,?,?)",
                                     payload.accounts,
                                     (object, index) ->
                                             new Object[]{
@@ -1313,7 +1314,8 @@ public class BackupActivity
                                                             object,
                                                             "color",
                                                             "#2E7D32"
-                                                    )
+                                                    ),
+                                                    object.optBoolean("archived", false) ? 1 : 0
                                             }
                             );
                         }

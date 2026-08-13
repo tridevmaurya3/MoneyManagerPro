@@ -1085,6 +1085,11 @@ public final class CloudBackupRestoreCoordinator {
                             limitedString(
                                     object,
                                     "color"
+                            ),
+                            optionalBooleanInteger(
+                                    object,
+                                    false,
+                                    "archived"
                             )
                     }
             );
@@ -2008,8 +2013,8 @@ public final class CloudBackupRestoreCoordinator {
                                 sqlDatabase,
                                 "INSERT INTO `accounts` "
                                         + "(`id`,`name`,`type`,"
-                                        + "`openingBalance`,`color`) "
-                                        + "VALUES (?,?,?,?,?)",
+                                        + "`openingBalance`,`color`,`archived`) "
+                                        + "VALUES (?,?,?,?,?,?)",
                                 preparedRestore.accounts
                         );
 
