@@ -126,6 +126,15 @@
         <activity android:name=".activities.AddIncomeActivity" android:exported="false" />
         <activity android:name=".activities.DashboardActivity" android:exported="false" />
 
+        <activity
+            android:name=".activities.SmartSmsTransactionReviewActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.example.moneymanagerpro.action.REVIEW_SMART_SMS_TRANSACTION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.FinanceWidgetProvider"
             android:exported="true"
