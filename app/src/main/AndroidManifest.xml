@@ -23,6 +23,12 @@
             android:value="barcode_ui" />
 
         <provider
+            android:name=".TridevFinanceEventProvider"
+            android:authorities="com.example.moneymanagerpro.tridev.finance"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <provider
             android:name=".account.CreditCardAccountSyncInitializer"
             android:authorities="${applicationId}.credit_card_account_sync_initializer"
             android:exported="false"
@@ -125,15 +131,7 @@
         <activity android:name=".activities.AddExpenseActivity" android:exported="false" />
         <activity android:name=".activities.AddIncomeActivity" android:exported="false" />
         <activity android:name=".activities.DashboardActivity" android:exported="false" />
-
-        <activity
-            android:name=".activities.SmartSmsTransactionReviewActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.example.moneymanagerpro.action.REVIEW_SMART_SMS_TRANSACTION" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".activities.SmartSmsTransactionReviewActivity" android:exported="false" />
 
         <receiver
             android:name=".widget.FinanceWidgetProvider"
