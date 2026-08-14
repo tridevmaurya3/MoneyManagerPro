@@ -1,7 +1,5 @@
 package com.example.moneymanagerpro.activities;
 
-import android.content.res.ColorStateList;
-import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -247,11 +245,12 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
         dropdown.setOnClickListener(v -> dropdown.showDropDown());
 
         int initialIndex = findChoiceIndex(choices, suggestionRef);
-        if (initialIndex < 0 && !choices.isEmpty()) initialIndex = 0;
         if (initialIndex >= 0) {
             dropdown.setText(choices.get(initialIndex).label, false);
             selectedRef[0] = choices.get(initialIndex).canonicalRef;
         } else {
+            // Fail closed: when no safe suggestion exists, force an explicit
+            // user choice instead of silently defaulting to the first account.
             dropdown.setText("", false);
             selectedRef[0] = "";
         }
