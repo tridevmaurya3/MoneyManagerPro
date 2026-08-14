@@ -25,7 +25,8 @@ import java.util.Locale;
  * - Same sourceApp + sourceRecordId -> duplicate, do not insert another row.
  * - Cross-app candidates are scored using amount, direction, time, account,
  *   merchant and category evidence.
- * - Strong match -> stored as SUPERSEDED and linked to the original event.
+ * - Existing MoneyManager transactions are checked read-only before posting.
+ * - Strong match -> stored as SUPERSEDED or SYNCED to an existing ledger row.
  * - Medium match -> stored as NEEDS_REVIEW; never guessed/posted automatically.
  * - Weak/no match -> stored as PENDING.
  *
@@ -106,10 +107,12 @@ public final class TridevEventQueue {
 
     private static volatile TridevEventQueue instance;
 
+    private final Context appContext;
     private final QueueDbHelper helper;
 
     private TridevEventQueue(Context context) {
-        helper = new QueueDbHelper(context.getApplicationContext());
+        appContext = context.getApplicationContext();
+        helper = new QueueDbHelper(appContext);
     }
 
     public static TridevEventQueue getInstance(Context context) {
@@ -125,7 +128,7 @@ public final class TridevEventQueue {
 
     /**
      * Adds an event using fail-closed duplicate protection.
-     * Existing MoneyManager transactions are not modified here.
+     * Existing MoneyManager transactions are never modified here.
      */
     public EnqueueResult enqueue(TridevIntegrationContract.Event event) {
         validateEvent(event);
@@ -162,7 +165,9 @@ public final class TridevEventQueue {
             }
 
             String fingerprint = TridevEventFingerprint.build(event);
-            CandidateMatch candidateMatch = findBestCandidate(db, event, fingerprint);
+            CandidateMatch queueMatch = findBestCandidate(db, event, fingerprint);
+            TridevExistingTransactionMatcher.Match ledgerMatch =
+                    new TridevExistingTransactionMatcher(appContext).findBest(event);
 
             Decision decision = Decision.ACCEPTED;
             TridevIntegrationContract.SyncState state =
@@ -170,25 +175,39 @@ public final class TridevEventQueue {
                             ? TridevIntegrationContract.SyncState.NEEDS_REVIEW
                             : TridevIntegrationContract.SyncState.PENDING;
             String duplicateOf = null;
+            String ledgerTransactionRef = null;
             int score = 0;
             String reason = "New event queued for reconciliation";
+
+            int queueScore = queueMatch == null ? 0 : queueMatch.score;
+            int ledgerScore = ledgerMatch == null ? 0 : ledgerMatch.score;
 
             if (event.amountMinor <= 0L) {
                 decision = Decision.NEEDS_REVIEW;
                 state = TridevIntegrationContract.SyncState.NEEDS_REVIEW;
                 reason = "Amount is missing or zero";
-            } else if (candidateMatch != null) {
-                score = candidateMatch.score;
-                if (score >= DUPLICATE_SCORE) {
-                    decision = Decision.DUPLICATE;
-                    state = TridevIntegrationContract.SyncState.SUPERSEDED;
-                    duplicateOf = candidateMatch.row.eventId;
-                    reason = "Strong cross-app duplicate match";
-                } else if (score >= REVIEW_SCORE) {
-                    decision = Decision.NEEDS_REVIEW;
-                    state = TridevIntegrationContract.SyncState.NEEDS_REVIEW;
-                    duplicateOf = candidateMatch.row.eventId;
-                    reason = "Possible duplicate requires user review";
+            } else if (ledgerScore >= DUPLICATE_SCORE && ledgerScore >= queueScore) {
+                decision = Decision.DUPLICATE;
+                state = TridevIntegrationContract.SyncState.SYNCED;
+                score = ledgerScore;
+                ledgerTransactionRef = String.valueOf(ledgerMatch.transactionId);
+                reason = "Already represented by existing MoneyManager transaction";
+            } else if (queueScore >= DUPLICATE_SCORE) {
+                decision = Decision.DUPLICATE;
+                state = TridevIntegrationContract.SyncState.SUPERSEDED;
+                duplicateOf = queueMatch.row.eventId;
+                score = queueScore;
+                reason = "Strong cross-app duplicate match";
+            } else if (Math.max(queueScore, ledgerScore) >= REVIEW_SCORE) {
+                decision = Decision.NEEDS_REVIEW;
+                state = TridevIntegrationContract.SyncState.NEEDS_REVIEW;
+                score = Math.max(queueScore, ledgerScore);
+                if (ledgerScore > queueScore && ledgerMatch != null) {
+                    ledgerTransactionRef = String.valueOf(ledgerMatch.transactionId);
+                    reason = "Possible existing MoneyManager transaction requires review";
+                } else if (queueMatch != null) {
+                    duplicateOf = queueMatch.row.eventId;
+                    reason = "Possible cross-app duplicate requires user review";
                 }
             }
 
@@ -198,7 +217,8 @@ public final class TridevEventQueue {
                     fingerprint,
                     state,
                     duplicateOf,
-                    score);
+                    score,
+                    ledgerTransactionRef);
             if (queueId <= 0L) {
                 throw new IllegalStateException("Unable to queue integration event");
             }
@@ -316,10 +336,7 @@ public final class TridevEventQueue {
                 new String[]{safeEventId}) == 1;
     }
 
-    /**
-     * User has confirmed that this event is genuinely separate. It becomes
-     * pending again without deleting any audit history.
-     */
+    /** User confirmed that this event is genuinely separate. */
     public boolean confirmNotDuplicate(String eventId) {
         String safeEventId = safeShortValue(eventId, 120);
         if (safeEventId.isEmpty()) return false;
@@ -327,6 +344,7 @@ public final class TridevEventQueue {
         ContentValues values = new ContentValues();
         values.put("sync_state", TridevIntegrationContract.SyncState.PENDING.name());
         values.putNull("duplicate_of_event_id");
+        values.putNull("money_transaction_ref");
         values.put("duplicate_score", 0);
         values.put("last_error", "");
         values.put("updated_at", System.currentTimeMillis());
@@ -337,10 +355,7 @@ public final class TridevEventQueue {
                 new String[]{safeEventId}) == 1;
     }
 
-    /**
-     * User has confirmed that two queued events describe the same transaction.
-     * The duplicate remains in history as SUPERSEDED; nothing is deleted.
-     */
+    /** User confirmed that two queued events describe the same transaction. */
     public boolean confirmDuplicate(String eventId, String canonicalEventId) {
         String safeEventId = safeShortValue(eventId, 120);
         String safeCanonical = safeShortValue(canonicalEventId, 120);
@@ -353,10 +368,32 @@ public final class TridevEventQueue {
         ContentValues values = new ContentValues();
         values.put("sync_state", TridevIntegrationContract.SyncState.SUPERSEDED.name());
         values.put("duplicate_of_event_id", safeCanonical);
+        values.putNull("money_transaction_ref");
         values.put("duplicate_score", 100);
         values.put("last_error", "");
         values.put("updated_at", System.currentTimeMillis());
         return db.update(
+                TABLE,
+                values,
+                "event_id = ?",
+                new String[]{safeEventId}) == 1;
+    }
+
+    /** User confirmed that the event is already represented by this ledger row. */
+    public boolean confirmExistingMoneyManagerTransaction(
+            String eventId,
+            long transactionId) {
+        String safeEventId = safeShortValue(eventId, 120);
+        if (safeEventId.isEmpty() || transactionId <= 0L) return false;
+
+        ContentValues values = new ContentValues();
+        values.put("sync_state", TridevIntegrationContract.SyncState.SYNCED.name());
+        values.putNull("duplicate_of_event_id");
+        values.put("money_transaction_ref", String.valueOf(transactionId));
+        values.put("duplicate_score", 100);
+        values.put("last_error", "");
+        values.put("updated_at", System.currentTimeMillis());
+        return helper.getWritableDatabase().update(
                 TABLE,
                 values,
                 "event_id = ?",
@@ -388,7 +425,8 @@ public final class TridevEventQueue {
             String fingerprint,
             TridevIntegrationContract.SyncState state,
             @Nullable String duplicateOfEventId,
-            int duplicateScore) {
+            int duplicateScore,
+            @Nullable String ledgerTransactionRef) {
         ContentValues values = new ContentValues();
         values.put("event_id", safeShortValue(event.eventId, 120));
         values.put("source_app", event.sourceApp);
@@ -410,7 +448,12 @@ public final class TridevEventQueue {
         values.put("match_confidence", event.matchConfidence.name());
         putNullable(values, "money_account_ref", event.references.moneyManagerAccountId, 80);
         putNullable(values, "money_category_ref", event.references.moneyManagerCategoryId, 80);
-        putNullable(values, "money_transaction_ref", event.references.moneyManagerTransactionId, 80);
+        String transactionRef = safeShortValue(ledgerTransactionRef, 80);
+        if (transactionRef.isEmpty()) {
+            transactionRef = safeShortValue(event.references.moneyManagerTransactionId, 80);
+        }
+        if (transactionRef.isEmpty()) values.putNull("money_transaction_ref");
+        else values.put("money_transaction_ref", transactionRef);
         putNullable(values, "family_finance_ref", event.references.familyFinanceRecordId, 120);
         putNullable(values, "family_grocery_ref", event.references.familyGroceryRecordId, 120);
         putNullable(values, "loan_ref", event.references.loanManagerLoanId, 120);
@@ -462,7 +505,7 @@ public final class TridevEventQueue {
             TridevIntegrationContract.Event incoming,
             String fingerprint,
             ExistingRow existing) {
-        int score = 25; // amount + currency are exact because of the candidate query.
+        int score = 25;
         boolean identityEvidence = false;
 
         if (incoming.direction.name().equals(existing.direction)) {
@@ -526,8 +569,6 @@ public final class TridevEventQueue {
         }
 
         if (fingerprint.equals(existing.fingerprint)) {
-            // Equal amount/time/hash without account or merchant evidence is not
-            // enough to auto-merge two real transactions.
             score += identityEvidence ? 20 : 5;
         }
 
