@@ -1,9 +1,13 @@
 package com.example.moneymanagerpro.activities;
 
+import android.content.Intent;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -13,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.TridevIntegrationHealthManager;
 import com.example.moneymanagerpro.TridevIntegrationReviewManager;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -25,14 +30,23 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * STEP 6 - Integration Review Center.
+ * STEP 11 - Integration Health & Review Center.
  *
- * This activity is intentionally private (android:exported="false"). It no
- * longer accepts external SmartSMS intents. Incoming finance events arrive only
- * through the UID-verified TridevFinanceEventProvider and are reviewed here from
- * MoneyManager's isolated integration queue.
+ * This activity stays private (android:exported="false"). Incoming finance
+ * events still arrive only through the trusted integration providers. The screen
+ * combines connection readiness, actual queue health, safe retry and the STEP 6
+ * mapping/review workflow in one place.
  */
 public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
+
+    private LinearLayout healthAppContainer;
+    private TextView healthPendingCount;
+    private TextView healthFailedCount;
+    private TextView healthSyncedCount;
+    private TextView healthMappingCount;
+    private TextView healthStatus;
+    private MaterialButton healthRetry;
+    private MaterialButton healthReconciliation;
 
     private LinearLayout reviewEventContainer;
     private TextView reviewPendingCount;
@@ -43,21 +57,33 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
     private View reviewEmptyCard;
     private MaterialButton reviewRefresh;
 
+    private TridevIntegrationHealthManager healthManager;
     private TridevIntegrationReviewManager reviewManager;
-    private int loadGeneration = 0;
+    private int healthLoadGeneration = 0;
+    private int reviewLoadGeneration = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_smart_sms_transaction_review);
 
+        healthManager = new TridevIntegrationHealthManager(getApplicationContext());
         reviewManager = new TridevIntegrationReviewManager(getApplicationContext());
         bindViews();
         setupActions();
-        loadReviews();
+        refreshAll();
     }
 
     private void bindViews() {
+        healthAppContainer = findViewById(R.id.integrationHealthAppContainer);
+        healthPendingCount = findViewById(R.id.healthPendingCount);
+        healthFailedCount = findViewById(R.id.healthFailedCount);
+        healthSyncedCount = findViewById(R.id.healthSyncedCount);
+        healthMappingCount = findViewById(R.id.healthMappingCount);
+        healthStatus = findViewById(R.id.healthStatus);
+        healthRetry = findViewById(R.id.healthRetry);
+        healthReconciliation = findViewById(R.id.healthReconciliation);
+
         reviewEventContainer = findViewById(R.id.reviewEventContainer);
         reviewPendingCount = findViewById(R.id.reviewPendingCount);
         reviewMappableCount = findViewById(R.id.reviewMappableCount);
@@ -70,11 +96,225 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
 
     private void setupActions() {
         findViewById(R.id.bridgeBack).setOnClickListener(v -> finish());
-        reviewRefresh.setOnClickListener(v -> loadReviews());
+        reviewRefresh.setOnClickListener(v -> refreshAll());
+        healthRetry.setOnClickListener(v -> retrySafeSync());
+        healthReconciliation.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(this, SpecialReconciliationActivity.class));
+            } catch (RuntimeException failure) {
+                Toast.makeText(this, "Reconciliation Center could not be opened.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void refreshAll() {
+        loadHealth();
+        loadReviews();
+    }
+
+    private void loadHealth() {
+        final int generation = ++healthLoadGeneration;
+        healthRetry.setEnabled(false);
+        healthStatus.setText(R.string.integration_health_loading);
+
+        new Thread(() -> {
+            TridevIntegrationHealthManager.Snapshot snapshot;
+            try {
+                snapshot = healthManager.loadSnapshot();
+            } catch (RuntimeException failure) {
+                snapshot = null;
+            }
+
+            final TridevIntegrationHealthManager.Snapshot result = snapshot;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || generation != healthLoadGeneration) return;
+                healthRetry.setEnabled(true);
+                if (result == null) {
+                    healthAppContainer.removeAllViews();
+                    healthPendingCount.setText("0");
+                    healthFailedCount.setText("0");
+                    healthSyncedCount.setText("0");
+                    healthMappingCount.setText("0");
+                    healthStatus.setText("Integration health could not be loaded safely.");
+                    return;
+                }
+                renderHealth(result);
+            });
+        }, "IntegrationHealthLoad").start();
+    }
+
+    private void renderHealth(TridevIntegrationHealthManager.Snapshot snapshot) {
+        healthAppContainer.removeAllViews();
+        for (int index = 0; index < snapshot.apps.size(); index++) {
+            TridevIntegrationHealthManager.AppHealth app = snapshot.apps.get(index);
+            healthAppContainer.addView(createHealthRow(app));
+            if (index < snapshot.apps.size() - 1) {
+                View divider = new View(this);
+                divider.setBackgroundColor(ContextCompat.getColor(this, R.color.app_outline));
+                LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(1));
+                dividerParams.setMargins(dp(2), 0, dp(2), 0);
+                healthAppContainer.addView(divider, dividerParams);
+            }
+        }
+
+        healthPendingCount.setText(String.valueOf(snapshot.pendingCount));
+        healthFailedCount.setText(String.valueOf(snapshot.failedCount));
+        healthSyncedCount.setText(String.valueOf(snapshot.syncedCount));
+        healthMappingCount.setText(String.valueOf(snapshot.totalMappings()));
+        healthRetry.setEnabled(snapshot.pendingCount + snapshot.failedCount > 0);
+
+        if (snapshot.lastActivityAt > 0L) {
+            healthStatus.setText(getString(
+                    R.string.integration_health_last_sync,
+                    formatHealthTime(snapshot.lastActivityAt)));
+        } else {
+            healthStatus.setText(R.string.integration_health_no_activity);
+        }
+    }
+
+    private View createHealthRow(TridevIntegrationHealthManager.AppHealth app) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(2), dp(8), dp(2), dp(8));
+
+        LinearLayout textArea = new LinearLayout(this);
+        textArea.setOrientation(LinearLayout.VERTICAL);
+
+        TextView title = new TextView(this);
+        title.setText(app.label);
+        title.setTextColor(ContextCompat.getColor(this, R.color.app_text_primary));
+        title.setTextSize(12.5f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+
+        TextView detail = new TextView(this);
+        detail.setText(buildHealthDetail(app));
+        detail.setTextColor(ContextCompat.getColor(this, R.color.app_text_secondary));
+        detail.setTextSize(8.5f);
+        detail.setMaxLines(3);
+
+        textArea.addView(title);
+        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        detailParams.setMargins(0, dp(2), 0, 0);
+        textArea.addView(detail, detailParams);
+
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f);
+        row.addView(textArea, textParams);
+
+        TextView chip = new TextView(this);
+        chip.setText(readinessLabel(app.readiness));
+        chip.setGravity(Gravity.CENTER);
+        chip.setTextSize(8f);
+        chip.setTypeface(Typeface.DEFAULT_BOLD);
+        chip.setPadding(dp(8), dp(5), dp(8), dp(5));
+        decorateReadiness(chip, app.readiness);
+
+        LinearLayout.LayoutParams chipParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        chipParams.setMargins(dp(8), 0, 0, 0);
+        row.addView(chip, chipParams);
+        return row;
+    }
+
+    private String buildHealthDetail(TridevIntegrationHealthManager.AppHealth app) {
+        StringBuilder text = new StringBuilder(app.detail);
+        if (app.eventCount > 0) {
+            text.append("\nEvents ").append(app.eventCount)
+                    .append(" • Synced ").append(app.syncedCount);
+            if (app.reviewCount > 0) text.append(" • Review ").append(app.reviewCount);
+            if (app.failedCount > 0) text.append(" • Failed ").append(app.failedCount);
+            if (app.pendingCount > 0) text.append(" • Pending ").append(app.pendingCount);
+        }
+        return text.toString();
+    }
+
+    private String readinessLabel(TridevIntegrationHealthManager.Readiness readiness) {
+        switch (readiness) {
+            case CONNECTED:
+                return "CONNECTED";
+            case READY:
+                return "READY";
+            case ACTION_REQUIRED:
+                return "ACTION";
+            case NOT_INSTALLED:
+            default:
+                return "OFFLINE";
+        }
+    }
+
+    private void decorateReadiness(
+            TextView view,
+            TridevIntegrationHealthManager.Readiness readiness) {
+        int textColor;
+        int background;
+        switch (readiness) {
+            case CONNECTED:
+                textColor = ContextCompat.getColor(this, R.color.success);
+                background = ContextCompat.getColor(this, R.color.success_surface);
+                break;
+            case READY:
+                textColor = ContextCompat.getColor(this, R.color.teal);
+                background = ContextCompat.getColor(this, R.color.teal_surface);
+                break;
+            case ACTION_REQUIRED:
+                textColor = ContextCompat.getColor(this, R.color.orange);
+                background = ContextCompat.getColor(this, R.color.warning_surface);
+                break;
+            case NOT_INSTALLED:
+            default:
+                textColor = ContextCompat.getColor(this, R.color.app_text_secondary);
+                background = ContextCompat.getColor(this, R.color.app_surface_muted);
+                break;
+        }
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(background);
+        shape.setCornerRadius(dp(16));
+        view.setBackground(shape);
+        view.setTextColor(textColor);
+    }
+
+    private void retrySafeSync() {
+        healthRetry.setEnabled(false);
+        healthRetry.setText("Retrying…");
+
+        new Thread(() -> {
+            TridevIntegrationHealthManager.RetrySummary summary;
+            try {
+                summary = healthManager.retryPendingFailed(50);
+            } catch (RuntimeException failure) {
+                summary = null;
+            }
+
+            final TridevIntegrationHealthManager.RetrySummary result = summary;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                healthRetry.setText(R.string.integration_health_retry);
+                if (result == null) {
+                    healthRetry.setEnabled(true);
+                    Toast.makeText(this, "Safe retry could not be completed.", Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(this, result.message, Toast.LENGTH_LONG).show();
+                }
+                refreshAll();
+            });
+        }, "IntegrationSafeRetry").start();
+    }
+
+    private String formatHealthTime(long time) {
+        return new SimpleDateFormat("dd MMM yyyy • hh:mm a", Locale.getDefault())
+                .format(new Date(time));
     }
 
     private void loadReviews() {
-        final int generation = ++loadGeneration;
+        final int generation = ++reviewLoadGeneration;
         reviewRefresh.setEnabled(false);
         reviewProgress.setVisibility(View.VISIBLE);
         reviewStatus.setVisibility(View.VISIBLE);
@@ -91,7 +331,7 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
 
             final List<TridevIntegrationReviewManager.ReviewItem> result = items;
             runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed() || generation != loadGeneration) return;
+                if (isFinishing() || isDestroyed() || generation != reviewLoadGeneration) return;
                 reviewRefresh.setEnabled(true);
                 reviewProgress.setVisibility(View.GONE);
 
@@ -249,8 +489,6 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
             dropdown.setText(choices.get(initialIndex).label, false);
             selectedRef[0] = choices.get(initialIndex).canonicalRef;
         } else {
-            // Fail closed: when no safe suggestion exists, force an explicit
-            // user choice instead of silently defaulting to the first account.
             dropdown.setText("", false);
             selectedRef[0] = "";
         }
@@ -304,7 +542,7 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
                     return;
                 }
                 Toast.makeText(this, finalResult.message, Toast.LENGTH_LONG).show();
-                loadReviews();
+                refreshAll();
             });
         }, "IntegrationMappingConfirm").start();
     }
