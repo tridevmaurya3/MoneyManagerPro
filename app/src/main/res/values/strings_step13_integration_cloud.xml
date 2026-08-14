@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="integration_cloud_title">Integration Cloud Recovery</string>
+    <string name="integration_cloud_subtitle">Encrypted mappings and unresolved sync state for a new phone</string>
+    <string name="integration_cloud_status_title">Recovery status</string>
+    <string name="integration_cloud_loading">Checking encrypted cloud recovery…</string>
+    <string name="integration_cloud_sync_now">Sync now</string>
+    <string name="integration_cloud_restore">Restore recovery state</string>
+    <string name="integration_cloud_open_backup">Open cloud backup settings</string>
+    <string name="integration_cloud_remote_events">Unresolved events</string>
+    <string name="integration_cloud_remote_mappings">Mappings</string>
+    <string name="integration_cloud_last_snapshot">Remote snapshot</string>
+    <string name="integration_cloud_never">Not available yet</string>
+    <string name="integration_cloud_privacy">Only hashed mapping keys and structured unresolved integration metadata are encrypted and uploaded. Raw SMS bodies, contacts and your recovery passphrase are never included. Actual MoneyManager transactions remain in the normal encrypted cloud backup.</string>
+    <string name="integration_cloud_restore_warning">Restore merges the encrypted integration mappings and unresolved queue into this phone. Existing local items are kept, and restored events are not force-posted. Restore the main MoneyManager cloud backup first when moving to a new phone so account/category IDs can be validated safely.</string>
+    <string name="integration_cloud_restore_confirm">Restore</string>
+    <string name="integration_cloud_cancel">Cancel</string>
+</resources>
