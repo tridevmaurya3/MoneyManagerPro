@@ -27,8 +27,8 @@ import java.util.Locale;
  *   must be signed with the same certificate as MoneyManagerPro.
  *
  * A caller cannot gain access by placing a package-name string in a Bundle.
- * Structured finance metadata only is accepted; raw SMS bodies are never
- * accepted by this provider.
+ * Structured finance metadata only is accepted; raw SMS bodies and Family Hub
+ * free-form notes are never accepted by this provider.
  */
 public final class TridevFinanceEventProvider extends ContentProvider {
 
@@ -50,6 +50,8 @@ public final class TridevFinanceEventProvider extends ContentProvider {
     private static final String KEY_SOURCE_RECORD_ID = "source_record_id";
     private static final String KEY_EVENT_TYPE = "event_type";
     private static final String KEY_DIRECTION = "direction";
+    private static final String KEY_SCOPE = "scope";
+    private static final String KEY_FORCE_REVIEW = "force_review";
     private static final String KEY_AMOUNT_MINOR = "amount_minor";
     private static final String KEY_CURRENCY = "currency";
     private static final String KEY_OCCURRED_AT = "occurred_at";
@@ -129,6 +131,10 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                     extras.getString(KEY_EVENT_TYPE), 40, false);
             String directionValue = structured(
                     extras.getString(KEY_DIRECTION), 20, false);
+            String scopeValue = structured(
+                    extras.getString(KEY_SCOPE), 20, true);
+            boolean forceReview = caller == CallerKind.FAMILY_HUB
+                    && extras.getBoolean(KEY_FORCE_REVIEW, false);
             long amountMinor = extras.getLong(KEY_AMOUNT_MINOR, 0L);
             String currency = structured(
                     extras.getString(KEY_CURRENCY), 8, false)
@@ -155,21 +161,31 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             TridevIntegrationContract.Direction direction =
                     safeDirection(directionValue);
 
-            if (caller == CallerKind.FAMILY_HUB
-                    && eventType != TridevIntegrationContract.EventType.GROCERY_PURCHASE) {
-                throw new IllegalArgumentException("Family Hub endpoint currently accepts grocery purchases only");
-            }
-            if (caller == CallerKind.FAMILY_HUB
-                    && direction != TridevIntegrationContract.Direction.DEBIT) {
-                throw new IllegalArgumentException("Family Hub grocery purchase must be a debit");
+            if (caller == CallerKind.FAMILY_HUB) {
+                validateFamilyHubEvent(eventType, direction);
             }
 
             String sourceApp = caller == CallerKind.FAMILY_HUB
                     ? TridevIntegrationContract.APP_FAMILY_HUB
                     : TridevIntegrationContract.APP_SMART_SMS;
             TridevIntegrationContract.Scope scope = caller == CallerKind.FAMILY_HUB
-                    ? TridevIntegrationContract.Scope.FAMILY
+                    ? familyScope(eventType, scopeValue)
                     : TridevIntegrationContract.Scope.PERSONAL;
+
+            TridevIntegrationContract.References references =
+                    TridevIntegrationContract.References.empty();
+            if (caller == CallerKind.FAMILY_HUB) {
+                boolean grocery = eventType
+                        == TridevIntegrationContract.EventType.GROCERY_PURCHASE;
+                references = new TridevIntegrationContract.References(
+                        "",
+                        "",
+                        "",
+                        grocery ? "" : sourceRecordId,
+                        grocery ? sourceRecordId : "",
+                        "",
+                        "");
+            }
 
             TridevIntegrationContract.Event event =
                     new TridevIntegrationContract.Event(
@@ -188,9 +204,11 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                             categoryHint,
                             "",
                             fingerprint,
-                            TridevIntegrationContract.SyncState.PENDING,
+                            forceReview
+                                    ? TridevIntegrationContract.SyncState.NEEDS_REVIEW
+                                    : TridevIntegrationContract.SyncState.PENDING,
                             TridevIntegrationContract.MatchConfidence.UNMATCHED,
-                            TridevIntegrationContract.References.empty());
+                            references);
 
             TridevFinanceIntegrationCoordinator.Result result =
                     new TridevFinanceIntegrationCoordinator(context)
@@ -206,6 +224,53 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             return response("REJECTED", "", null, null,
                     "Finance event failed validation");
         }
+    }
+
+    private void validateFamilyHubEvent(
+            @NonNull TridevIntegrationContract.EventType eventType,
+            @NonNull TridevIntegrationContract.Direction direction) {
+        if (eventType == TridevIntegrationContract.EventType.GROCERY_PURCHASE) {
+            if (direction != TridevIntegrationContract.Direction.DEBIT) {
+                throw new IllegalArgumentException(
+                        "Family Hub grocery purchase must be a debit");
+            }
+            return;
+        }
+        if (eventType == TridevIntegrationContract.EventType.EXPENSE) {
+            if (direction != TridevIntegrationContract.Direction.DEBIT) {
+                throw new IllegalArgumentException(
+                        "Family Hub expense must be a debit");
+            }
+            return;
+        }
+        if (eventType == TridevIntegrationContract.EventType.INCOME) {
+            if (direction != TridevIntegrationContract.Direction.CREDIT) {
+                throw new IllegalArgumentException(
+                        "Family Hub income must be a credit");
+            }
+            return;
+        }
+        throw new IllegalArgumentException(
+                "Unsupported Family Hub finance event type");
+    }
+
+    @NonNull
+    private TridevIntegrationContract.Scope familyScope(
+            @NonNull TridevIntegrationContract.EventType eventType,
+            @NonNull String scopeValue) {
+        // STEP 8 grocery events predate the explicit scope field and are always
+        // family-domain source events.
+        if (eventType == TridevIntegrationContract.EventType.GROCERY_PURCHASE) {
+            return TridevIntegrationContract.Scope.FAMILY;
+        }
+        if ("PERSONAL".equalsIgnoreCase(scopeValue)) {
+            return TridevIntegrationContract.Scope.PERSONAL;
+        }
+        if ("FAMILY".equalsIgnoreCase(scopeValue)) {
+            return TridevIntegrationContract.Scope.FAMILY;
+        }
+        throw new IllegalArgumentException(
+                "Family Finance visibility scope is required");
     }
 
     @NonNull
@@ -317,9 +382,13 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             TridevIntegrationContract.EventType type =
                     TridevIntegrationContract.EventType.valueOf(value);
             if (caller == CallerKind.FAMILY_HUB) {
-                return type == TridevIntegrationContract.EventType.GROCERY_PURCHASE
-                        ? type
-                        : TridevIntegrationContract.EventType.EXPENSE;
+                if (type == TridevIntegrationContract.EventType.GROCERY_PURCHASE
+                        || type == TridevIntegrationContract.EventType.INCOME
+                        || type == TridevIntegrationContract.EventType.EXPENSE) {
+                    return type;
+                }
+                throw new IllegalArgumentException(
+                        "Unsupported Family Hub finance event type");
             }
             switch (type) {
                 case SMS_FINANCIAL_SIGNAL:
@@ -330,10 +399,11 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                 default:
                     return TridevIntegrationContract.EventType.SMS_FINANCIAL_SIGNAL;
             }
-        } catch (IllegalArgumentException ignored) {
-            return caller == CallerKind.FAMILY_HUB
-                    ? TridevIntegrationContract.EventType.EXPENSE
-                    : TridevIntegrationContract.EventType.SMS_FINANCIAL_SIGNAL;
+        } catch (IllegalArgumentException invalid) {
+            if (caller == CallerKind.FAMILY_HUB) {
+                throw invalid;
+            }
+            return TridevIntegrationContract.EventType.SMS_FINANCIAL_SIGNAL;
         }
     }
 
