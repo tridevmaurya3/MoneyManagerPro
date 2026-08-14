@@ -52,8 +52,8 @@ public class MoreFeaturesActivity extends AppCompatActivity {
 
         addSectionHeader("Data & Security", "Protect records, review integrations and manage preferences", false);
         addFeatureRow(item("Backup", "Create and restore data", "B", BackupActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline), item("Integration Center", "Connections, sync health, mappings & review", "↔", SmartSmsTransactionReviewActivity.class, R.color.teal, R.color.teal_surface, R.color.teal_outline));
-        addFeatureRow(item("Reconciliation", "Resolve transfers, refunds and duplicates", "R", SpecialReconciliationActivity.class, R.color.orange, R.color.warning_surface, R.color.warning_outline), item("Settings", "Theme, PIN and security", "⚙", SettingsActivity.class, R.color.app_text_primary, R.color.app_surface_muted, R.color.app_outline));
-        addFeatureRow(item("Help Guide", "Learn how to use the app", "?", HelpActivity.class, R.color.teal, R.color.teal_surface, R.color.teal_outline), null);
+        addFeatureRow(item("Reconciliation", "Resolve transfers, refunds and duplicates", "R", SpecialReconciliationActivity.class, R.color.orange, R.color.warning_surface, R.color.warning_outline), item("Cloud Recovery", "Encrypted integration mappings & pending state", "☁", IntegrationCloudRecoveryActivity.class, R.color.secondary, R.color.info_surface, R.color.info_outline));
+        addFeatureRow(item("Settings", "Theme, PIN and security", "⚙", SettingsActivity.class, R.color.app_text_primary, R.color.app_surface_muted, R.color.app_outline), item("Help Guide", "Learn how to use the app", "?", HelpActivity.class, R.color.teal, R.color.teal_surface, R.color.teal_outline));
     }
 
     private FeatureItem item(String title, String subtitle, String icon, Class<?> activity,
