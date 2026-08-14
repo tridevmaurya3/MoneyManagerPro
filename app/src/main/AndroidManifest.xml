@@ -9,6 +9,12 @@
         android:name="android.permission.USE_FINGERPRINT"
         android:maxSdkVersion="27" />
 
+    <queries>
+        <package android:name="com.tridev.smartsmspro" />
+        <package android:name="com.tridev.familyhub" />
+        <package android:name="com.tridev.loanmanagerpro" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
