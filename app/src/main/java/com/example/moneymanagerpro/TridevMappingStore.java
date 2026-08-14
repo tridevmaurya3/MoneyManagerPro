@@ -11,14 +11,14 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 
 /**
- * Small durable store for user-confirmed cross-app mappings.
+ * Durable store for user-confirmed cross-app mappings.
  *
  * External hints are never stored as plain text. Only a SHA-256 fingerprint of
- * a normalized hint is used as the SharedPreferences key. Values are local,
- * non-sensitive canonical references such as account:12 or card:4, or the
- * exact MoneyManager category label selected by the user.
+ * a normalized structured hint is used as the SharedPreferences key. Values are
+ * local, non-sensitive stable references such as account:12, card:4 or
+ * category:9.
  *
- * This class does not modify any Room table or finance record.
+ * This class never modifies MoneyManager Room tables or finance records.
  */
 public final class TridevMappingStore {
 
@@ -35,7 +35,7 @@ public final class TridevMappingStore {
 
     public void rememberAccountAlias(String externalKey, String canonicalRef) {
         String key = fingerprintKey(externalKey);
-        String ref = safeCanonicalRef(canonicalRef);
+        String ref = safeCanonicalRef(canonicalRef, false);
         if (key == null || ref == null) return;
         preferences.edit().putString(ACCOUNT_PREFIX + key, ref).apply();
     }
@@ -53,11 +53,11 @@ public final class TridevMappingStore {
         preferences.edit().remove(ACCOUNT_PREFIX + key).apply();
     }
 
-    public void rememberCategoryAlias(String externalKey, String exactMoneyManagerCategory) {
+    public void rememberCategoryAlias(String externalKey, String categoryCanonicalRef) {
         String key = fingerprintKey(externalKey);
-        String category = safeLabel(exactMoneyManagerCategory);
-        if (key == null || category == null) return;
-        preferences.edit().putString(CATEGORY_PREFIX + key, category).apply();
+        String ref = safeCanonicalRef(categoryCanonicalRef, true);
+        if (key == null || ref == null) return;
+        preferences.edit().putString(CATEGORY_PREFIX + key, ref).apply();
     }
 
     @Nullable
@@ -78,24 +78,14 @@ public final class TridevMappingStore {
     }
 
     @Nullable
-    private static String safeCanonicalRef(String value) {
+    private static String safeCanonicalRef(String value, boolean categoryOnly) {
         String safe = trimToNull(value);
         if (safe == null) return null;
         String lower = safe.toLowerCase(Locale.ROOT);
-        if (!lower.matches("(account|card):[0-9]+")) return null;
-        return lower;
-    }
-
-    @Nullable
-    private static String safeLabel(String value) {
-        String safe = trimToNull(value);
-        if (safe == null) return null;
-        // Category labels are UI metadata only. Reject unusually long / multiline
-        // values so raw SMS text can never accidentally become mapping metadata.
-        if (safe.length() > 80 || safe.indexOf('\n') >= 0 || safe.indexOf('\r') >= 0) {
-            return null;
-        }
-        return safe;
+        String pattern = categoryOnly
+                ? "category:[0-9]+"
+                : "(account|card):[0-9]+";
+        return lower.matches(pattern) ? lower : null;
     }
 
     @Nullable
@@ -119,8 +109,8 @@ public final class TridevMappingStore {
     private static String normalizeExternalKey(String raw) {
         String safe = trimToNull(raw);
         if (safe == null) return null;
-        // Deliberately limit mapping hints. Callers should provide structured keys
-        // such as bank:hdfc:last4:4582, not raw message bodies.
+        // Callers should pass structured keys such as bank:hdfc:last4:4582 or
+        // family:grocery, never raw SMS bodies or personal free-form content.
         if (safe.length() > 160 || safe.indexOf('\n') >= 0 || safe.indexOf('\r') >= 0) {
             return null;
         }
