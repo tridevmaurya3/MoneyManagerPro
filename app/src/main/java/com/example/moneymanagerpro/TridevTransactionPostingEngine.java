@@ -27,8 +27,8 @@ import java.util.Locale;
  *
  * Safety design:
  * - Never creates accounts, cards or categories.
- * - Never posts TRANSFER or REFUND automatically; those require specialised
- *   reconciliation to avoid double counting.
+ * - Never posts TRANSFER, REFUND or recognised credit-card bill-payment events
+ *   automatically; those require specialised reconciliation to avoid double counting.
  * - Archived/inactive destinations and uncertain mappings go to NEEDS_REVIEW.
  * - Uses a deterministic event marker in the transaction note. If the app dies
  *   after the Room insert but before the separate queue DB is updated, retry
@@ -148,6 +148,11 @@ public final class TridevTransactionPostingEngine {
             }
             return needsReview(event, null, null,
                     "MoneyManager-originated event has no ledger reference");
+        }
+
+        if (requiresSpecialReconciliation(event)) {
+            return needsReview(event, null, null,
+                    "Transfer/refund/card-payment style event needs specialised reconciliation");
         }
 
         // Crash-safe idempotency: check deterministic event marker before mapping/posting.
@@ -291,6 +296,41 @@ public final class TridevTransactionPostingEngine {
                 account == null ? null : account.canonicalRef,
                 category == null ? null : category.canonicalRef,
                 reason);
+    }
+
+    private boolean requiresSpecialReconciliation(TridevIntegrationContract.Event event) {
+        if (event.eventType == TridevIntegrationContract.EventType.TRANSFER
+                || event.direction == TridevIntegrationContract.Direction.TRANSFER
+                || event.eventType == TridevIntegrationContract.EventType.REFUND) {
+            return true;
+        }
+
+        String category = TridevEventFingerprint.normalizeHint(event.categoryHint);
+        String merchant = TridevEventFingerprint.normalizeHint(event.merchantHint);
+        String combined = (category + " " + merchant).trim();
+
+        if (containsAny(combined,
+                "credit card payment",
+                "card payment",
+                "credit card bill",
+                "card bill",
+                "cc payment",
+                "statement payment")) {
+            return true;
+        }
+
+        return containsAny(combined,
+                "self transfer",
+                "own account",
+                "internal transfer");
+    }
+
+    private boolean containsAny(String text, String... phrases) {
+        if (text == null || text.isEmpty()) return false;
+        for (String phrase : phrases) {
+            if (text.contains(phrase)) return true;
+        }
+        return false;
     }
 
     @Nullable
