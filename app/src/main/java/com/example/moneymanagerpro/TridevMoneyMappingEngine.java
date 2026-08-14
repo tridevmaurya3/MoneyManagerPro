@@ -12,25 +12,24 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
 /**
- * Read-only resolver that connects structured events from SmartSMSPro,
- * Family Hub and LoanManagerPro to MoneyManagerPro's EXISTING accounts,
- * credit cards and categories.
+ * Read-only mapping engine for cross-app finance events.
  *
- * Safety rules:
- * 1) Never creates, renames, archives, merges or deletes finance data.
- * 2) Stable local IDs are preferred over display names.
- * 3) Card matching uses only safe metadata such as last four digits.
- * 4) Ambiguous matches always return NEEDS_REVIEW instead of guessing.
- * 5) User-confirmed aliases are stored by TridevMappingStore using hashed keys.
+ * It maps structured hints from SmartSMSPro, Family Hub and LoanManagerPro to
+ * MoneyManagerPro's EXISTING accounts, credit cards and categories. It never
+ * creates, renames, archives, merges or deletes finance data.
  *
- * Database inspection can be non-trivial on a large ledger. Call this class from
- * a worker/executor, not from the Android main thread.
+ * Canonical references are stable local IDs:
+ *   account:<id>
+ *   card:<id>
+ *   category:<id>
+ *
+ * Ambiguous/weak matches are returned as NEEDS_REVIEW. This class may inspect
+ * several Room tables, so callers must run it on a worker/executor.
  */
 public final class TridevMoneyMappingEngine {
 
@@ -45,7 +44,10 @@ public final class TridevMoneyMappingEngine {
         public final MappingKind kind;
         @Nullable public final String canonicalRef;
         @Nullable public final String displayName;
+        /** Exact value MoneyManager currently uses in transaction.account/category. */
         @Nullable public final String transactionValue;
+        /** Only populated for CATEGORY, e.g. Income/Expense when available. */
+        @Nullable public final String categoryType;
         public final TridevIntegrationContract.MatchConfidence confidence;
         public final boolean needsReview;
         public final String reason;
@@ -55,6 +57,7 @@ public final class TridevMoneyMappingEngine {
                 @Nullable String canonicalRef,
                 @Nullable String displayName,
                 @Nullable String transactionValue,
+                @Nullable String categoryType,
                 TridevIntegrationContract.MatchConfidence confidence,
                 boolean needsReview,
                 String reason) {
@@ -62,6 +65,7 @@ public final class TridevMoneyMappingEngine {
             this.canonicalRef = canonicalRef;
             this.displayName = displayName;
             this.transactionValue = transactionValue;
+            this.categoryType = categoryType;
             this.confidence = confidence;
             this.needsReview = needsReview;
             this.reason = reason == null ? "" : reason;
@@ -73,9 +77,58 @@ public final class TridevMoneyMappingEngine {
                     null,
                     null,
                     null,
+                    null,
                     TridevIntegrationContract.MatchConfidence.UNMATCHED,
                     true,
                     reason);
+        }
+    }
+
+    public static final class Catalog {
+        public final List<CatalogItem> accounts;
+        public final List<CatalogItem> creditCards;
+        public final List<CategoryCatalogItem> categories;
+
+        private Catalog(
+                List<CatalogItem> accounts,
+                List<CatalogItem> creditCards,
+                List<CategoryCatalogItem> categories) {
+            this.accounts = Collections.unmodifiableList(accounts);
+            this.creditCards = Collections.unmodifiableList(creditCards);
+            this.categories = Collections.unmodifiableList(categories);
+        }
+    }
+
+    public static final class CatalogItem {
+        public final String canonicalRef;
+        public final String displayName;
+        public final String transactionValue;
+        @Nullable public final String type;
+        public final boolean unavailableForNewPosting;
+
+        private CatalogItem(
+                String canonicalRef,
+                String displayName,
+                String transactionValue,
+                @Nullable String type,
+                boolean unavailableForNewPosting) {
+            this.canonicalRef = canonicalRef;
+            this.displayName = displayName;
+            this.transactionValue = transactionValue;
+            this.type = type;
+            this.unavailableForNewPosting = unavailableForNewPosting;
+        }
+    }
+
+    public static final class CategoryCatalogItem {
+        public final String canonicalRef;
+        public final String name;
+        @Nullable public final String type;
+
+        private CategoryCatalogItem(String canonicalRef, String name, @Nullable String type) {
+            this.canonicalRef = canonicalRef;
+            this.name = name;
+            this.type = type;
         }
     }
 
@@ -88,8 +141,8 @@ public final class TridevMoneyMappingEngine {
     }
 
     /**
-     * Resolve a bank/account/card hint to an existing MoneyManager destination.
-     * externalKey should be structured, e.g. "bank:hdfc:last4:4582".
+     * Resolve a bank/account/card hint. externalKey should be structured, for
+     * example bank:hdfc:last4:4582, not a raw SMS body.
      */
     public MappingResult resolveAccount(
             @Nullable String externalKey,
@@ -99,37 +152,59 @@ public final class TridevMoneyMappingEngine {
 
         String remembered = mappingStore.findAccountAlias(externalKey);
         if (remembered != null) {
-            MappingResult result = resolveCanonicalRef(snapshot, remembered, true);
-            if (result != null) return result;
+            AccountCandidate rememberedCandidate = findAccountByRef(snapshot, remembered);
+            if (rememberedCandidate != null) {
+                return accountResult(
+                        rememberedCandidate,
+                        TridevIntegrationContract.MatchConfidence.EXACT,
+                        rememberedCandidate.unavailable,
+                        rememberedCandidate.unavailable
+                                ? "Confirmed mapping now points to archived/inactive destination"
+                                : "User-confirmed account/card mapping");
+            }
         }
 
-        String directRef = canonicalRefOrNull(accountOrCardHint);
+        String directRef = accountCanonicalRefOrNull(accountOrCardHint);
         if (directRef != null) {
-            MappingResult result = resolveCanonicalRef(snapshot, directRef, false);
-            if (result != null) return result;
+            AccountCandidate direct = findAccountByRef(snapshot, directRef);
+            if (direct != null) {
+                return accountResult(
+                        direct,
+                        TridevIntegrationContract.MatchConfidence.EXACT,
+                        direct.unavailable,
+                        direct.unavailable
+                                ? "Stable ID is archived/inactive; review required"
+                                : "Stable MoneyManager ID match");
+            }
         }
 
         String lastFour = safeLastFour(lastFourHint);
         if (lastFour != null) {
-            List<Candidate> cardMatches = new ArrayList<>();
-            for (Candidate card : snapshot.cards) {
+            List<AccountCandidate> cardMatches = new ArrayList<>();
+            for (AccountCandidate card : snapshot.cards) {
                 if (lastFour.equals(card.lastFour)) cardMatches.add(card);
             }
             if (cardMatches.size() == 1) {
-                return resultFor(
-                        cardMatches.get(0),
+                AccountCandidate card = cardMatches.get(0);
+                return accountResult(
+                        card,
                         TridevIntegrationContract.MatchConfidence.EXACT,
-                        false,
-                        "Unique credit-card last-four match");
+                        card.unavailable,
+                        card.unavailable
+                                ? "Card suffix matches an inactive card"
+                                : "Unique credit-card last-four match");
             }
             if (cardMatches.size() > 1) {
-                String normalizedHint = normalize(accountOrCardHint);
-                List<Candidate> narrowed = exactOrStrongNameMatches(cardMatches, normalizedHint);
+                List<AccountCandidate> narrowed = strongNameMatches(
+                        cardMatches,
+                        normalize(accountOrCardHint),
+                        0.60d);
                 if (narrowed.size() == 1) {
-                    return resultFor(
-                            narrowed.get(0),
+                    AccountCandidate card = narrowed.get(0);
+                    return accountResult(
+                            card,
                             TridevIntegrationContract.MatchConfidence.HIGH,
-                            false,
+                            card.unavailable,
                             "Card suffix plus issuer/name match");
                 }
                 return MappingResult.unmatched(
@@ -137,44 +212,44 @@ public final class TridevMoneyMappingEngine {
             }
         }
 
-        String normalizedHint = normalize(accountOrCardHint);
-        if (normalizedHint.isEmpty()) {
+        String hint = normalize(accountOrCardHint);
+        if (hint.isEmpty()) {
             return MappingResult.unmatched("No account/card hint available");
         }
 
-        List<Candidate> all = new ArrayList<>();
+        List<AccountCandidate> all = new ArrayList<>();
         all.addAll(snapshot.accounts);
         all.addAll(snapshot.cards);
 
-        List<Candidate> exact = new ArrayList<>();
-        for (Candidate candidate : all) {
-            if (normalizedHint.equals(normalize(candidate.displayName))
-                    || normalizedHint.equals(normalize(candidate.transactionValue))) {
+        List<AccountCandidate> exact = new ArrayList<>();
+        for (AccountCandidate candidate : all) {
+            if (hint.equals(normalize(candidate.displayName))
+                    || hint.equals(normalize(candidate.transactionValue))) {
                 exact.add(candidate);
             }
         }
-        exact = collapseSameTransactionTarget(exact);
+        exact = collapseSameLedgerTarget(exact);
         if (exact.size() == 1) {
-            Candidate candidate = exact.get(0);
-            return resultFor(
+            AccountCandidate candidate = exact.get(0);
+            return accountResult(
                     candidate,
                     TridevIntegrationContract.MatchConfidence.EXACT,
-                    candidate.archived,
-                    candidate.archived
-                            ? "Exact match points to an archived account; review required"
+                    candidate.unavailable,
+                    candidate.unavailable
+                            ? "Exact destination is archived/inactive"
                             : "Exact MoneyManager account/card name match");
         }
         if (exact.size() > 1) {
             return MappingResult.unmatched("Multiple exact account/card matches found");
         }
 
-        Candidate best = null;
+        AccountCandidate best = null;
         double bestScore = 0d;
         double secondScore = 0d;
-        for (Candidate candidate : all) {
+        for (AccountCandidate candidate : all) {
             double score = Math.max(
-                    tokenSimilarity(normalizedHint, normalize(candidate.displayName)),
-                    tokenSimilarity(normalizedHint, normalize(candidate.transactionValue)));
+                    tokenSimilarity(hint, normalize(candidate.displayName)),
+                    tokenSimilarity(hint, normalize(candidate.transactionValue)));
             if (score > bestScore) {
                 secondScore = bestScore;
                 bestScore = score;
@@ -185,45 +260,71 @@ public final class TridevMoneyMappingEngine {
         }
 
         if (best != null && bestScore >= 0.78d && bestScore - secondScore >= 0.12d) {
-            return resultFor(
+            return accountResult(
                     best,
                     TridevIntegrationContract.MatchConfidence.HIGH,
                     true,
-                    "Strong name match; user confirmation required before first use");
+                    "Strong unique name suggestion; confirm once before automatic use");
         }
 
         return MappingResult.unmatched("No safe unique MoneyManager account/card match");
     }
 
-    /** Resolve only to categories already present in MoneyManager history/config. */
     public MappingResult resolveCategory(
             @Nullable String externalKey,
             @Nullable String categoryHint) {
+        return resolveCategory(externalKey, categoryHint, null);
+    }
+
+    /**
+     * Resolve only to an EXISTING category row. expectedType may be Income or
+     * Expense. When supplied, a category of the wrong type is never auto-used.
+     */
+    public MappingResult resolveCategory(
+            @Nullable String externalKey,
+            @Nullable String categoryHint,
+            @Nullable String expectedType) {
         Snapshot snapshot = readSnapshot();
-        if (snapshot.categories.isEmpty()) {
-            return MappingResult.unmatched("No existing MoneyManager categories found");
+        List<CategoryCandidate> eligible = filterCategories(snapshot.categories, expectedType);
+        if (eligible.isEmpty()) {
+            return MappingResult.unmatched(
+                    expectedType == null
+                            ? "No existing MoneyManager categories found"
+                            : "No existing MoneyManager category of requested type found");
         }
 
         String remembered = mappingStore.findCategoryAlias(externalKey);
         if (remembered != null) {
-            String current = findExactCategory(snapshot.categories, remembered);
-            if (current != null) {
+            CategoryCandidate category = findCategoryByRef(eligible, remembered);
+            if (category != null) {
                 return categoryResult(
-                        current,
+                        category,
                         TridevIntegrationContract.MatchConfidence.EXACT,
                         false,
                         "User-confirmed category mapping");
             }
         }
 
-        String normalizedHint = normalize(categoryHint);
-        if (normalizedHint.isEmpty()) {
+        String directRef = categoryCanonicalRefOrNull(categoryHint);
+        if (directRef != null) {
+            CategoryCandidate category = findCategoryByRef(eligible, directRef);
+            if (category != null) {
+                return categoryResult(
+                        category,
+                        TridevIntegrationContract.MatchConfidence.EXACT,
+                        false,
+                        "Stable MoneyManager category ID match");
+            }
+        }
+
+        String hint = normalize(categoryHint);
+        if (hint.isEmpty()) {
             return MappingResult.unmatched("No category hint available");
         }
 
-        List<String> exact = new ArrayList<>();
-        for (String category : snapshot.categories) {
-            if (normalizedHint.equals(normalize(category))) exact.add(category);
+        List<CategoryCandidate> exact = new ArrayList<>();
+        for (CategoryCandidate category : eligible) {
+            if (hint.equals(normalize(category.name))) exact.add(category);
         }
         if (exact.size() == 1) {
             return categoryResult(
@@ -233,36 +334,35 @@ public final class TridevMoneyMappingEngine {
                     "Exact existing MoneyManager category match");
         }
         if (exact.size() > 1) {
-            return MappingResult.unmatched("Duplicate category labels require review");
+            return MappingResult.unmatched("Duplicate category names require review");
         }
 
-        Set<String> semanticWords = semanticFamily(normalizedHint);
-        if (!semanticWords.isEmpty()) {
-            List<String> semanticMatches = new ArrayList<>();
-            for (String category : snapshot.categories) {
-                Set<String> categoryWords = semanticFamily(normalize(category));
-                if (!Collections.disjoint(semanticWords, categoryWords)) {
-                    semanticMatches.add(category);
+        Set<String> family = semanticFamily(hint);
+        if (!family.isEmpty()) {
+            List<CategoryCandidate> semantic = new ArrayList<>();
+            for (CategoryCandidate category : eligible) {
+                if (!Collections.disjoint(family, semanticFamily(normalize(category.name)))) {
+                    semantic.add(category);
                 }
             }
-            if (semanticMatches.size() == 1) {
+            if (semantic.size() == 1) {
                 return categoryResult(
-                        semanticMatches.get(0),
+                        semantic.get(0),
                         TridevIntegrationContract.MatchConfidence.HIGH,
                         true,
-                        "Unique semantic category suggestion; confirm once to remember it");
+                        "Unique semantic suggestion; confirm once to remember it");
             }
-            if (semanticMatches.size() > 1) {
+            if (semantic.size() > 1) {
                 return MappingResult.unmatched(
-                        "More than one existing MoneyManager category fits this event");
+                        "More than one existing category fits this event");
             }
         }
 
-        String best = null;
+        CategoryCandidate best = null;
         double bestScore = 0d;
         double secondScore = 0d;
-        for (String category : snapshot.categories) {
-            double score = tokenSimilarity(normalizedHint, normalize(category));
+        for (CategoryCandidate category : eligible) {
+            double score = tokenSimilarity(hint, normalize(category.name));
             if (score > bestScore) {
                 secondScore = bestScore;
                 bestScore = score;
@@ -271,36 +371,33 @@ public final class TridevMoneyMappingEngine {
                 secondScore = score;
             }
         }
+
         if (best != null && bestScore >= 0.80d && bestScore - secondScore >= 0.15d) {
             return categoryResult(
                     best,
                     TridevIntegrationContract.MatchConfidence.HIGH,
                     true,
-                    "Strong existing category match; confirmation required");
+                    "Strong category suggestion; confirmation required");
         }
 
         return MappingResult.unmatched("No safe unique existing category match");
     }
 
-    /** Persist a user-confirmed account/card mapping only if the target still exists. */
-    public boolean rememberConfirmedAccountMapping(
-            String externalKey,
-            String canonicalRef) {
+    /** Save only a target that still exists in MoneyManager. */
+    public boolean rememberConfirmedAccountMapping(String externalKey, String canonicalRef) {
         Snapshot snapshot = readSnapshot();
-        MappingResult current = resolveCanonicalRef(snapshot, canonicalRef, false);
-        if (current == null || current.canonicalRef == null) return false;
-        mappingStore.rememberAccountAlias(externalKey, current.canonicalRef);
+        AccountCandidate target = findAccountByRef(snapshot, canonicalRef);
+        if (target == null || target.unavailable) return false;
+        mappingStore.rememberAccountAlias(externalKey, target.canonicalRef);
         return true;
     }
 
-    /** Persist a user-confirmed category mapping only if that exact category exists. */
-    public boolean rememberConfirmedCategoryMapping(
-            String externalKey,
-            String exactCategory) {
+    /** Save only a stable category ID that still exists. */
+    public boolean rememberConfirmedCategoryMapping(String externalKey, String canonicalRef) {
         Snapshot snapshot = readSnapshot();
-        String existing = findExactCategory(snapshot.categories, exactCategory);
-        if (existing == null) return false;
-        mappingStore.rememberCategoryAlias(externalKey, existing);
+        CategoryCandidate target = findCategoryByRef(snapshot.categories, canonicalRef);
+        if (target == null) return false;
+        mappingStore.rememberCategoryAlias(externalKey, target.canonicalRef);
         return true;
     }
 
@@ -312,62 +409,35 @@ public final class TridevMoneyMappingEngine {
         mappingStore.forgetCategoryAlias(externalKey);
     }
 
-    /**
-     * Returns a read-only catalog suitable for a future "Choose account/category"
-     * review screen. No underlying finance record is changed.
-     */
+    /** Read-only catalog for the future review/mapping UI. */
     public Catalog readCatalog() {
         Snapshot snapshot = readSnapshot();
         List<CatalogItem> accounts = new ArrayList<>();
-        for (Candidate candidate : snapshot.accounts) {
+        for (AccountCandidate item : snapshot.accounts) {
             accounts.add(new CatalogItem(
-                    candidate.canonicalRef,
-                    candidate.displayName,
-                    candidate.transactionValue,
-                    candidate.archived));
+                    item.canonicalRef,
+                    item.displayName,
+                    item.transactionValue,
+                    item.type,
+                    item.unavailable));
         }
         List<CatalogItem> cards = new ArrayList<>();
-        for (Candidate candidate : snapshot.cards) {
+        for (AccountCandidate item : snapshot.cards) {
             cards.add(new CatalogItem(
-                    candidate.canonicalRef,
-                    candidate.displayName,
-                    candidate.transactionValue,
-                    candidate.archived));
+                    item.canonicalRef,
+                    item.displayName,
+                    item.transactionValue,
+                    item.type,
+                    item.unavailable));
         }
-        return new Catalog(accounts, cards, new ArrayList<>(snapshot.categories));
-    }
-
-    public static final class Catalog {
-        public final List<CatalogItem> accounts;
-        public final List<CatalogItem> creditCards;
-        public final List<String> categories;
-
-        private Catalog(
-                List<CatalogItem> accounts,
-                List<CatalogItem> creditCards,
-                List<String> categories) {
-            this.accounts = Collections.unmodifiableList(accounts);
-            this.creditCards = Collections.unmodifiableList(creditCards);
-            this.categories = Collections.unmodifiableList(categories);
+        List<CategoryCatalogItem> categories = new ArrayList<>();
+        for (CategoryCandidate item : snapshot.categories) {
+            categories.add(new CategoryCatalogItem(
+                    item.canonicalRef,
+                    item.name,
+                    item.type));
         }
-    }
-
-    public static final class CatalogItem {
-        public final String canonicalRef;
-        public final String displayName;
-        public final String transactionValue;
-        public final boolean archived;
-
-        private CatalogItem(
-                String canonicalRef,
-                String displayName,
-                String transactionValue,
-                boolean archived) {
-            this.canonicalRef = canonicalRef;
-            this.displayName = displayName;
-            this.transactionValue = transactionValue;
-            this.archived = archived;
-        }
+        return new Catalog(accounts, cards, categories);
     }
 
     private Snapshot readSnapshot() {
@@ -376,158 +446,139 @@ public final class TridevMoneyMappingEngine {
                 .getAppDatabase()
                 .getOpenHelper()
                 .getReadableDatabase();
-
-        List<Candidate> accounts = readAccounts(db);
-        List<Candidate> cards = readCards(db);
-        List<String> categories = readCategories(db);
-        return new Snapshot(accounts, cards, categories);
+        return new Snapshot(readAccounts(db), readCards(db), readCategories(db));
     }
 
-    private List<Candidate> readAccounts(SupportSQLiteDatabase db) {
-        List<Candidate> result = new ArrayList<>();
+    private List<AccountCandidate> readAccounts(SupportSQLiteDatabase db) {
+        List<AccountCandidate> result = new ArrayList<>();
         try (Cursor cursor = db.query("SELECT * FROM accounts")) {
-            int idIndex = findColumn(cursor, "id", "accountId", "account_id");
-            int nameIndex = findColumn(cursor, "name", "accountName", "account_name");
-            int archivedIndex = findColumn(cursor, "archived", "isArchived", "is_archived");
-            if (idIndex < 0 || nameIndex < 0) return result;
+            int id = findColumn(cursor, "id");
+            int name = findColumn(cursor, "name");
+            int type = findColumn(cursor, "type");
+            int archived = findColumn(cursor, "archived");
+            if (id < 0 || name < 0) return result;
 
             while (cursor.moveToNext()) {
-                long id = cursor.getLong(idIndex);
-                String name = trimToNull(cursor.getString(nameIndex));
-                if (id <= 0L || name == null) continue;
-                boolean archived = archivedIndex >= 0 && cursor.getInt(archivedIndex) != 0;
-                result.add(new Candidate(
+                long localId = cursor.getLong(id);
+                String label = trimToNull(cursor.getString(name));
+                if (localId <= 0L || label == null) continue;
+                result.add(new AccountCandidate(
                         MappingKind.ACCOUNT,
-                        "account:" + id,
-                        name,
-                        name,
+                        "account:" + localId,
+                        label,
+                        label,
+                        type >= 0 ? trimToNull(cursor.getString(type)) : null,
                         null,
-                        archived));
+                        archived >= 0 && cursor.getInt(archived) != 0));
             }
         } catch (RuntimeException ignored) {
-            // Mapping must fail closed; existing MoneyManager operation continues.
+            // Integration mapping fails closed without affecting MoneyManager.
         }
         return result;
     }
 
-    private List<Candidate> readCards(SupportSQLiteDatabase db) {
-        List<Candidate> result = new ArrayList<>();
+    private List<AccountCandidate> readCards(SupportSQLiteDatabase db) {
+        List<AccountCandidate> result = new ArrayList<>();
         try (Cursor cursor = db.query("SELECT * FROM credit_cards")) {
-            int idIndex = findColumn(cursor, "id", "creditCardId", "credit_card_id");
-            int nameIndex = findColumn(cursor, "name", "cardName", "card_name");
-            int suffixIndex = findColumn(
-                    cursor,
-                    "lastFour", "lastFourDigits", "last4", "last_four", "last_four_digits");
-            int accountNameIndex = findColumn(
-                    cursor,
-                    "accountName", "account_name", "linkedAccount", "linked_account");
-            int activeIndex = findColumn(cursor, "active", "isActive", "is_active");
-            if (idIndex < 0 || nameIndex < 0) return result;
+            int id = findColumn(cursor, "id");
+            int name = findColumn(cursor, "name");
+            int lastFour = findColumn(cursor, "lastFour");
+            int accountName = findColumn(cursor, "accountName");
+            int active = findColumn(cursor, "active");
+            if (id < 0 || name < 0) return result;
 
             while (cursor.moveToNext()) {
-                long id = cursor.getLong(idIndex);
-                String name = trimToNull(cursor.getString(nameIndex));
-                if (id <= 0L || name == null) continue;
+                long localId = cursor.getLong(id);
+                String cardName = trimToNull(cursor.getString(name));
+                if (localId <= 0L || cardName == null) continue;
 
-                String suffix = suffixIndex >= 0
-                        ? safeLastFour(cursor.getString(suffixIndex))
+                String suffix = lastFour >= 0
+                        ? safeLastFour(cursor.getString(lastFour))
                         : null;
-                String accountName = accountNameIndex >= 0
-                        ? trimToNull(cursor.getString(accountNameIndex))
+                String ledgerAccount = accountName >= 0
+                        ? trimToNull(cursor.getString(accountName))
                         : null;
-                if (accountName == null) accountName = name;
-                boolean inactive = activeIndex >= 0 && cursor.getInt(activeIndex) == 0;
+                if (ledgerAccount == null) ledgerAccount = cardName;
 
-                String display = suffix == null || name.contains(suffix)
-                        ? name
-                        : name + " •••• " + suffix;
-                result.add(new Candidate(
+                String display = suffix == null || cardName.contains(suffix)
+                        ? cardName
+                        : cardName + " •••• " + suffix;
+                boolean inactive = active >= 0 && cursor.getInt(active) == 0;
+                result.add(new AccountCandidate(
                         MappingKind.CREDIT_CARD,
-                        "card:" + id,
+                        "card:" + localId,
                         display,
-                        accountName,
+                        ledgerAccount,
+                        "Credit Card",
                         suffix,
                         inactive));
             }
         } catch (RuntimeException ignored) {
-            // Older schema without credit_cards is still safe.
+            // Older/partial installs remain safe.
         }
         return result;
     }
 
-    private List<String> readCategories(SupportSQLiteDatabase db) {
-        LinkedHashSet<String> categories = new LinkedHashSet<>();
-        collectDistinctColumn(db, "transactions", "category", categories);
-        collectDistinctColumn(db, "budgets", "category", categories);
-        collectDistinctColumn(db, "recurring_transactions", "category", categories);
-        return new ArrayList<>(categories);
-    }
+    private List<CategoryCandidate> readCategories(SupportSQLiteDatabase db) {
+        List<CategoryCandidate> result = new ArrayList<>();
+        try (Cursor cursor = db.query("SELECT * FROM categories")) {
+            int id = findColumn(cursor, "id");
+            int name = findColumn(cursor, "name");
+            int type = findColumn(cursor, "type");
+            if (id < 0 || name < 0) return result;
 
-    private void collectDistinctColumn(
-            SupportSQLiteDatabase db,
-            String table,
-            String column,
-            Set<String> target) {
-        if (!hasColumn(db, table, column)) return;
-        try (Cursor cursor = db.query(
-                "SELECT DISTINCT " + column + " FROM " + table
-                        + " WHERE " + column + " IS NOT NULL")) {
             while (cursor.moveToNext()) {
-                String value = trimToNull(cursor.getString(0));
-                if (value != null && value.length() <= 80) target.add(value);
+                long localId = cursor.getLong(id);
+                String label = trimToNull(cursor.getString(name));
+                if (localId <= 0L || label == null) continue;
+                result.add(new CategoryCandidate(
+                        "category:" + localId,
+                        label,
+                        type >= 0 ? trimToNull(cursor.getString(type)) : null));
             }
         } catch (RuntimeException ignored) {
-            // Optional category source; keep whatever has already been found.
+            // Do not infer categories from raw text when master catalog is unavailable.
         }
-    }
-
-    private boolean hasColumn(SupportSQLiteDatabase db, String table, String column) {
-        try (Cursor cursor = db.query("PRAGMA table_info(" + table + ")")) {
-            int nameIndex = findColumn(cursor, "name");
-            if (nameIndex < 0) return false;
-            while (cursor.moveToNext()) {
-                String value = cursor.getString(nameIndex);
-                if (column.equalsIgnoreCase(value)) return true;
-            }
-        } catch (RuntimeException ignored) {
-        }
-        return false;
+        return result;
     }
 
     @Nullable
-    private MappingResult resolveCanonicalRef(
-            Snapshot snapshot,
-            String canonicalRef,
-            boolean remembered) {
-        String safe = canonicalRefOrNull(canonicalRef);
+    private AccountCandidate findAccountByRef(Snapshot snapshot, String ref) {
+        String safe = accountCanonicalRefOrNull(ref);
         if (safe == null) return null;
-        for (Candidate candidate : snapshot.accounts) {
-            if (safe.equals(candidate.canonicalRef)) {
-                return resultFor(
-                        candidate,
-                        TridevIntegrationContract.MatchConfidence.EXACT,
-                        candidate.archived,
-                        candidate.archived
-                                ? "Mapped account is archived; review before new posting"
-                                : remembered ? "User-confirmed account mapping" : "Stable account ID match");
-            }
+        for (AccountCandidate item : snapshot.accounts) {
+            if (safe.equals(item.canonicalRef)) return item;
         }
-        for (Candidate candidate : snapshot.cards) {
-            if (safe.equals(candidate.canonicalRef)) {
-                return resultFor(
-                        candidate,
-                        TridevIntegrationContract.MatchConfidence.EXACT,
-                        candidate.archived,
-                        candidate.archived
-                                ? "Mapped card is inactive; review before new posting"
-                                : remembered ? "User-confirmed card mapping" : "Stable card ID match");
-            }
+        for (AccountCandidate item : snapshot.cards) {
+            if (safe.equals(item.canonicalRef)) return item;
         }
         return null;
     }
 
-    private MappingResult resultFor(
-            Candidate candidate,
+    @Nullable
+    private CategoryCandidate findCategoryByRef(List<CategoryCandidate> categories, String ref) {
+        String safe = categoryCanonicalRefOrNull(ref);
+        if (safe == null) return null;
+        for (CategoryCandidate item : categories) {
+            if (safe.equals(item.canonicalRef)) return item;
+        }
+        return null;
+    }
+
+    private List<CategoryCandidate> filterCategories(
+            List<CategoryCandidate> source,
+            @Nullable String expectedType) {
+        String expected = normalize(expectedType);
+        if (expected.isEmpty()) return source;
+        List<CategoryCandidate> result = new ArrayList<>();
+        for (CategoryCandidate item : source) {
+            if (expected.equals(normalize(item.type))) result.add(item);
+        }
+        return result;
+    }
+
+    private MappingResult accountResult(
+            AccountCandidate candidate,
             TridevIntegrationContract.MatchConfidence confidence,
             boolean needsReview,
             String reason) {
@@ -536,99 +587,81 @@ public final class TridevMoneyMappingEngine {
                 candidate.canonicalRef,
                 candidate.displayName,
                 candidate.transactionValue,
+                null,
                 confidence,
                 needsReview,
                 reason);
     }
 
     private MappingResult categoryResult(
-            String category,
+            CategoryCandidate candidate,
             TridevIntegrationContract.MatchConfidence confidence,
             boolean needsReview,
             String reason) {
         return new MappingResult(
                 MappingKind.CATEGORY,
-                "category:" + normalize(category).replace(' ', '_'),
-                category,
-                category,
+                candidate.canonicalRef,
+                candidate.name,
+                candidate.name,
+                candidate.type,
                 confidence,
                 needsReview,
                 reason);
     }
 
-    private List<Candidate> exactOrStrongNameMatches(
-            List<Candidate> candidates,
-            String normalizedHint) {
-        if (normalizedHint.isEmpty()) return candidates;
-        List<Candidate> exact = new ArrayList<>();
-        for (Candidate candidate : candidates) {
-            if (normalizedHint.equals(normalize(candidate.displayName))
-                    || normalizedHint.equals(normalize(candidate.transactionValue))) {
-                exact.add(candidate);
-            }
-        }
-        if (!exact.isEmpty()) return exact;
-
-        List<Candidate> strong = new ArrayList<>();
-        for (Candidate candidate : candidates) {
+    private List<AccountCandidate> strongNameMatches(
+            List<AccountCandidate> candidates,
+            String hint,
+            double threshold) {
+        if (hint.isEmpty()) return candidates;
+        List<AccountCandidate> result = new ArrayList<>();
+        for (AccountCandidate candidate : candidates) {
             double score = Math.max(
-                    tokenSimilarity(normalizedHint, normalize(candidate.displayName)),
-                    tokenSimilarity(normalizedHint, normalize(candidate.transactionValue)));
-            if (score >= 0.65d) strong.add(candidate);
+                    tokenSimilarity(hint, normalize(candidate.displayName)),
+                    tokenSimilarity(hint, normalize(candidate.transactionValue)));
+            if (score >= threshold) result.add(candidate);
         }
-        return strong;
+        return result;
     }
 
-    private List<Candidate> collapseSameTransactionTarget(List<Candidate> source) {
-        List<Candidate> result = new ArrayList<>();
+    private List<AccountCandidate> collapseSameLedgerTarget(List<AccountCandidate> source) {
+        List<AccountCandidate> result = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        for (Candidate candidate : source) {
+        for (AccountCandidate candidate : source) {
             String key = normalize(candidate.transactionValue);
             if (seen.add(key)) result.add(candidate);
         }
         return result;
     }
 
-    @Nullable
-    private String findExactCategory(List<String> categories, String value) {
-        String normalized = normalize(value);
-        if (normalized.isEmpty()) return null;
-        String found = null;
-        for (String category : categories) {
-            if (!normalized.equals(normalize(category))) continue;
-            if (found != null && !found.equals(category)) return null;
-            found = category;
-        }
-        return found;
-    }
-
     private Set<String> semanticFamily(String normalizedText) {
-        if (normalizedText.isEmpty()) return Collections.emptySet();
+        if (normalizedText == null || normalizedText.isEmpty()) {
+            return Collections.emptySet();
+        }
         Set<String> words = tokens(normalizedText);
         Set<String> result = new HashSet<>();
-
-        addSemanticIfMatches(words, result, "grocery",
+        addFamily(words, result, "grocery",
                 "grocery", "groceries", "supermarket", "food", "ration", "kirana");
-        addSemanticIfMatches(words, result, "fuel",
+        addFamily(words, result, "fuel",
                 "fuel", "petrol", "diesel", "cng", "gasoline");
-        addSemanticIfMatches(words, result, "loan",
+        addFamily(words, result, "loan",
                 "loan", "emi", "installment", "instalment");
-        addSemanticIfMatches(words, result, "utility",
+        addFamily(words, result, "utility",
                 "bill", "electricity", "power", "water", "utility", "utilities", "recharge");
-        addSemanticIfMatches(words, result, "shopping",
+        addFamily(words, result, "shopping",
                 "shopping", "purchase", "amazon", "flipkart", "retail");
-        addSemanticIfMatches(words, result, "medical",
+        addFamily(words, result, "medical",
                 "medical", "medicine", "pharmacy", "hospital", "health", "doctor");
-        addSemanticIfMatches(words, result, "salary",
-                "salary", "payroll", "wages", "income");
-        addSemanticIfMatches(words, result, "refund",
+        addFamily(words, result, "salary",
+                "salary", "payroll", "wages");
+        addFamily(words, result, "refund",
                 "refund", "reversal", "cashback");
-        addSemanticIfMatches(words, result, "transfer",
+        addFamily(words, result, "transfer",
                 "transfer", "self", "internal");
         return result;
     }
 
-    private void addSemanticIfMatches(
+    private void addFamily(
             Set<String> words,
             Set<String> result,
             String family,
@@ -675,11 +708,19 @@ public final class TridevMoneyMappingEngine {
     }
 
     @Nullable
-    private String canonicalRefOrNull(@Nullable String value) {
+    private String accountCanonicalRefOrNull(@Nullable String value) {
         String safe = trimToNull(value);
         if (safe == null) return null;
         safe = safe.toLowerCase(Locale.ROOT);
         return safe.matches("(account|card):[0-9]+") ? safe : null;
+    }
+
+    @Nullable
+    private String categoryCanonicalRefOrNull(@Nullable String value) {
+        String safe = trimToNull(value);
+        if (safe == null) return null;
+        safe = safe.toLowerCase(Locale.ROOT);
+        return safe.matches("category:[0-9]+") ? safe : null;
     }
 
     @Nullable
@@ -692,8 +733,8 @@ public final class TridevMoneyMappingEngine {
 
     private int findColumn(Cursor cursor, String... names) {
         for (String requested : names) {
-            for (int i = 0; i < cursor.getColumnCount(); i++) {
-                if (requested.equalsIgnoreCase(cursor.getColumnName(i))) return i;
+            for (int index = 0; index < cursor.getColumnCount(); index++) {
+                if (requested.equalsIgnoreCase(cursor.getColumnName(index))) return index;
             }
         }
         return -1;
@@ -706,39 +747,54 @@ public final class TridevMoneyMappingEngine {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private static final class Candidate {
+    private static final class AccountCandidate {
         final MappingKind kind;
         final String canonicalRef;
         final String displayName;
         final String transactionValue;
+        @Nullable final String type;
         @Nullable final String lastFour;
-        final boolean archived;
+        final boolean unavailable;
 
-        Candidate(
+        AccountCandidate(
                 MappingKind kind,
                 String canonicalRef,
                 String displayName,
                 String transactionValue,
+                @Nullable String type,
                 @Nullable String lastFour,
-                boolean archived) {
+                boolean unavailable) {
             this.kind = kind;
             this.canonicalRef = canonicalRef;
             this.displayName = displayName;
             this.transactionValue = transactionValue;
+            this.type = type;
             this.lastFour = lastFour;
-            this.archived = archived;
+            this.unavailable = unavailable;
+        }
+    }
+
+    private static final class CategoryCandidate {
+        final String canonicalRef;
+        final String name;
+        @Nullable final String type;
+
+        CategoryCandidate(String canonicalRef, String name, @Nullable String type) {
+            this.canonicalRef = canonicalRef;
+            this.name = name;
+            this.type = type;
         }
     }
 
     private static final class Snapshot {
-        final List<Candidate> accounts;
-        final List<Candidate> cards;
-        final List<String> categories;
+        final List<AccountCandidate> accounts;
+        final List<AccountCandidate> cards;
+        final List<CategoryCandidate> categories;
 
         Snapshot(
-                List<Candidate> accounts,
-                List<Candidate> cards,
-                List<String> categories) {
+                List<AccountCandidate> accounts,
+                List<AccountCandidate> cards,
+                List<CategoryCandidate> categories) {
             this.accounts = accounts;
             this.cards = cards;
             this.categories = categories;
