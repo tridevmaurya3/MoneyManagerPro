@@ -5,6 +5,8 @@ import android.content.SharedPreferences;
 
 import androidx.annotation.Nullable;
 
+import com.example.moneymanagerpro.cloud.TridevIntegrationCloudScheduler;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -26,11 +28,12 @@ public final class TridevMappingStore {
     private static final String ACCOUNT_PREFIX = "account_alias_";
     private static final String CATEGORY_PREFIX = "category_alias_";
 
+    private final Context appContext;
     private final SharedPreferences preferences;
 
     public TridevMappingStore(Context context) {
-        preferences = context.getApplicationContext()
-                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        appContext = context.getApplicationContext();
+        preferences = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
     public void rememberAccountAlias(String externalKey, String canonicalRef) {
@@ -38,6 +41,7 @@ public final class TridevMappingStore {
         String ref = safeCanonicalRef(canonicalRef, false);
         if (key == null || ref == null) return;
         preferences.edit().putString(ACCOUNT_PREFIX + key, ref).apply();
+        scheduleRecoverySnapshot();
     }
 
     @Nullable
@@ -51,6 +55,7 @@ public final class TridevMappingStore {
         String key = fingerprintKey(externalKey);
         if (key == null) return;
         preferences.edit().remove(ACCOUNT_PREFIX + key).apply();
+        scheduleRecoverySnapshot();
     }
 
     public void rememberCategoryAlias(String externalKey, String categoryCanonicalRef) {
@@ -58,6 +63,7 @@ public final class TridevMappingStore {
         String ref = safeCanonicalRef(categoryCanonicalRef, true);
         if (key == null || ref == null) return;
         preferences.edit().putString(CATEGORY_PREFIX + key, ref).apply();
+        scheduleRecoverySnapshot();
     }
 
     @Nullable
@@ -71,10 +77,16 @@ public final class TridevMappingStore {
         String key = fingerprintKey(externalKey);
         if (key == null) return;
         preferences.edit().remove(CATEGORY_PREFIX + key).apply();
+        scheduleRecoverySnapshot();
     }
 
     public void clearAllIntegrationMappings() {
         preferences.edit().clear().apply();
+        scheduleRecoverySnapshot();
+    }
+
+    private void scheduleRecoverySnapshot() {
+        TridevIntegrationCloudScheduler.scheduleSoon(appContext);
     }
 
     @Nullable
