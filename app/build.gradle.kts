@@ -1,10 +1,51 @@
 import java.io.FileInputStream
+import java.security.KeyStore
+import java.security.MessageDigest
 import java.util.Properties
 import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.androidApplication)
     id("com.google.gms.google-services")
+}
+
+val expectedReleaseCertificateSha256 =
+    "4e1d6e232a2a0d32274e312a1f15f560b728d7cabab6db4050a66e995c976eac"
+
+fun certificateSha256(
+    storeFile: java.io.File,
+    storePassword: String,
+    keyAlias: String
+): String {
+    var lastError: Exception? = null
+
+    for (storeType in listOf("JKS", "PKCS12")) {
+        try {
+            val keyStore = KeyStore.getInstance(storeType)
+            FileInputStream(storeFile).use { input ->
+                keyStore.load(input, storePassword.toCharArray())
+            }
+
+            val certificate = keyStore.getCertificate(keyAlias)
+                ?: throw GradleException(
+                    "Signing alias '$keyAlias' was not found in ${storeFile.absolutePath}"
+                )
+
+            return MessageDigest.getInstance("SHA-256")
+                .digest(certificate.encoded)
+                .joinToString("") { byte ->
+                    "%02x".format(byte.toInt() and 0xff)
+                }
+        } catch (error: Exception) {
+            lastError = error
+        }
+    }
+
+    throw GradleException(
+        "Unable to read the configured MoneyManagerPro signing keystore: " +
+            storeFile.absolutePath,
+        lastError
+    )
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -40,6 +81,25 @@ if (hasReleaseKeystore) {
     if (!configuredStoreFile.exists()) {
         throw GradleException(
             "Release keystore not found: ${configuredStoreFile.absolutePath}"
+        )
+    }
+
+    val configuredCertificateSha256 = certificateSha256(
+        configuredStoreFile,
+        keystoreProperties.getProperty("storePassword"),
+        keystoreProperties.getProperty("keyAlias")
+    )
+
+    if (!configuredCertificateSha256.equals(
+            expectedReleaseCertificateSha256,
+            ignoreCase = true
+        )
+    ) {
+        throw GradleException(
+            "WRONG MoneyManagerPro signing certificate. " +
+                "Expected SHA-256: $expectedReleaseCertificateSha256, " +
+                "but configured keystore is: $configuredCertificateSha256. " +
+                "Use the ORIGINAL Android debug.keystore that signed the existing installed app."
         )
     }
 }
@@ -125,8 +185,9 @@ gradle.taskGraph.whenReady {
         throw GradleException(
             "MoneyManagerPro release signing is not configured. " +
                 "Create keystore.properties in the project root and point it to " +
-                "the ORIGINAL Money Manager Pro release .jks/.keystore. " +
-                "Do not create a new key for an app update."
+                "the ORIGINAL Money Manager Pro signing keystore. " +
+                "For the currently installed app this is the Android debug.keystore " +
+                "with SHA-256 $expectedReleaseCertificateSha256."
         )
     }
 }
