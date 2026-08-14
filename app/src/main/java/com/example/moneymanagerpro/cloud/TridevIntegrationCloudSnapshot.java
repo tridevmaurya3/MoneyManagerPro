@@ -14,7 +14,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -363,12 +362,21 @@ public final class TridevIntegrationCloudSnapshot {
                     continue;
                 }
 
+                // enqueue() may discover that the same source record is already
+                // represented locally under a different eventId. In that case it
+                // must be reported as already present, not as a newly restored row.
+                TridevEventQueue.QueueItem restoredItem = queue.find(eventId);
+                if (restoredItem == null) {
+                    already++;
+                    continue;
+                }
+
                 if (originalState == TridevIntegrationContract.SyncState.FAILED
-                        && enqueue.syncState == TridevIntegrationContract.SyncState.PENDING) {
+                        && restoredItem.event.syncState == TridevIntegrationContract.SyncState.PENDING) {
                     queue.markFailed(eventId, "Restored from encrypted integration cloud recovery");
                 } else if (originalState == TridevIntegrationContract.SyncState.NEEDS_REVIEW
-                        && enqueue.syncState != TridevIntegrationContract.SyncState.SYNCED
-                        && enqueue.syncState != TridevIntegrationContract.SyncState.SUPERSEDED) {
+                        && restoredItem.event.syncState != TridevIntegrationContract.SyncState.SYNCED
+                        && restoredItem.event.syncState != TridevIntegrationContract.SyncState.SUPERSEDED) {
                     queue.markNeedsReview(
                             eventId,
                             null,
