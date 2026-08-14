@@ -14,6 +14,7 @@ import android.provider.Telephony;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Locale;
 
 /**
@@ -37,6 +38,8 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             "accept_finance_event_v1";
     public static final String METHOD_CANCEL_V1 =
             "cancel_finance_event_v1";
+    public static final String METHOD_ACCOUNT_CATALOG_V1 =
+            "get_account_catalog_v1";
 
     private static final String TRUSTED_SMART_SMS_PACKAGE =
             "com.tridev.smartsmspro";
@@ -60,6 +63,8 @@ public final class TridevFinanceEventProvider extends ContentProvider {
     private static final String RESULT_CANONICAL_EVENT_ID = "canonical_event_id";
     private static final String RESULT_TRANSACTION_ID = "transaction_id";
     private static final String RESULT_REASON = "reason";
+    private static final String RESULT_ACCOUNT_REFS = "account_refs";
+    private static final String RESULT_ACCOUNT_LABELS = "account_labels";
 
     private enum CallerKind {
         SMART_SMS,
@@ -88,6 +93,14 @@ public final class TridevFinanceEventProvider extends ContentProvider {
         if (caller == CallerKind.NONE) {
             return response("REJECTED", "", null, null,
                     "Caller is not an approved Tridev finance app");
+        }
+
+        if (METHOD_ACCOUNT_CATALOG_V1.equals(method)) {
+            if (caller != CallerKind.FAMILY_HUB) {
+                return response("REJECTED", "", null, null,
+                        "This caller cannot read the MoneyManager account catalog");
+            }
+            return accountCatalog(context);
         }
 
         if (METHOD_CANCEL_V1.equals(method)) {
@@ -193,6 +206,46 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             return response("REJECTED", "", null, null,
                     "Finance event failed validation");
         }
+    }
+
+    @NonNull
+    private Bundle accountCatalog(@NonNull Context context) {
+        try {
+            TridevMoneyMappingEngine.Catalog catalog =
+                    new TridevMoneyMappingEngine(context).readCatalog();
+            ArrayList<String> refs = new ArrayList<>();
+            ArrayList<String> labels = new ArrayList<>();
+
+            for (TridevMoneyMappingEngine.CatalogItem item : catalog.accounts) {
+                if (item == null || item.unavailableForNewPosting) continue;
+                refs.add(item.canonicalRef);
+                labels.add(accountLabel(item));
+            }
+            for (TridevMoneyMappingEngine.CatalogItem item : catalog.creditCards) {
+                if (item == null || item.unavailableForNewPosting) continue;
+                refs.add(item.canonicalRef);
+                labels.add(accountLabel(item));
+            }
+
+            Bundle result = response("OK", "", null, null,
+                    refs.isEmpty()
+                            ? "No active MoneyManager account/card is available"
+                            : "Active MoneyManager account catalog");
+            result.putStringArrayList(RESULT_ACCOUNT_REFS, refs);
+            result.putStringArrayList(RESULT_ACCOUNT_LABELS, labels);
+            return result;
+        } catch (RuntimeException unavailable) {
+            return response("FAILED", "", null, null,
+                    "MoneyManager account catalog is unavailable");
+        }
+    }
+
+    @NonNull
+    private String accountLabel(@NonNull TridevMoneyMappingEngine.CatalogItem item) {
+        String label = safe(item.displayName);
+        String type = safe(item.type);
+        if (!type.isEmpty()) label += " • " + type;
+        return label.length() <= 120 ? label : label.substring(0, 120).trim();
     }
 
     @NonNull
