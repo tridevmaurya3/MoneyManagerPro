@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.TridevAdvancedReconciliationManager;
 import com.example.moneymanagerpro.TridevSpecialReconciliationManager;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -24,7 +25,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** STEP 7 - private MoneyManager reconciliation UI. */
+/** STEP 12 - private advanced MoneyManager reconciliation UI. */
 public class SpecialReconciliationActivity extends AppCompatActivity {
 
     private LinearLayout eventContainer;
@@ -37,7 +38,7 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
     private View emptyCard;
     private MaterialButton refresh;
 
-    private TridevSpecialReconciliationManager manager;
+    private TridevAdvancedReconciliationManager manager;
     private int loadGeneration = 0;
 
     @Override
@@ -45,7 +46,7 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_special_reconciliation);
 
-        manager = new TridevSpecialReconciliationManager(getApplicationContext());
+        manager = new TridevAdvancedReconciliationManager(getApplicationContext());
         bindViews();
         findViewById(R.id.reconcileBack).setOnClickListener(v -> finish());
         refresh.setOnClickListener(v -> loadItems());
@@ -73,13 +74,13 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
         emptyCard.setVisibility(View.GONE);
 
         new Thread(() -> {
-            List<TridevSpecialReconciliationManager.SpecialItem> items;
+            List<TridevAdvancedReconciliationManager.AdvancedItem> items;
             try {
                 items = manager.loadItems(100);
             } catch (RuntimeException failure) {
                 items = null;
             }
-            final List<TridevSpecialReconciliationManager.SpecialItem> result = items;
+            final List<TridevAdvancedReconciliationManager.AdvancedItem> result = items;
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed() || generation != loadGeneration) return;
                 refresh.setEnabled(true);
@@ -93,15 +94,16 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
                 }
                 renderItems(result);
             });
-        }, "SpecialReconciliationLoad").start();
+        }, "AdvancedReconciliationLoad").start();
     }
 
-    private void renderItems(List<TridevSpecialReconciliationManager.SpecialItem> items) {
+    private void renderItems(List<TridevAdvancedReconciliationManager.AdvancedItem> items) {
         eventContainer.removeAllViews();
         int transfers = 0;
         int refunds = 0;
         int duplicates = 0;
-        for (TridevSpecialReconciliationManager.SpecialItem item : items) {
+        for (TridevAdvancedReconciliationManager.AdvancedItem advanced : items) {
+            TridevSpecialReconciliationManager.SpecialItem item = advanced.base;
             if (item.transferLike) transfers++;
             if (item.refundLike) refunds++;
             if (item.duplicateEvidence) duplicates++;
@@ -117,7 +119,7 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
         emptyCard.setVisibility(View.GONE);
         status.setVisibility(View.GONE);
         LayoutInflater inflater = LayoutInflater.from(this);
-        for (TridevSpecialReconciliationManager.SpecialItem item : items) {
+        for (TridevAdvancedReconciliationManager.AdvancedItem item : items) {
             View card = inflater.inflate(
                     R.layout.item_special_reconciliation_event,
                     eventContainer,
@@ -129,7 +131,8 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
 
     private void bindCard(
             View card,
-            TridevSpecialReconciliationManager.SpecialItem item) {
+            TridevAdvancedReconciliationManager.AdvancedItem advanced) {
+        TridevSpecialReconciliationManager.SpecialItem item = advanced.base;
         TextView source = card.findViewById(R.id.reconcileEventSource);
         TextView meta = card.findViewById(R.id.reconcileEventMeta);
         TextView amount = card.findViewById(R.id.reconcileEventAmount);
@@ -145,9 +148,9 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
                         ? R.color.success
                         : R.color.expense));
         decorateBadge(badge, item);
-        signal.setText(buildSignal(item));
+        signal.setText(buildSignal(item, advanced.candidateNotice));
 
-        bindExistingSection(card, item);
+        bindExistingSection(card, advanced);
         bindDuplicateSection(card, item);
         bindTransferSection(card, item);
         bindRefundSection(card, item);
@@ -156,20 +159,22 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
 
     private void bindExistingSection(
             View card,
-            TridevSpecialReconciliationManager.SpecialItem item) {
+            TridevAdvancedReconciliationManager.AdvancedItem advanced) {
+        TridevSpecialReconciliationManager.SpecialItem item = advanced.base;
         View section = card.findViewById(R.id.reconcileExistingSection);
         MaterialAutoCompleteTextView dropdown =
                 card.findViewById(R.id.reconcileExistingDropdown);
         MaterialButton button = card.findViewById(R.id.reconcileLinkExisting);
 
-        if (item.ledgerCandidates.isEmpty()) {
+        if (advanced.rankedLedgerCandidates.isEmpty()) {
             section.setVisibility(View.GONE);
             return;
         }
         section.setVisibility(View.VISIBLE);
 
         List<String> labels = new ArrayList<>();
-        for (TridevSpecialReconciliationManager.LedgerCandidate candidate : item.ledgerCandidates) {
+        for (TridevAdvancedReconciliationManager.RankedLedgerCandidate candidate
+                : advanced.rankedLedgerCandidates) {
             labels.add(candidate.label);
         }
         dropdown.setAdapter(new ArrayAdapter<>(
@@ -181,19 +186,23 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
 
         final long[] selectedId = {0L};
         long suggested = parseLong(item.existingTransactionRef);
-        int suggestedIndex = candidateIndex(item.ledgerCandidates, suggested);
+        int suggestedIndex = rankedCandidateIndex(
+                advanced.rankedLedgerCandidates,
+                suggested);
         if (suggestedIndex >= 0) {
-            TridevSpecialReconciliationManager.LedgerCandidate candidate =
-                    item.ledgerCandidates.get(suggestedIndex);
+            TridevAdvancedReconciliationManager.RankedLedgerCandidate candidate =
+                    advanced.rankedLedgerCandidates.get(suggestedIndex);
             dropdown.setText(candidate.label, false);
             selectedId[0] = candidate.transactionId;
         } else {
+            // No auto default: even the highest-scored candidate requires an
+            // explicit user selection unless the queue already referenced it.
             dropdown.setText("", false);
         }
 
         dropdown.setOnItemClickListener((parent, view, position, id) -> {
-            if (position >= 0 && position < item.ledgerCandidates.size()) {
-                selectedId[0] = item.ledgerCandidates.get(position).transactionId;
+            if (position >= 0 && position < advanced.rankedLedgerCandidates.size()) {
+                selectedId[0] = advanced.rankedLedgerCandidates.get(position).transactionId;
             }
         });
 
@@ -202,7 +211,9 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
                 Toast.makeText(this, R.string.reconcile_select_existing, Toast.LENGTH_SHORT).show();
                 return;
             }
-            runAction(button, () -> manager.linkExistingTransaction(item.eventId, selectedId[0]));
+            runAction(button, () -> manager.linkExistingTransaction(
+                    item.eventId,
+                    selectedId[0]));
         });
     }
 
@@ -248,7 +259,10 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
                 Toast.makeText(this, "From and To accounts must be different.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            runAction(button, () -> manager.processTransfer(item.eventId, fromRef[0], toRef[0]));
+            runAction(button, () -> manager.processTransfer(
+                    item.eventId,
+                    fromRef[0],
+                    toRef[0]));
         });
     }
 
@@ -287,7 +301,10 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
                 Toast.makeText(this, R.string.reconcile_select_refund_fields, Toast.LENGTH_SHORT).show();
                 return;
             }
-            runAction(button, () -> manager.processRefund(item.eventId, accountRef[0], categoryRef[0]));
+            runAction(button, () -> manager.processRefund(
+                    item.eventId,
+                    accountRef[0],
+                    categoryRef[0]));
         });
     }
 
@@ -360,10 +377,12 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
                 Toast.makeText(this, finalResult.message, Toast.LENGTH_LONG).show();
                 loadItems();
             });
-        }, "SpecialReconciliationAction").start();
+        }, "AdvancedReconciliationAction").start();
     }
 
-    private String buildSignal(TridevSpecialReconciliationManager.SpecialItem item) {
+    private String buildSignal(
+            TridevSpecialReconciliationManager.SpecialItem item,
+            String candidateNotice) {
         StringBuilder text = new StringBuilder();
         text.append("Account: ").append(safe(item.accountHint, "Not identified"));
         text.append("\nCategory: ").append(safe(item.categoryHint, "Not identified"));
@@ -372,6 +391,9 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
         }
         if (item.duplicateEvidence) {
             text.append("\nPossible duplicate evidence detected — choose an explicit action below.");
+        }
+        if (candidateNotice != null && !candidateNotice.trim().isEmpty()) {
+            text.append("\nAdvanced match: ").append(candidateNotice.trim());
         }
         return text.toString();
     }
@@ -428,8 +450,8 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
         return -1;
     }
 
-    private int candidateIndex(
-            List<TridevSpecialReconciliationManager.LedgerCandidate> candidates,
+    private int rankedCandidateIndex(
+            List<TridevAdvancedReconciliationManager.RankedLedgerCandidate> candidates,
             long transactionId) {
         if (transactionId <= 0L) return -1;
         for (int index = 0; index < candidates.size(); index++) {
