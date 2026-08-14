@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="integration_health_title">Integration Health &amp; Review</string>
+    <string name="integration_health_subtitle">Connections, sync health, mappings and finance review</string>
+    <string name="integration_health_connections">Connected apps</string>
+    <string name="integration_health_connections_subtitle">Readiness and actual finance-event activity on this device</string>
+    <string name="integration_health_pending">Pending</string>
+    <string name="integration_health_failed">Failed</string>
+    <string name="integration_health_synced">Synced</string>
+    <string name="integration_health_mappings">Mappings</string>
+    <string name="integration_health_retry">Retry safe sync</string>
+    <string name="integration_health_reconciliation">Open reconciliation</string>
+    <string name="integration_health_loading">Checking integration health…</string>
+    <string name="integration_health_no_activity">No integration activity yet</string>
+    <string name="integration_health_last_sync">Last activity: %1$s</string>
+    <string name="integration_health_review_section">Mapping &amp; review queue</string>
+    <string name="integration_health_review_section_subtitle">Resolve account/category uncertainty without creating duplicate ledger entries</string>
+</resources>
