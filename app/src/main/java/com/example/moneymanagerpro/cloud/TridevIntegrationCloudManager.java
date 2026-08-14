@@ -256,7 +256,13 @@ public final class TridevIntegrationCloudManager {
                         callback.onError(error);
                         return;
                     }
-                    restoreDocument(user, document, callback);
+
+                    // Firestore listeners are commonly delivered on the Android main thread.
+                    // PBKDF2 (210k rounds), AES-GCM and queue restore must never block it.
+                    new Thread(
+                            () -> restoreDocument(user, document, callback),
+                            "IntegrationCloudRestoreCrypto")
+                            .start();
                 })
                 .addOnFailureListener(error -> {
                     saveError(error.getMessage());
