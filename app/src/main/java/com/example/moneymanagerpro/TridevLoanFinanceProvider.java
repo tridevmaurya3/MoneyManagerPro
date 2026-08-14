@@ -118,6 +118,17 @@ public final class TridevLoanFinanceProvider extends ContentProvider {
             TridevFinanceIntegrationCoordinator.Result result =
                     new TridevFinanceIntegrationCoordinator(context)
                             .acceptAndProcess(event);
+
+            // A LoanManager payment may have been superseded by the same bank
+            // debit already reported by SmartSMSPro. Once that canonical event
+            // is finalized in MoneyManager, report RECONCILED here as well. This
+            // allows a FAMILY loan to project exactly one finalized payment to
+            // Family Hub without ever creating a second MoneyManager expense.
+            if (result.outcome == TridevFinanceIntegrationCoordinator.Outcome.DUPLICATE) {
+                Bundle reconciled = finalizedDuplicateResponse(context, result.eventId);
+                if (reconciled != null) return reconciled;
+            }
+
             return response(
                     result.outcome.name(),
                     result.eventId,
@@ -127,6 +138,40 @@ public final class TridevLoanFinanceProvider extends ContentProvider {
         } catch (RuntimeException invalid) {
             return response("REJECTED", "", "", "", "Loan payment failed validation");
         }
+    }
+
+    @Nullable
+    private Bundle finalizedDuplicateResponse(
+            @NonNull Context context,
+            @NonNull String loanEventId) {
+        TridevEventQueue queue = TridevEventQueue.getInstance(context);
+        TridevEventQueue.QueueItem current = queue.find(loanEventId);
+        if (current == null || current.event == null) return null;
+
+        String nextId = safe(current.duplicateOfEventId);
+        for (int depth = 0; depth < 6 && !nextId.isEmpty(); depth++) {
+            TridevEventQueue.QueueItem canonical = queue.find(nextId);
+            if (canonical == null || canonical.event == null) return null;
+
+            String transactionId = canonical.event.references == null
+                    ? ""
+                    : safe(canonical.event.references.moneyManagerTransactionId);
+            if (canonical.event.syncState == TridevIntegrationContract.SyncState.SYNCED
+                    && !transactionId.isEmpty()) {
+                return response(
+                        "RECONCILED",
+                        loanEventId,
+                        canonical.event.eventId,
+                        transactionId,
+                        "Loan payment reconciled to finalized cross-app transaction");
+            }
+
+            if (canonical.event.syncState != TridevIntegrationContract.SyncState.SUPERSEDED) {
+                return null;
+            }
+            nextId = safe(canonical.duplicateOfEventId);
+        }
+        return null;
     }
 
     private boolean trustedCaller(@NonNull Context context) {
