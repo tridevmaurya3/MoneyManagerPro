@@ -9,7 +9,8 @@ import androidx.annotation.Nullable;
  * Tridev app ecosystem.
  *
  * Flow:
- *   validate/enqueue -> duplicate/reconciliation gate -> safe mapping -> posting
+ *   validate/enqueue -> advanced unique-best reconciliation guard
+ *   -> safe mapping -> posting
  *
  * External adapters should call this from a worker/executor. They must never
  * bypass TridevEventQueue and write directly to MoneyManager transactions.
@@ -48,11 +49,13 @@ public final class TridevFinanceIntegrationCoordinator {
 
     private final TridevEventQueue queue;
     private final TridevTransactionPostingEngine postingEngine;
+    private final TridevAdvancedReconciliationGate advancedGate;
 
     public TridevFinanceIntegrationCoordinator(Context context) {
         Context appContext = context.getApplicationContext();
         queue = TridevEventQueue.getInstance(appContext);
         postingEngine = new TridevTransactionPostingEngine(appContext);
+        advancedGate = new TridevAdvancedReconciliationGate(appContext);
     }
 
     /**
@@ -82,54 +85,100 @@ public final class TridevFinanceIntegrationCoordinator {
                     "Event was rejected by integration validation");
         }
 
-        String canonicalEventId = enqueue.duplicateOfEventId == null
-                || enqueue.duplicateOfEventId.trim().isEmpty()
-                ? enqueue.eventId
-                : enqueue.duplicateOfEventId.trim();
+        TridevAdvancedReconciliationGate.GuardResult guard;
+        try {
+            guard = advancedGate.apply(event, enqueue);
+        } catch (RuntimeException guardFailure) {
+            // Fail closed. A fuzzy auto decision must never bypass the stricter
+            // guard just because its read-only verification failed.
+            TridevEventQueue.QueueItem newItem = queue.find(event.eventId);
+            if (newItem != null
+                    && (newItem.event.syncState == TridevIntegrationContract.SyncState.SUPERSEDED
+                    || newItem.event.syncState == TridevIntegrationContract.SyncState.SYNCED)) {
+                queue.markNeedsReview(
+                        event.eventId,
+                        newItem.duplicateOfEventId,
+                        newItem.duplicateScore);
+            }
+            guard = new TridevAdvancedReconciliationGate.GuardResult(
+                    true,
+                    TridevIntegrationContract.SyncState.NEEDS_REVIEW,
+                    newItem == null ? null : newItem.duplicateOfEventId,
+                    newItem == null || newItem.event.references == null
+                            ? null
+                            : newItem.event.references.moneyManagerTransactionId,
+                    newItem == null ? 0 : newItem.duplicateScore,
+                    "Advanced reconciliation verification failed safely; review is required");
+        }
 
-        if (enqueue.syncState == TridevIntegrationContract.SyncState.SYNCED) {
-            TridevEventQueue.QueueItem item = queue.find(canonicalEventId);
-            String transactionId = item == null
-                    ? null
-                    : cleanToNull(item.event.references.moneyManagerTransactionId);
+        // Exact event/source duplicates may not create a new incoming event row.
+        // Newly inserted fuzzy rows are always re-read after the advanced gate so
+        // a downgrade/promotion immediately becomes authoritative.
+        TridevEventQueue.QueueItem incomingItem = queue.find(event.eventId);
+        TridevIntegrationContract.SyncState effectiveState = incomingItem == null
+                ? enqueue.syncState
+                : incomingItem.event.syncState;
+
+        String effectiveDuplicateOf = incomingItem == null
+                ? cleanToNull(enqueue.duplicateOfEventId)
+                : cleanToNull(incomingItem.duplicateOfEventId);
+        String effectiveTransactionId = incomingItem == null
+                || incomingItem.event.references == null
+                ? null
+                : cleanToNull(incomingItem.event.references.moneyManagerTransactionId);
+        if (effectiveTransactionId == null) {
+            effectiveTransactionId = cleanToNull(guard.moneyManagerTransactionId);
+        }
+
+        String canonicalEventId = effectiveDuplicateOf == null
+                ? enqueue.eventId
+                : effectiveDuplicateOf;
+        String reason = guard.reason == null || guard.reason.trim().isEmpty()
+                ? enqueue.reason
+                : guard.reason;
+
+        if (effectiveState == TridevIntegrationContract.SyncState.SYNCED) {
             return new Result(
                     Outcome.RECONCILED,
                     enqueue.eventId,
                     cleanToNull(canonicalEventId),
-                    transactionId,
-                    enqueue.reason);
+                    effectiveTransactionId,
+                    reason);
         }
 
-        if (enqueue.syncState == TridevIntegrationContract.SyncState.SUPERSEDED) {
+        if (effectiveState == TridevIntegrationContract.SyncState.SUPERSEDED) {
             return new Result(
                     Outcome.DUPLICATE,
                     enqueue.eventId,
                     cleanToNull(canonicalEventId),
-                    null,
-                    enqueue.reason);
+                    effectiveTransactionId,
+                    reason);
         }
 
-        if (enqueue.syncState == TridevIntegrationContract.SyncState.NEEDS_REVIEW
-                || enqueue.decision == TridevEventQueue.Decision.NEEDS_REVIEW) {
+        if (effectiveState == TridevIntegrationContract.SyncState.NEEDS_REVIEW) {
             return new Result(
                     Outcome.NEEDS_REVIEW,
                     enqueue.eventId,
                     cleanToNull(canonicalEventId),
-                    null,
-                    enqueue.reason);
+                    effectiveTransactionId,
+                    reason);
         }
 
         // Exact event/source duplicate can point to an existing pending row. It
-        // is safe to process the canonical queue event rather than inserting a new one.
+        // is safe to process that canonical queue event. A newly inserted normal
+        // event processes its own id.
+        String processingEventId = incomingItem == null
+                ? canonicalEventId
+                : event.eventId;
         TridevTransactionPostingEngine.Result posting =
-                postingEngine.process(canonicalEventId);
+                postingEngine.process(processingEventId);
 
         switch (posting.outcome) {
             case POSTED:
                 return new Result(
                         Outcome.POSTED,
                         enqueue.eventId,
-                        cleanToNull(canonicalEventId),
+                        cleanToNull(processingEventId),
                         posting.moneyManagerTransactionId,
                         posting.reason);
             case RECONCILED_EXISTING:
@@ -137,21 +186,21 @@ public final class TridevFinanceIntegrationCoordinator {
                 return new Result(
                         Outcome.RECONCILED,
                         enqueue.eventId,
-                        cleanToNull(canonicalEventId),
+                        cleanToNull(processingEventId),
                         posting.moneyManagerTransactionId,
                         posting.reason);
             case NEEDS_REVIEW:
                 return new Result(
                         Outcome.NEEDS_REVIEW,
                         enqueue.eventId,
-                        cleanToNull(canonicalEventId),
+                        cleanToNull(processingEventId),
                         null,
                         posting.reason);
             case FAILED:
                 return new Result(
                         Outcome.FAILED,
                         enqueue.eventId,
-                        cleanToNull(canonicalEventId),
+                        cleanToNull(processingEventId),
                         null,
                         posting.reason);
             case NOT_FOUND:
@@ -159,7 +208,7 @@ public final class TridevFinanceIntegrationCoordinator {
                 return new Result(
                         Outcome.QUEUED,
                         enqueue.eventId,
-                        cleanToNull(canonicalEventId),
+                        cleanToNull(processingEventId),
                         null,
                         "Event remains safely queued for a later retry");
         }
