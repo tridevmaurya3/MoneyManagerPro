@@ -85,7 +85,7 @@ public final class TridevFinanceIntegrationCoordinator {
                     "Event was rejected by integration validation");
         }
 
-        TridevAdvancedReconciliationGate.GuardResult guard;
+        final TridevAdvancedReconciliationGate.GuardResult guard;
         try {
             guard = advancedGate.apply(event, enqueue);
         } catch (RuntimeException guardFailure) {
@@ -99,16 +99,18 @@ public final class TridevFinanceIntegrationCoordinator {
                         event.eventId,
                         newItem.duplicateOfEventId,
                         newItem.duplicateScore);
+                return new Result(
+                        Outcome.NEEDS_REVIEW,
+                        event.eventId,
+                        cleanToNull(newItem.duplicateOfEventId),
+                        newItem.event.references == null
+                                ? null
+                                : cleanToNull(newItem.event.references.moneyManagerTransactionId),
+                        "Advanced reconciliation verification failed safely; review is required");
             }
-            guard = new TridevAdvancedReconciliationGate.GuardResult(
-                    true,
-                    TridevIntegrationContract.SyncState.NEEDS_REVIEW,
-                    newItem == null ? null : newItem.duplicateOfEventId,
-                    newItem == null || newItem.event.references == null
-                            ? null
-                            : newItem.event.references.moneyManagerTransactionId,
-                    newItem == null ? 0 : newItem.duplicateScore,
-                    "Advanced reconciliation verification failed safely; review is required");
+            // Exact source/event idempotency and already-review/pending states are
+            // still safe even if the optional advanced read-only pass failed.
+            return resultFromEnqueueWithoutAdvancedGuard(enqueue);
         }
 
         // Exact event/source duplicates may not create a new incoming event row.
@@ -212,6 +214,45 @@ public final class TridevFinanceIntegrationCoordinator {
                         null,
                         "Event remains safely queued for a later retry");
         }
+    }
+
+    private Result resultFromEnqueueWithoutAdvancedGuard(
+            TridevEventQueue.EnqueueResult enqueue) {
+        String canonicalEventId = cleanToNull(enqueue.duplicateOfEventId);
+        if (canonicalEventId == null) canonicalEventId = enqueue.eventId;
+        if (enqueue.syncState == TridevIntegrationContract.SyncState.SYNCED) {
+            TridevEventQueue.QueueItem item = queue.find(canonicalEventId);
+            return new Result(
+                    Outcome.RECONCILED,
+                    enqueue.eventId,
+                    cleanToNull(canonicalEventId),
+                    item == null || item.event.references == null
+                            ? null
+                            : cleanToNull(item.event.references.moneyManagerTransactionId),
+                    enqueue.reason);
+        }
+        if (enqueue.syncState == TridevIntegrationContract.SyncState.SUPERSEDED) {
+            return new Result(
+                    Outcome.DUPLICATE,
+                    enqueue.eventId,
+                    cleanToNull(canonicalEventId),
+                    null,
+                    enqueue.reason);
+        }
+        if (enqueue.syncState == TridevIntegrationContract.SyncState.NEEDS_REVIEW) {
+            return new Result(
+                    Outcome.NEEDS_REVIEW,
+                    enqueue.eventId,
+                    cleanToNull(canonicalEventId),
+                    null,
+                    enqueue.reason);
+        }
+        return new Result(
+                Outcome.QUEUED,
+                enqueue.eventId,
+                cleanToNull(canonicalEventId),
+                null,
+                enqueue.reason);
     }
 
     @Nullable
