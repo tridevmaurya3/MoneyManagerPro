@@ -1,5 +1,6 @@
 import java.io.FileInputStream
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -14,6 +15,33 @@ if (hasReleaseKeystore) {
     FileInputStream(keystorePropertiesFile).use {
         keystoreProperties.load(it)
     }
+
+    val requiredSigningKeys = listOf(
+        "storeFile",
+        "storePassword",
+        "keyAlias",
+        "keyPassword"
+    )
+
+    val missingSigningKeys = requiredSigningKeys.filter {
+        keystoreProperties.getProperty(it).isNullOrBlank()
+    }
+
+    if (missingSigningKeys.isNotEmpty()) {
+        throw GradleException(
+            "Invalid keystore.properties. Missing: ${missingSigningKeys.joinToString()}"
+        )
+    }
+
+    val configuredStoreFile = rootProject.file(
+        keystoreProperties.getProperty("storeFile")
+    )
+
+    if (!configuredStoreFile.exists()) {
+        throw GradleException(
+            "Release keystore not found: ${configuredStoreFile.absolutePath}"
+        )
+    }
 }
 
 android {
@@ -24,8 +52,8 @@ android {
         applicationId = "com.example.moneymanagerpro"
         minSdk = 24
         targetSdk = 34
-        versionCode = 27
-        versionName = "3.6"
+        versionCode = 28
+        versionName = "3.7"
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
@@ -34,7 +62,7 @@ android {
     signingConfigs {
         if (hasReleaseKeystore) {
             create("release") {
-                storeFile = file(
+                storeFile = rootProject.file(
                     keystoreProperties.getProperty("storeFile")
                 )
                 storePassword =
@@ -48,12 +76,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Debug APK must never collide with the installed production app.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+
         release {
             isMinifyEnabled = false
 
             if (hasReleaseKeystore) {
-                signingConfig =
-                    signingConfigs.getByName("release")
+                signingConfig = signingConfigs.getByName("release")
             }
 
             proguardFiles(
@@ -71,6 +104,30 @@ android {
 
         targetCompatibility =
             JavaVersion.VERSION_1_8
+    }
+}
+
+// A production update must always be signed with the same private release key.
+// This blocks accidental unsigned/differently-signed release artifacts from
+// being produced by normal Gradle release tasks.
+gradle.taskGraph.whenReady {
+    val releaseRequested = allTasks.any { task ->
+        task.project == project &&
+            task.name.contains("release", ignoreCase = true) &&
+            (
+                task.name.startsWith("assemble", ignoreCase = true) ||
+                    task.name.startsWith("bundle", ignoreCase = true) ||
+                    task.name.startsWith("package", ignoreCase = true)
+                )
+    }
+
+    if (releaseRequested && !hasReleaseKeystore) {
+        throw GradleException(
+            "MoneyManagerPro release signing is not configured. " +
+                "Create keystore.properties in the project root and point it to " +
+                "the ORIGINAL Money Manager Pro release .jks/.keystore. " +
+                "Do not create a new key for an app update."
+        )
     }
 }
 
