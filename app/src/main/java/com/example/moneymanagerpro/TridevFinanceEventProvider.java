@@ -8,6 +8,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.provider.Telephony;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -17,9 +18,13 @@ import java.util.Locale;
 /**
  * Package-locked same-device IPC endpoint for Tridev finance events.
  *
- * Only the real Android caller UID is trusted. A caller cannot gain access by
- * placing a package-name string in a Bundle. SmartSMSPro sends structured
- * financial metadata only; raw SMS bodies are not accepted by this provider.
+ * Trust gates:
+ * - Android Binder calling UID must resolve to the exact SmartSMSPro package.
+ * - That package must also be the phone's current default SMS application.
+ *
+ * A caller cannot gain access by placing a package-name string in a Bundle.
+ * SmartSMSPro sends structured financial metadata only; raw SMS bodies are not
+ * accepted by this provider.
  */
 public final class TridevFinanceEventProvider extends ContentProvider {
 
@@ -73,7 +78,7 @@ public final class TridevFinanceEventProvider extends ContentProvider {
 
         if (!isTrustedCaller(context)) {
             return response("REJECTED", "", null, null,
-                    "Caller is not an approved Tridev app");
+                    "Caller is not the approved default SmartSMS app");
         }
 
         if (extras == null) {
@@ -156,11 +161,19 @@ public final class TridevFinanceEventProvider extends ContentProvider {
         int callingUid = Binder.getCallingUid();
         PackageManager packageManager = context.getPackageManager();
         String[] packages = packageManager.getPackagesForUid(callingUid);
-        if (packages == null) return false;
-        for (String packageName : packages) {
-            if (TRUSTED_SMART_SMS_PACKAGE.equals(packageName)) return true;
+        boolean packageMatches = false;
+        if (packages != null) {
+            for (String packageName : packages) {
+                if (TRUSTED_SMART_SMS_PACKAGE.equals(packageName)) {
+                    packageMatches = true;
+                    break;
+                }
+            }
         }
-        return false;
+        if (!packageMatches) return false;
+
+        String defaultSmsPackage = Telephony.Sms.getDefaultSmsPackage(context);
+        return TRUSTED_SMART_SMS_PACKAGE.equals(defaultSmsPackage);
     }
 
     private TridevIntegrationContract.EventType safeEventType(String value) {
