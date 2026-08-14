@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
+import com.example.moneymanagerpro.cloud.TridevIntegrationCloudScheduler;
 import com.example.moneymanagerpro.database.DatabaseClient;
 
 import java.text.ParseException;
@@ -64,12 +65,13 @@ public final class TridevAdvancedReconciliationManager {
         }
     }
 
+    private final Context appContext;
     private final TridevSpecialReconciliationManager baseManager;
     private final TridevEventQueue queue;
     private final SupportSQLiteDatabase ledger;
 
     public TridevAdvancedReconciliationManager(Context context) {
-        Context appContext = context.getApplicationContext();
+        appContext = context.getApplicationContext();
         baseManager = new TridevSpecialReconciliationManager(appContext);
         queue = TridevEventQueue.getInstance(appContext);
         ledger = DatabaseClient.getInstance(appContext)
@@ -115,29 +117,40 @@ public final class TridevAdvancedReconciliationManager {
             // its standard fail-closed ActionResult without exposing a new result constructor.
             return baseManager.linkExistingTransaction(eventId, -1L);
         }
-        return baseManager.linkExistingTransaction(eventId, transactionId);
+        return syncIfHandled(baseManager.linkExistingTransaction(eventId, transactionId));
     }
 
     public TridevSpecialReconciliationManager.ActionResult confirmQueuedDuplicate(String eventId) {
-        return baseManager.confirmQueuedDuplicate(eventId);
+        return syncIfHandled(baseManager.confirmQueuedDuplicate(eventId));
     }
 
     public TridevSpecialReconciliationManager.ActionResult returnToMappingReview(String eventId) {
-        return baseManager.returnToMappingReview(eventId);
+        return syncIfHandled(baseManager.returnToMappingReview(eventId));
     }
 
     public TridevSpecialReconciliationManager.ActionResult processTransfer(
             String eventId,
             String fromCanonicalRef,
             String toCanonicalRef) {
-        return baseManager.processTransfer(eventId, fromCanonicalRef, toCanonicalRef);
+        return syncIfHandled(baseManager.processTransfer(eventId, fromCanonicalRef, toCanonicalRef));
     }
 
     public TridevSpecialReconciliationManager.ActionResult processRefund(
             String eventId,
             String accountCanonicalRef,
             String incomeCategoryCanonicalRef) {
-        return baseManager.processRefund(eventId, accountCanonicalRef, incomeCategoryCanonicalRef);
+        return syncIfHandled(baseManager.processRefund(
+                eventId,
+                accountCanonicalRef,
+                incomeCategoryCanonicalRef));
+    }
+
+    private TridevSpecialReconciliationManager.ActionResult syncIfHandled(
+            TridevSpecialReconciliationManager.ActionResult result) {
+        if (result != null && result.handled) {
+            TridevIntegrationCloudScheduler.scheduleSoon(appContext);
+        }
+        return result;
     }
 
     @NonNull
