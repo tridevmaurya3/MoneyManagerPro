@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="integration_review_title">Integration Review</string>
+    <string name="integration_review_subtitle">Confirm account and category mapping once, then reuse it safely</string>
+    <string name="integration_review_refresh">Refresh</string>
+    <string name="integration_review_pending">Pending review</string>
+    <string name="integration_review_mappable">Ready to map</string>
+    <string name="integration_review_locked">Reconciliation locked</string>
+    <string name="integration_review_loading">Loading integration events…</string>
+    <string name="integration_review_empty_title">No mapping review pending</string>
+    <string name="integration_review_empty_text">New SmartSMS finance events that cannot be mapped safely will appear here.</string>
+    <string name="integration_review_account">MoneyManager account / card</string>
+    <string name="integration_review_category">MoneyManager category</string>
+    <string name="integration_review_confirm">Confirm mapping &amp; process</string>
+    <string name="integration_review_processing">Processing…</string>
+    <string name="integration_review_source">Source</string>
+    <string name="integration_review_signal">Detected signal</string>
+    <string name="integration_review_suggestion">Mapping suggestion</string>
+    <string name="integration_review_privacy">Only structured finance metadata is shown here. Raw SMS text is not stored in integration mappings.</string>
+    <string name="integration_review_back">Back</string>
+</resources>
