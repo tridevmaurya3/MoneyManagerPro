@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reconcile_title">Reconciliation Center</string>
+    <string name="reconcile_subtitle">Resolve transfers, refunds and possible duplicates without double counting</string>
+    <string name="reconcile_refresh">Refresh</string>
+    <string name="reconcile_loading">Checking special finance events…</string>
+    <string name="reconcile_empty_title">All clear</string>
+    <string name="reconcile_empty_body">No transfer, refund or duplicate event currently needs reconciliation.</string>
+    <string name="reconcile_pending_label">Pending</string>
+    <string name="reconcile_transfer_label">Transfers</string>
+    <string name="reconcile_refund_label">Refunds</string>
+    <string name="reconcile_duplicate_label">Duplicates</string>
+    <string name="reconcile_existing_transaction">Existing MoneyManager transaction</string>
+    <string name="reconcile_link_existing">Link existing transaction</string>
+    <string name="reconcile_confirm_duplicate">Confirm queued duplicate</string>
+    <string name="reconcile_not_duplicate">Not duplicate — return to mapping</string>
+    <string name="reconcile_from_account">From account / card</string>
+    <string name="reconcile_to_account">To account / card</string>
+    <string name="reconcile_process_transfer">Process as separate transfer</string>
+    <string name="reconcile_refund_account">Refund received in</string>
+    <string name="reconcile_refund_category">Income category</string>
+    <string name="reconcile_process_refund">Process as separate refund</string>
+    <string name="reconcile_select_existing">Select a matching existing transaction first.</string>
+    <string name="reconcile_select_transfer_accounts">Choose both From and To accounts/cards.</string>
+    <string name="reconcile_select_refund_fields">Choose the receiving account/card and Income category.</string>
+    <string name="reconcile_processing">Processing…</string>
+    <string name="reconcile_event_signal">Detected signal</string>
+    <string name="reconcile_privacy_note">Only structured finance metadata is shown here; raw SMS text is not stored in the integration queue.</string>
+</resources>
