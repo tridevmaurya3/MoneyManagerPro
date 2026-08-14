@@ -21,14 +21,17 @@ import com.example.moneymanagerpro.database.DatabaseClient;
  * never deleted.
  *
  * If SmartSMS or another source independently corroborates the same transaction,
- * the ledger representation is retained. If no ledger row exists yet, the
- * independent event is reopened for normal MoneyManager processing.
+ * the ledger representation is retained. Evidence can be an explicit queue
+ * duplicate link OR a same amount/direction event in the reconciliation window.
+ * If no ledger row exists yet, the independent event is reopened for normal
+ * MoneyManager processing.
  */
 public final class TridevFamilyHubCancellationManager {
 
     private static final String QUEUE_DB = "TridevIntegrationQueue.db";
     private static final String QUEUE_TABLE = "integration_events";
     private static final String MARKER_PREFIX = "TRIDEV_EVENT:";
+    private static final long EVIDENCE_WINDOW_MILLIS = 6L * 60L * 60L * 1000L;
 
     public static final class Result {
         public final boolean handled;
@@ -69,14 +72,14 @@ public final class TridevFamilyHubCancellationManager {
         long linkedTransactionId = parseLong(event.references == null
                 ? "" : event.references.moneyManagerTransactionId);
 
-        ExternalEvidence evidence = findExternalEvidence(event.eventId);
+        ExternalEvidence evidence = findExternalEvidence(event);
         if (evidence != null) {
             // Another app independently describes the same real-world payment.
             // Never remove the ledger row simply because the Family Hub checklist
             // was undone.
             markCancelled(event.eventId, false);
             if (autoCreatedTransactionId <= 0L && linkedTransactionId <= 0L
-                    && evidence.eventId != null && !evidence.eventId.isEmpty()) {
+                    && !evidence.eventId.isEmpty()) {
                 reopenExternalEvidence(evidence.eventId);
                 new TridevTransactionPostingEngine(appContext)
                         .process(evidence.eventId);
@@ -128,20 +131,33 @@ public final class TridevFamilyHubCancellationManager {
     }
 
     @Nullable
-    private ExternalEvidence findExternalEvidence(@NonNull String canonicalEventId) {
+    private ExternalEvidence findExternalEvidence(
+            @NonNull TridevIntegrationContract.Event familyEvent) {
         SQLiteDatabase db = openQueueDatabase();
         if (db == null) return null;
+        long center = familyEvent.occurredAt > 0L
+                ? familyEvent.occurredAt : familyEvent.createdAt;
+        long start = Math.max(0L, center - EVIDENCE_WINDOW_MILLIS);
+        long end = center + EVIDENCE_WINDOW_MILLIS;
         try (Cursor cursor = db.rawQuery(
                 "SELECT event_id, sync_state FROM " + QUEUE_TABLE
-                        + " WHERE duplicate_of_event_id = ? AND source_app <> ? "
-                        + "AND sync_state IN (?, ?, ?, ?) ORDER BY id ASC LIMIT 1",
+                        + " WHERE event_id <> ? AND source_app <> ? "
+                        + "AND amount_minor = ? AND direction = ? "
+                        + "AND occurred_at BETWEEN ? AND ? "
+                        + "AND sync_state IN (?, ?, ?, ?) "
+                        + "ORDER BY CASE WHEN duplicate_of_event_id = ? THEN 0 ELSE 1 END, id ASC LIMIT 1",
                 new String[]{
-                        canonicalEventId,
+                        familyEvent.eventId,
                         TridevIntegrationContract.APP_FAMILY_HUB,
+                        String.valueOf(familyEvent.amountMinor),
+                        familyEvent.direction.name(),
+                        String.valueOf(start),
+                        String.valueOf(end),
                         TridevIntegrationContract.SyncState.SUPERSEDED.name(),
                         TridevIntegrationContract.SyncState.NEEDS_REVIEW.name(),
                         TridevIntegrationContract.SyncState.PENDING.name(),
-                        TridevIntegrationContract.SyncState.SYNCED.name()
+                        TridevIntegrationContract.SyncState.SYNCED.name(),
+                        familyEvent.eventId
                 })) {
             if (!cursor.moveToFirst()) return null;
             return new ExternalEvidence(cursor.getString(0), cursor.getString(1));
