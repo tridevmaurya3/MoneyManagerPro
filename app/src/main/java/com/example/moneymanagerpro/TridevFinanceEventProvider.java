@@ -8,6 +8,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Process;
 import android.provider.Telephony;
 
 import androidx.annotation.NonNull;
@@ -19,11 +20,13 @@ import java.util.Locale;
  * Package-locked same-device IPC endpoint for Tridev finance events.
  *
  * Trust gates:
- * - Android Binder calling UID must resolve to the exact SmartSMSPro package.
- * - That package must also be the phone's current default SMS application.
+ * - SmartSMSPro: Binder caller UID must resolve to the exact package and that
+ *   package must be the phone's current default SMS application.
+ * - Family Hub: Binder caller UID must resolve to the exact package AND its APK
+ *   must be signed with the same certificate as MoneyManagerPro.
  *
  * A caller cannot gain access by placing a package-name string in a Bundle.
- * SmartSMSPro sends structured financial metadata only; raw SMS bodies are not
+ * Structured finance metadata only is accepted; raw SMS bodies are never
  * accepted by this provider.
  */
 public final class TridevFinanceEventProvider extends ContentProvider {
@@ -32,9 +35,13 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             "com.example.moneymanagerpro.tridev.finance";
     public static final String METHOD_ACCEPT_V1 =
             "accept_finance_event_v1";
+    public static final String METHOD_CANCEL_V1 =
+            "cancel_finance_event_v1";
 
     private static final String TRUSTED_SMART_SMS_PACKAGE =
             "com.tridev.smartsmspro";
+    private static final String TRUSTED_FAMILY_HUB_PACKAGE =
+            "com.tridev.familyhub";
 
     private static final String KEY_EVENT_ID = "event_id";
     private static final String KEY_SOURCE_RECORD_ID = "source_record_id";
@@ -54,6 +61,12 @@ public final class TridevFinanceEventProvider extends ContentProvider {
     private static final String RESULT_TRANSACTION_ID = "transaction_id";
     private static final String RESULT_REASON = "reason";
 
+    private enum CallerKind {
+        SMART_SMS,
+        FAMILY_HUB,
+        NONE
+    }
+
     @Override
     public boolean onCreate() {
         return getContext() != null;
@@ -65,20 +78,29 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             @NonNull String method,
             @Nullable String arg,
             @Nullable Bundle extras) {
-        if (!METHOD_ACCEPT_V1.equals(method)) {
-            return response("REJECTED", "", null, null,
-                    "Unsupported integration method");
-        }
-
         Context context = getContext();
         if (context == null) {
             return response("FAILED", "", null, null,
                     "MoneyManager context is unavailable");
         }
 
-        if (!isTrustedCaller(context)) {
+        CallerKind caller = trustedCaller(context);
+        if (caller == CallerKind.NONE) {
             return response("REJECTED", "", null, null,
-                    "Caller is not the approved default SmartSMS app");
+                    "Caller is not an approved Tridev finance app");
+        }
+
+        if (METHOD_CANCEL_V1.equals(method)) {
+            if (caller != CallerKind.FAMILY_HUB) {
+                return response("REJECTED", "", null, null,
+                        "This caller cannot cancel Family Hub finance events");
+            }
+            return cancelFamilyHubGrocery(context, extras);
+        }
+
+        if (!METHOD_ACCEPT_V1.equals(method)) {
+            return response("REJECTED", "", null, null,
+                    "Unsupported integration method");
         }
 
         if (extras == null) {
@@ -116,18 +138,34 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             }
 
             TridevIntegrationContract.EventType eventType =
-                    safeEventType(eventTypeValue);
+                    safeEventType(eventTypeValue, caller);
             TridevIntegrationContract.Direction direction =
                     safeDirection(directionValue);
+
+            if (caller == CallerKind.FAMILY_HUB
+                    && eventType != TridevIntegrationContract.EventType.GROCERY_PURCHASE) {
+                throw new IllegalArgumentException("Family Hub endpoint currently accepts grocery purchases only");
+            }
+            if (caller == CallerKind.FAMILY_HUB
+                    && direction != TridevIntegrationContract.Direction.DEBIT) {
+                throw new IllegalArgumentException("Family Hub grocery purchase must be a debit");
+            }
+
+            String sourceApp = caller == CallerKind.FAMILY_HUB
+                    ? TridevIntegrationContract.APP_FAMILY_HUB
+                    : TridevIntegrationContract.APP_SMART_SMS;
+            TridevIntegrationContract.Scope scope = caller == CallerKind.FAMILY_HUB
+                    ? TridevIntegrationContract.Scope.FAMILY
+                    : TridevIntegrationContract.Scope.PERSONAL;
 
             TridevIntegrationContract.Event event =
                     new TridevIntegrationContract.Event(
                             eventId,
-                            TridevIntegrationContract.APP_SMART_SMS,
+                            sourceApp,
                             sourceRecordId,
                             eventType,
                             direction,
-                            TridevIntegrationContract.Scope.PERSONAL,
+                            scope,
                             amountMinor,
                             TridevIntegrationContract.DEFAULT_CURRENCY,
                             occurredAt,
@@ -157,29 +195,79 @@ public final class TridevFinanceEventProvider extends ContentProvider {
         }
     }
 
-    private boolean isTrustedCaller(Context context) {
+    @NonNull
+    private Bundle cancelFamilyHubGrocery(
+            @NonNull Context context,
+            @Nullable Bundle extras) {
+        if (extras == null) {
+            return response("REJECTED", "", null, null,
+                    "Cancellation payload is missing");
+        }
+        try {
+            String eventId = structured(extras.getString(KEY_EVENT_ID), 120, false);
+            String sourceRecordId = structured(
+                    extras.getString(KEY_SOURCE_RECORD_ID), 160, false);
+            TridevFamilyHubCancellationManager.Result result =
+                    new TridevFamilyHubCancellationManager(context)
+                            .cancelGroceryPurchase(eventId, sourceRecordId);
+            return response(
+                    result.handled ? "CANCELLED" : "REJECTED",
+                    eventId,
+                    null,
+                    null,
+                    result.reason);
+        } catch (RuntimeException invalidPayload) {
+            return response("REJECTED", "", null, null,
+                    "Cancellation failed validation");
+        }
+    }
+
+    private CallerKind trustedCaller(@NonNull Context context) {
         int callingUid = Binder.getCallingUid();
         PackageManager packageManager = context.getPackageManager();
         String[] packages = packageManager.getPackagesForUid(callingUid);
-        boolean packageMatches = false;
-        if (packages != null) {
-            for (String packageName : packages) {
-                if (TRUSTED_SMART_SMS_PACKAGE.equals(packageName)) {
-                    packageMatches = true;
-                    break;
-                }
+        if (packages == null || packages.length == 0) return CallerKind.NONE;
+
+        boolean smartSmsPackage = false;
+        boolean familyHubPackage = false;
+        for (String packageName : packages) {
+            if (TRUSTED_SMART_SMS_PACKAGE.equals(packageName)) {
+                smartSmsPackage = true;
+            } else if (TRUSTED_FAMILY_HUB_PACKAGE.equals(packageName)) {
+                familyHubPackage = true;
             }
         }
-        if (!packageMatches) return false;
 
-        String defaultSmsPackage = Telephony.Sms.getDefaultSmsPackage(context);
-        return TRUSTED_SMART_SMS_PACKAGE.equals(defaultSmsPackage);
+        if (smartSmsPackage) {
+            String defaultSmsPackage = Telephony.Sms.getDefaultSmsPackage(context);
+            if (TRUSTED_SMART_SMS_PACKAGE.equals(defaultSmsPackage)) {
+                return CallerKind.SMART_SMS;
+            }
+        }
+
+        if (familyHubPackage) {
+            int signatureResult = packageManager.checkSignatures(
+                    callingUid,
+                    Process.myUid());
+            if (signatureResult == PackageManager.SIGNATURE_MATCH) {
+                return CallerKind.FAMILY_HUB;
+            }
+        }
+
+        return CallerKind.NONE;
     }
 
-    private TridevIntegrationContract.EventType safeEventType(String value) {
+    private TridevIntegrationContract.EventType safeEventType(
+            String value,
+            CallerKind caller) {
         try {
             TridevIntegrationContract.EventType type =
                     TridevIntegrationContract.EventType.valueOf(value);
+            if (caller == CallerKind.FAMILY_HUB) {
+                return type == TridevIntegrationContract.EventType.GROCERY_PURCHASE
+                        ? type
+                        : TridevIntegrationContract.EventType.EXPENSE;
+            }
             switch (type) {
                 case SMS_FINANCIAL_SIGNAL:
                 case LOAN_PAYMENT:
@@ -190,7 +278,9 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                     return TridevIntegrationContract.EventType.SMS_FINANCIAL_SIGNAL;
             }
         } catch (IllegalArgumentException ignored) {
-            return TridevIntegrationContract.EventType.SMS_FINANCIAL_SIGNAL;
+            return caller == CallerKind.FAMILY_HUB
+                    ? TridevIntegrationContract.EventType.EXPENSE
+                    : TridevIntegrationContract.EventType.SMS_FINANCIAL_SIGNAL;
         }
     }
 
