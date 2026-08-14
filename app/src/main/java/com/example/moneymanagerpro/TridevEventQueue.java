@@ -148,7 +148,7 @@ public final class TridevEventQueue {
             ExistingRow bySourceRecord = findBySourceRecord(
                     db,
                     event.sourceApp,
-                    trimToNull(event.sourceRecordId));
+                    safeNullable(event.sourceRecordId, 160));
             if (bySourceRecord != null) {
                 db.setTransactionSuccessful();
                 return new EnqueueResult(
@@ -398,7 +398,8 @@ public final class TridevEventQueue {
         values.put("scope", event.scope.name());
         values.put("amount_minor", event.amountMinor);
         values.put("currency", safeCurrency(event.currency));
-        values.put("occurred_at", event.occurredAt);
+        long effectiveOccurredAt = event.occurredAt > 0L ? event.occurredAt : event.createdAt;
+        values.put("occurred_at", effectiveOccurredAt);
         values.put("created_at", event.createdAt);
         values.put("account_hint", safeMetadata(event.accountHint));
         values.put("merchant_hint", safeMetadata(event.merchantHint));
@@ -462,6 +463,7 @@ public final class TridevEventQueue {
             String fingerprint,
             ExistingRow existing) {
         int score = 25; // amount + currency are exact because of the candidate query.
+        boolean identityEvidence = false;
 
         if (incoming.direction.name().equals(existing.direction)) {
             score += 15;
@@ -485,18 +487,22 @@ public final class TridevEventQueue {
         String existingAccount = TridevEventFingerprint.normalizeHint(existing.accountHint);
         if (!incomingLastFour.isEmpty() && incomingLastFour.equals(existingLastFour)) {
             score += 25;
+            identityEvidence = true;
         } else if (!incomingAccount.isEmpty() && incomingAccount.equals(existingAccount)) {
             score += 20;
+            identityEvidence = true;
         }
 
         String incomingMerchant = TridevEventFingerprint.normalizeHint(incoming.merchantHint);
         String existingMerchant = TridevEventFingerprint.normalizeHint(existing.merchantHint);
         if (!incomingMerchant.isEmpty() && incomingMerchant.equals(existingMerchant)) {
             score += 20;
+            identityEvidence = true;
         } else if (TridevEventFingerprint.tokenSimilarity(
                 incomingMerchant,
                 existingMerchant) >= 0.60d) {
             score += 12;
+            identityEvidence = true;
         }
 
         String incomingCategory = TridevEventFingerprint.normalizeHint(incoming.categoryHint);
@@ -518,8 +524,11 @@ public final class TridevEventQueue {
         } else {
             score -= 5;
         }
+
         if (fingerprint.equals(existing.fingerprint)) {
-            score += 20;
+            // Equal amount/time/hash without account or merchant evidence is not
+            // enough to auto-merge two real transactions.
+            score += identityEvidence ? 20 : 5;
         }
 
         return Math.max(0, Math.min(100, score));
@@ -639,15 +648,28 @@ public final class TridevEventQueue {
         if (!TridevIntegrationContract.isKnownApp(event.sourceApp)) {
             throw new IllegalArgumentException("Unknown source app");
         }
-        if (safeShortValue(event.eventId, 120).isEmpty()) {
-            throw new IllegalArgumentException("eventId is required");
-        }
+        rejectStructuredId(event.eventId, "eventId", 120, false);
+        rejectStructuredId(event.sourceRecordId, "sourceRecordId", 160, true);
         if (event.schemaVersion != TridevIntegrationContract.SCHEMA_VERSION) {
             throw new IllegalArgumentException("Unsupported event schema version");
         }
         rejectUnsafeMetadata(event.accountHint, "accountHint");
         rejectUnsafeMetadata(event.merchantHint, "merchantHint");
         rejectUnsafeMetadata(event.categoryHint, "categoryHint");
+    }
+
+    private void rejectStructuredId(
+            @Nullable String value,
+            String fieldName,
+            int maxLength,
+            boolean optional) {
+        String safe = value == null ? "" : value.trim();
+        if (!optional && safe.isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " is required");
+        }
+        if (safe.length() > maxLength || safe.indexOf('\n') >= 0 || safe.indexOf('\r') >= 0) {
+            throw new IllegalArgumentException(fieldName + " is not a valid structured id");
+        }
     }
 
     private void rejectUnsafeMetadata(@Nullable String value, String fieldName) {
@@ -666,8 +688,6 @@ public final class TridevEventQueue {
     private static String safeTechnicalError(@Nullable String value) {
         String safe = value == null ? "" : value.trim();
         if (safe.length() > 240) safe = safe.substring(0, 240).trim();
-        // Technical status only. Newlines are stripped so message/SMS payloads
-        // cannot accidentally become an integration diagnostic log.
         return safe.replace('\n', ' ').replace('\r', ' ');
     }
 
@@ -851,7 +871,6 @@ public final class TridevEventQueue {
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            // Future upgrades must be additive. Never drop this audit queue.
             if (oldVersion < 1) onCreate(db);
         }
     }
