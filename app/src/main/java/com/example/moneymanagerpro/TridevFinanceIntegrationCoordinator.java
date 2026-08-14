@@ -4,6 +4,8 @@ import android.content.Context;
 
 import androidx.annotation.Nullable;
 
+import com.example.moneymanagerpro.cloud.TridevIntegrationCloudScheduler;
+
 /**
  * Single MoneyManagerPro entry point for structured events coming from the
  * Tridev app ecosystem.
@@ -47,15 +49,17 @@ public final class TridevFinanceIntegrationCoordinator {
         }
     }
 
+    private final Context appContext;
     private final TridevEventQueue queue;
     private final TridevTransactionPostingEngine postingEngine;
     private final TridevAdvancedReconciliationGate advancedGate;
 
     public TridevFinanceIntegrationCoordinator(Context context) {
-        Context appContext = context.getApplicationContext();
+        appContext = context.getApplicationContext();
         queue = TridevEventQueue.getInstance(appContext);
         postingEngine = new TridevTransactionPostingEngine(appContext);
         advancedGate = new TridevAdvancedReconciliationGate(appContext);
+        TridevIntegrationCloudScheduler.ensurePeriodic(appContext);
     }
 
     /**
@@ -76,6 +80,9 @@ public final class TridevFinanceIntegrationCoordinator {
         final TridevEventQueue.EnqueueResult enqueue;
         try {
             enqueue = queue.enqueue(event);
+            // Debounced WorkManager sync snapshots the final queue state after
+            // posting/reconciliation settles; no raw SMS body is ever included.
+            TridevIntegrationCloudScheduler.scheduleSoon(appContext);
         } catch (RuntimeException invalidEvent) {
             return new Result(
                     Outcome.FAILED,
