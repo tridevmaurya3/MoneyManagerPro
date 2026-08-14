@@ -1,342 +1,372 @@
 package com.example.moneymanagerpro.activities;
 
-import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
-import com.example.moneymanagerpro.bridge.SmartSmsBridgeContract;
-import com.example.moneymanagerpro.database.AppDatabase;
-import com.example.moneymanagerpro.database.DatabaseClient;
-import com.example.moneymanagerpro.model.Account;
-import com.example.moneymanagerpro.model.Category;
-import com.example.moneymanagerpro.model.Transaction;
+import com.example.moneymanagerpro.TridevIntegrationReviewManager;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.android.material.textfield.TextInputLayout;
 
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * STEP 6 - Integration Review Center.
+ *
+ * This activity is intentionally private (android:exported="false"). It no
+ * longer accepts external SmartSMS intents. Incoming finance events arrive only
+ * through the UID-verified TridevFinanceEventProvider and are reviewed here from
+ * MoneyManager's isolated integration queue.
+ */
 public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
 
-    private static final String IMPORT_PREFS = "smart_sms_bridge_imports_v1";
+    private LinearLayout reviewEventContainer;
+    private TextView reviewPendingCount;
+    private TextView reviewMappableCount;
+    private TextView reviewLockedCount;
+    private TextView reviewStatus;
+    private View reviewProgress;
+    private View reviewEmptyCard;
+    private MaterialButton reviewRefresh;
 
-    private TextInputLayout inputAmount;
-    private TextInputEditText etAmount;
-    private TextInputEditText etDate;
-    private TextInputEditText etNote;
-    private MaterialAutoCompleteTextView dropdownType;
-    private MaterialAutoCompleteTextView dropdownCategory;
-    private MaterialAutoCompleteTextView dropdownAccount;
-    private TextView txtSource;
-    private TextView txtDuplicate;
-    private MaterialButton btnSave;
-
-    private final List<String> expenseCategories = new ArrayList<>();
-    private final List<String> incomeCategories = new ArrayList<>();
-    private final List<String> accountNames = new ArrayList<>();
-
-    private String fingerprint;
-    private String sender;
-    private String method;
-    private String sourceBody;
-    private String reference;
-    private String suggestedCategory;
-    private long sourceTimestamp;
-    private boolean duplicate;
+    private TridevIntegrationReviewManager reviewManager;
+    private int loadGeneration = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        if (!isValidBridgeIntent(getIntent())) {
-            Toast.makeText(this, R.string.bridge_invalid_request, Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
-
         setContentView(R.layout.activity_smart_sms_transaction_review);
-        bindViews();
-        readPayload();
-        populatePayload();
-        setupActions();
-        loadOptions();
-        checkDuplicate();
-    }
 
-    private boolean isValidBridgeIntent(Intent intent) {
-        if (intent == null || !SmartSmsBridgeContract.ACTION_REVIEW_TRANSACTION.equals(intent.getAction())) {
-            return false;
-        }
-        String source = intent.getStringExtra(SmartSmsBridgeContract.EXTRA_SOURCE_PACKAGE);
-        String direction = intent.getStringExtra(SmartSmsBridgeContract.EXTRA_DIRECTION);
-        double amount = intent.getDoubleExtra(SmartSmsBridgeContract.EXTRA_AMOUNT, 0d);
-        String bridgeFingerprint = intent.getStringExtra(SmartSmsBridgeContract.EXTRA_FINGERPRINT);
-        return SmartSmsBridgeContract.TRUSTED_SOURCE_PACKAGE.equals(source)
-                && amount > 0d
-                && bridgeFingerprint != null
-                && !bridgeFingerprint.trim().isEmpty()
-                && (SmartSmsBridgeContract.DIRECTION_DEBIT.equals(direction)
-                || SmartSmsBridgeContract.DIRECTION_CREDIT.equals(direction));
+        reviewManager = new TridevIntegrationReviewManager(getApplicationContext());
+        bindViews();
+        setupActions();
+        loadReviews();
     }
 
     private void bindViews() {
-        inputAmount = findViewById(R.id.bridgeInputAmount);
-        etAmount = findViewById(R.id.bridgeAmount);
-        etDate = findViewById(R.id.bridgeDate);
-        etNote = findViewById(R.id.bridgeNote);
-        dropdownType = findViewById(R.id.bridgeType);
-        dropdownCategory = findViewById(R.id.bridgeCategory);
-        dropdownAccount = findViewById(R.id.bridgeAccount);
-        txtSource = findViewById(R.id.bridgeSourceMessage);
-        txtDuplicate = findViewById(R.id.bridgeDuplicateWarning);
-        btnSave = findViewById(R.id.bridgeSave);
-    }
-
-    private void readPayload() {
-        Intent intent = getIntent();
-        fingerprint = safe(intent.getStringExtra(SmartSmsBridgeContract.EXTRA_FINGERPRINT));
-        sender = safe(intent.getStringExtra(SmartSmsBridgeContract.EXTRA_SENDER));
-        method = safe(intent.getStringExtra(SmartSmsBridgeContract.EXTRA_METHOD));
-        sourceBody = safe(intent.getStringExtra(SmartSmsBridgeContract.EXTRA_BODY));
-        reference = safe(intent.getStringExtra(SmartSmsBridgeContract.EXTRA_REFERENCE));
-        suggestedCategory = safe(intent.getStringExtra(SmartSmsBridgeContract.EXTRA_CATEGORY));
-        sourceTimestamp = intent.getLongExtra(
-                SmartSmsBridgeContract.EXTRA_TIMESTAMP,
-                System.currentTimeMillis());
-    }
-
-    private void populatePayload() {
-        Intent intent = getIntent();
-        String direction = intent.getStringExtra(SmartSmsBridgeContract.EXTRA_DIRECTION);
-        String type = SmartSmsBridgeContract.DIRECTION_CREDIT.equals(direction) ? "INCOME" : "EXPENSE";
-        double amount = intent.getDoubleExtra(SmartSmsBridgeContract.EXTRA_AMOUNT, 0d);
-
-        dropdownType.setAdapter(new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_dropdown_item_1line,
-                new String[]{"EXPENSE", "INCOME"}));
-        dropdownType.setText(type, false);
-        dropdownType.setOnItemClickListener((parent, view, position, id) -> applyCategoryOptions());
-
-        etAmount.setText(formatAmount(amount));
-        etDate.setText(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-                .format(new Date(sourceTimestamp)));
-
-        StringBuilder note = new StringBuilder();
-        note.append("Smart SMS");
-        if (!method.isEmpty()) note.append(" • ").append(method);
-        if (!sender.isEmpty()) note.append(" • ").append(sender);
-        if (!reference.isEmpty()) note.append(" • Ref: ").append(reference);
-        etNote.setText(note.toString());
-
-        String sourceLabel = sourceBody.isEmpty()
-                ? getString(R.string.bridge_source_unavailable)
-                : sourceBody;
-        txtSource.setText(sourceLabel);
+        reviewEventContainer = findViewById(R.id.reviewEventContainer);
+        reviewPendingCount = findViewById(R.id.reviewPendingCount);
+        reviewMappableCount = findViewById(R.id.reviewMappableCount);
+        reviewLockedCount = findViewById(R.id.reviewLockedCount);
+        reviewStatus = findViewById(R.id.reviewStatus);
+        reviewProgress = findViewById(R.id.reviewProgress);
+        reviewEmptyCard = findViewById(R.id.reviewEmptyCard);
+        reviewRefresh = findViewById(R.id.reviewRefresh);
     }
 
     private void setupActions() {
         findViewById(R.id.bridgeBack).setOnClickListener(v -> finish());
-        btnSave.setOnClickListener(v -> saveReviewedTransaction());
+        reviewRefresh.setOnClickListener(v -> loadReviews());
     }
 
-    private void loadOptions() {
-        btnSave.setEnabled(false);
+    private void loadReviews() {
+        final int generation = ++loadGeneration;
+        reviewRefresh.setEnabled(false);
+        reviewProgress.setVisibility(View.VISIBLE);
+        reviewStatus.setVisibility(View.VISIBLE);
+        reviewStatus.setText(R.string.integration_review_loading);
+        reviewEmptyCard.setVisibility(View.GONE);
+
         new Thread(() -> {
-            AppDatabase database = DatabaseClient
-                    .getInstance(getApplicationContext())
-                    .getAppDatabase();
-            List<Category> categories = database.categoryDao().getAllCategories();
-            List<Account> accounts = database.accountDao().getAllAccounts();
-
-            expenseCategories.clear();
-            incomeCategories.clear();
-            accountNames.clear();
-
-            for (Category category : categories) {
-                if (category == null || category.getName() == null) continue;
-                String type = safe(category.getType());
-                if (type.equalsIgnoreCase("expense")) expenseCategories.add(category.getName());
-                if (type.equalsIgnoreCase("income")) incomeCategories.add(category.getName());
-            }
-            if (expenseCategories.isEmpty()) {
-                expenseCategories.add("Bills");
-                expenseCategories.add("Shopping");
-                expenseCategories.add("Travel");
-                expenseCategories.add("Other Expense");
-            }
-            if (incomeCategories.isEmpty()) {
-                incomeCategories.add("Salary");
-                incomeCategories.add("Refund");
-                incomeCategories.add("Other Income");
+            List<TridevIntegrationReviewManager.ReviewItem> items;
+            try {
+                items = reviewManager.loadReviewItems(100);
+            } catch (RuntimeException failure) {
+                items = null;
             }
 
-            for (Account account : accounts) {
-                if (account != null && account.getName() != null && !account.getName().trim().isEmpty()) {
-                    accountNames.add(account.getName().trim());
-                }
-            }
-            if (accountNames.isEmpty()) accountNames.add("Cash");
-
+            final List<TridevIntegrationReviewManager.ReviewItem> result = items;
             runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) return;
-                dropdownAccount.setAdapter(new ArrayAdapter<>(
-                        this,
-                        android.R.layout.simple_dropdown_item_1line,
-                        accountNames));
-                dropdownAccount.setText(bestAccount(), false);
-                applyCategoryOptions();
-                btnSave.setEnabled(!duplicate);
+                if (isFinishing() || isDestroyed() || generation != loadGeneration) return;
+                reviewRefresh.setEnabled(true);
+                reviewProgress.setVisibility(View.GONE);
+
+                if (result == null) {
+                    reviewEventContainer.removeAllViews();
+                    reviewStatus.setVisibility(View.VISIBLE);
+                    reviewStatus.setText("Integration review could not be loaded safely.");
+                    updateCounts(0, 0, 0);
+                    return;
+                }
+                renderReviews(result);
             });
-        }, "SmartSmsBridgeOptions").start();
+        }, "IntegrationReviewLoad").start();
     }
 
-    private void applyCategoryOptions() {
-        boolean income = "INCOME".equalsIgnoreCase(textOf(dropdownType));
-        List<String> values = income ? incomeCategories : expenseCategories;
-        dropdownCategory.setAdapter(new ArrayAdapter<>(
+    private void renderReviews(List<TridevIntegrationReviewManager.ReviewItem> items) {
+        reviewEventContainer.removeAllViews();
+
+        int mappable = 0;
+        int locked = 0;
+        for (TridevIntegrationReviewManager.ReviewItem item : items) {
+            if (item.canConfirmMapping) mappable++;
+            else locked++;
+        }
+        updateCounts(items.size(), mappable, locked);
+
+        if (items.isEmpty()) {
+            reviewStatus.setVisibility(View.GONE);
+            reviewEmptyCard.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        reviewEmptyCard.setVisibility(View.GONE);
+        reviewStatus.setVisibility(View.GONE);
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (TridevIntegrationReviewManager.ReviewItem item : items) {
+            View card = inflater.inflate(
+                    R.layout.item_integration_review_event,
+                    reviewEventContainer,
+                    false);
+            bindReviewCard(card, item);
+            reviewEventContainer.addView(card);
+        }
+    }
+
+    private void bindReviewCard(
+            View card,
+            TridevIntegrationReviewManager.ReviewItem item) {
+        TextView source = card.findViewById(R.id.reviewEventSource);
+        TextView status = card.findViewById(R.id.reviewEventStatus);
+        TextView amount = card.findViewById(R.id.reviewEventAmount);
+        TextView meta = card.findViewById(R.id.reviewEventMeta);
+        TextView accountHint = card.findViewById(R.id.reviewEventAccountHint);
+        TextView categoryHint = card.findViewById(R.id.reviewEventCategoryHint);
+        TextView merchant = card.findViewById(R.id.reviewEventMerchant);
+        TextView reason = card.findViewById(R.id.reviewEventReason);
+        TextView lockReason = card.findViewById(R.id.reviewEventLockReason);
+        MaterialAutoCompleteTextView accountDropdown =
+                card.findViewById(R.id.reviewAccountDropdown);
+        MaterialAutoCompleteTextView categoryDropdown =
+                card.findViewById(R.id.reviewCategoryDropdown);
+        MaterialButton confirm = card.findViewById(R.id.reviewConfirmButton);
+
+        source.setText(item.sourceLabel);
+        amount.setText(formatAmount(item.amountMinor, item.direction));
+        amount.setTextColor(ContextCompat.getColor(
+                this,
+                "CREDIT".equalsIgnoreCase(item.direction)
+                        ? R.color.success
+                        : R.color.expense));
+
+        boolean locked = !item.canConfirmMapping;
+        status.setText(locked
+                ? R.string.integration_review_locked
+                : R.string.integration_review_mappable);
+        decorateStatus(status, locked);
+
+        String type = item.moneyType.isEmpty() ? item.direction : item.moneyType;
+        meta.setText(type + " • " + formatDate(item.occurredAt));
+
+        accountHint.setText("Account signal: " + safeLabel(item.accountHint, "Not identified"));
+        categoryHint.setText("Category signal: " + safeLabel(item.categoryHint, "Not identified"));
+
+        if (item.merchantHint.isEmpty()) {
+            merchant.setVisibility(View.GONE);
+        } else {
+            merchant.setVisibility(View.VISIBLE);
+            merchant.setText("Merchant: " + item.merchantHint);
+        }
+
+        if (locked) {
+            reason.setVisibility(View.GONE);
+            lockReason.setVisibility(View.VISIBLE);
+            lockReason.setText(item.lockReason);
+            setWarningBackground(lockReason);
+        } else {
+            lockReason.setVisibility(View.GONE);
+            reason.setVisibility(View.VISIBLE);
+            reason.setText(buildSuggestionReason(item));
+        }
+
+        final String[] selectedAccountRef = {""};
+        final String[] selectedCategoryRef = {""};
+
+        configureDropdown(
+                accountDropdown,
+                item.accountChoices,
+                item.accountSuggestionRef,
+                selectedAccountRef);
+        configureDropdown(
+                categoryDropdown,
+                item.categoryChoices,
+                item.categorySuggestionRef,
+                selectedCategoryRef);
+
+        accountDropdown.setEnabled(item.canConfirmMapping);
+        categoryDropdown.setEnabled(item.canConfirmMapping);
+        confirm.setEnabled(item.canConfirmMapping);
+
+        confirm.setOnClickListener(v -> {
+            if (!item.canConfirmMapping) return;
+            if (selectedAccountRef[0].isEmpty() || selectedCategoryRef[0].isEmpty()) {
+                Toast.makeText(
+                        this,
+                        "Choose both an account/card and a category.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            processMapping(
+                    confirm,
+                    item.eventId,
+                    selectedAccountRef[0],
+                    selectedCategoryRef[0]);
+        });
+    }
+
+    private void configureDropdown(
+            MaterialAutoCompleteTextView dropdown,
+            List<TridevIntegrationReviewManager.Choice> choices,
+            String suggestionRef,
+            String[] selectedRef) {
+        List<String> labels = new ArrayList<>();
+        for (TridevIntegrationReviewManager.Choice choice : choices) {
+            labels.add(choice.label);
+        }
+        dropdown.setAdapter(new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_dropdown_item_1line,
-                values));
+                labels));
+        dropdown.setThreshold(0);
+        dropdown.setOnClickListener(v -> dropdown.showDropDown());
 
-        String selected = bestCategory(values, income);
-        dropdownCategory.setText(selected, false);
-    }
+        int initialIndex = findChoiceIndex(choices, suggestionRef);
+        if (initialIndex < 0 && !choices.isEmpty()) initialIndex = 0;
+        if (initialIndex >= 0) {
+            dropdown.setText(choices.get(initialIndex).label, false);
+            selectedRef[0] = choices.get(initialIndex).canonicalRef;
+        } else {
+            dropdown.setText("", false);
+            selectedRef[0] = "";
+        }
 
-    private String bestCategory(List<String> values, boolean income) {
-        if (!suggestedCategory.isEmpty()) {
-            for (String value : values) {
-                if (value.equalsIgnoreCase(suggestedCategory)) return value;
+        dropdown.setOnItemClickListener((parent, view, position, id) -> {
+            if (position >= 0 && position < choices.size()) {
+                selectedRef[0] = choices.get(position).canonicalRef;
             }
-        }
-        String preferred = income ? "Other Income" : "Other Expense";
-        for (String value : values) {
-            if (value.equalsIgnoreCase(preferred)) return value;
-        }
-        return values.isEmpty() ? preferred : values.get(0);
+        });
     }
 
-    private String bestAccount() {
-        String senderLower = sender.toLowerCase(Locale.ROOT);
-        for (String account : accountNames) {
-            String normalized = account.toLowerCase(Locale.ROOT);
-            if ((!senderLower.isEmpty() && (normalized.contains(senderLower) || senderLower.contains(normalized)))
-                    || (!method.isEmpty() && normalized.contains(method.toLowerCase(Locale.ROOT)))) {
-                return account;
-            }
+    private int findChoiceIndex(
+            List<TridevIntegrationReviewManager.Choice> choices,
+            String canonicalRef) {
+        if (canonicalRef == null || canonicalRef.trim().isEmpty()) return -1;
+        for (int index = 0; index < choices.size(); index++) {
+            if (canonicalRef.equalsIgnoreCase(choices.get(index).canonicalRef)) return index;
         }
-        for (String account : accountNames) {
-            if (account.equalsIgnoreCase("Cash")) return account;
-        }
-        return accountNames.get(0);
+        return -1;
     }
 
-    private void checkDuplicate() {
-        SharedPreferences preferences = getSharedPreferences(IMPORT_PREFS, MODE_PRIVATE);
-        duplicate = preferences.getBoolean(fingerprint, false);
-        txtDuplicate.setVisibility(duplicate ? View.VISIBLE : View.GONE);
-        btnSave.setEnabled(!duplicate && !accountNames.isEmpty());
-    }
-
-    private void saveReviewedTransaction() {
-        if (duplicate) {
-            Toast.makeText(this, R.string.bridge_duplicate_blocked, Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        String type = textOf(dropdownType).toUpperCase(Locale.ROOT);
-        String amountText = textOf(etAmount).replace(",", "");
-        String category = textOf(dropdownCategory);
-        String account = textOf(dropdownAccount);
-        String date = textOf(etDate);
-        String note = textOf(etNote);
-
-        if (!type.equals("EXPENSE") && !type.equals("INCOME")) {
-            Toast.makeText(this, R.string.bridge_invalid_type, Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        double amount;
-        try {
-            amount = Double.parseDouble(amountText);
-        } catch (Exception exception) {
-            amount = 0d;
-        }
-        if (amount <= 0d) {
-            inputAmount.setError(getString(R.string.bridge_invalid_amount));
-            return;
-        }
-        inputAmount.setError(null);
-        if (category.isEmpty() || account.isEmpty() || date.isEmpty()) {
-            Toast.makeText(this, R.string.bridge_complete_fields, Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Transaction transaction = new Transaction();
-        transaction.setType(type);
-        transaction.setAmount(amount);
-        transaction.setCategory(category);
-        transaction.setAccount(account);
-        transaction.setDate(date);
-        transaction.setNote(note);
-
-        btnSave.setEnabled(false);
-        btnSave.setText(R.string.bridge_saving);
+    private void processMapping(
+            MaterialButton button,
+            String eventId,
+            String accountRef,
+            String categoryRef) {
+        button.setEnabled(false);
+        button.setText(R.string.integration_review_processing);
 
         new Thread(() -> {
+            TridevIntegrationReviewManager.ConfirmResult result;
             try {
-                long id = DatabaseClient
-                        .getInstance(getApplicationContext())
-                        .getAppDatabase()
-                        .transactionDao()
-                        .insert(transaction);
-                if (id <= 0L) throw new IllegalStateException("Insert failed");
-
-                getSharedPreferences(IMPORT_PREFS, MODE_PRIVATE)
-                        .edit()
-                        .putBoolean(fingerprint, true)
-                        .apply();
-
-                runOnUiThread(() -> {
-                    Toast.makeText(this, R.string.bridge_saved, Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(this, TransactionsActivity.class));
-                    finish();
-                });
-            } catch (Exception exception) {
-                runOnUiThread(() -> {
-                    btnSave.setEnabled(true);
-                    btnSave.setText(R.string.bridge_review_save);
-                    Toast.makeText(this, R.string.bridge_save_failed, Toast.LENGTH_LONG).show();
-                });
+                result = reviewManager.confirmMappingsAndProcess(
+                        eventId,
+                        accountRef,
+                        categoryRef);
+            } catch (RuntimeException failure) {
+                result = null;
             }
-        }, "SmartSmsBridgeSave").start();
+
+            final TridevIntegrationReviewManager.ConfirmResult finalResult = result;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                button.setText(R.string.integration_review_confirm);
+                if (finalResult == null) {
+                    button.setEnabled(true);
+                    Toast.makeText(
+                            this,
+                            "Mapping could not be processed safely.",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Toast.makeText(this, finalResult.message, Toast.LENGTH_LONG).show();
+                loadReviews();
+            });
+        }, "IntegrationMappingConfirm").start();
     }
 
-    private String formatAmount(double amount) {
-        return String.format(Locale.US, amount % 1d == 0d ? "%.0f" : "%.2f", amount);
+    private String buildSuggestionReason(TridevIntegrationReviewManager.ReviewItem item) {
+        String account = item.accountReason.isEmpty()
+                ? "Choose the correct MoneyManager account/card."
+                : item.accountReason;
+        String category = item.categoryReason.isEmpty()
+                ? "Choose the correct existing category."
+                : item.categoryReason;
+        return "Account: " + account + "\nCategory: " + category;
     }
 
-    private String textOf(TextInputEditText field) {
-        return field.getText() == null ? "" : field.getText().toString().trim();
+    private String formatAmount(long amountMinor, String direction) {
+        double value = amountMinor / 100.0d;
+        DecimalFormat format = new DecimalFormat("#,##0.00");
+        String prefix = "CREDIT".equalsIgnoreCase(direction) ? "+₹" : "-₹";
+        return prefix + format.format(value);
     }
 
-    private String textOf(MaterialAutoCompleteTextView field) {
-        return field.getText() == null ? "" : field.getText().toString().trim();
+    private String formatDate(long time) {
+        long safeTime = time > 0L ? time : System.currentTimeMillis();
+        return new SimpleDateFormat("dd MMM yyyy • hh:mm a", Locale.getDefault())
+                .format(new Date(safeTime));
     }
 
-    private String safe(String value) {
-        return value == null ? "" : value.trim();
+    private void updateCounts(int pending, int mappable, int locked) {
+        reviewPendingCount.setText(String.valueOf(pending));
+        reviewMappableCount.setText(String.valueOf(mappable));
+        reviewLockedCount.setText(String.valueOf(locked));
+    }
+
+    private void decorateStatus(TextView view, boolean locked) {
+        int textColor = ContextCompat.getColor(
+                this,
+                locked ? R.color.orange : R.color.success);
+        int background = ContextCompat.getColor(
+                this,
+                locked ? R.color.warning_surface : R.color.success_surface);
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(background);
+        shape.setCornerRadius(dp(20));
+        view.setBackground(shape);
+        view.setTextColor(textColor);
+    }
+
+    private void setWarningBackground(TextView view) {
+        int background = ContextCompat.getColor(this, R.color.warning_surface);
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(background);
+        shape.setCornerRadius(dp(12));
+        view.setBackground(shape);
+    }
+
+    private String safeLabel(String value, String fallback) {
+        if (value == null || value.trim().isEmpty()) return fallback;
+        return value.trim();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
