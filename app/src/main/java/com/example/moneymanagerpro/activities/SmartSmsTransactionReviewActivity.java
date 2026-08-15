@@ -30,12 +30,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * STEP 11 - Integration Health & Review Center.
+ * Integration Health & Reconciliation Center.
  *
- * This activity stays private (android:exported="false"). Incoming finance
- * events still arrive only through the trusted integration providers. The screen
- * combines connection readiness, actual queue health, safe retry and the STEP 6
- * mapping/review workflow in one place.
+ * Historical SmartSMS items are presented as link-only records: the user can
+ * select an existing same-date MoneyManager transaction, but this screen never
+ * creates a new row for historical SMS evidence.
  */
 public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
 
@@ -102,7 +101,7 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
             try {
                 startActivity(new Intent(this, SpecialReconciliationActivity.class));
             } catch (RuntimeException failure) {
-                Toast.makeText(this, "Reconciliation Center could not be opened.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Advanced Reconciliation could not be opened.", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -353,8 +352,12 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
         int mappable = 0;
         int locked = 0;
         for (TridevIntegrationReviewManager.ReviewItem item : items) {
-            if (item.canConfirmMapping) mappable++;
-            else locked++;
+            if (item.canConfirmMapping || (item.historicalReconciliationOnly
+                    && !item.historicalTransactionChoices.isEmpty())) {
+                mappable++;
+            } else {
+                locked++;
+            }
         }
         updateCounts(items.size(), mappable, locked);
 
@@ -403,11 +406,16 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
                         ? R.color.success
                         : R.color.expense));
 
-        boolean locked = !item.canConfirmMapping;
-        status.setText(locked
-                ? R.string.integration_review_locked
-                : R.string.integration_review_mappable);
-        decorateStatus(status, locked);
+        boolean locked = !item.canConfirmMapping && !item.historicalReconciliationOnly;
+        if (item.historicalReconciliationOnly) {
+            status.setText("RECONCILE");
+            decorateStatus(status, true);
+        } else {
+            status.setText(locked
+                    ? R.string.integration_review_locked
+                    : R.string.integration_review_mappable);
+            decorateStatus(status, locked);
+        }
 
         String type = item.moneyType.isEmpty() ? item.direction : item.moneyType;
         meta.setText(type + " • " + formatDate(item.occurredAt));
@@ -422,7 +430,7 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
             merchant.setText("Merchant: " + item.merchantHint);
         }
 
-        if (locked) {
+        if (!item.canConfirmMapping) {
             reason.setVisibility(View.GONE);
             lockReason.setVisibility(View.VISIBLE);
             lockReason.setText(item.lockReason);
@@ -435,6 +443,44 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
 
         final String[] selectedAccountRef = {""};
         final String[] selectedCategoryRef = {""};
+
+        if (item.historicalReconciliationOnly) {
+            configureDropdown(
+                    accountDropdown,
+                    item.historicalTransactionChoices,
+                    "",
+                    selectedAccountRef);
+            accountDropdown.setHint("Existing MoneyManager transaction");
+            accountDropdown.setEnabled(!item.historicalTransactionChoices.isEmpty());
+
+            View categoryContainer = categoryDropdown.getParent() instanceof View
+                    ? (View) categoryDropdown.getParent()
+                    : categoryDropdown;
+            categoryContainer.setVisibility(View.GONE);
+
+            confirm.setText("Link Existing");
+            confirm.setEnabled(!item.historicalTransactionChoices.isEmpty());
+            confirm.setOnClickListener(v -> {
+                if (selectedAccountRef[0].isEmpty()) {
+                    Toast.makeText(
+                            this,
+                            "Choose the matching existing MoneyManager transaction.",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                processHistoricalLink(
+                        confirm,
+                        item.eventId,
+                        selectedAccountRef[0]);
+            });
+            return;
+        }
+
+        View categoryContainer = categoryDropdown.getParent() instanceof View
+                ? (View) categoryDropdown.getParent()
+                : categoryDropdown;
+        categoryContainer.setVisibility(View.VISIBLE);
+        confirm.setText(R.string.integration_review_confirm);
 
         configureDropdown(
                 accountDropdown,
@@ -508,6 +554,39 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
             if (canonicalRef.equalsIgnoreCase(choices.get(index).canonicalRef)) return index;
         }
         return -1;
+    }
+
+    private void processHistoricalLink(
+            MaterialButton button,
+            String eventId,
+            String transactionRef) {
+        button.setEnabled(false);
+        button.setText("Linking…");
+
+        new Thread(() -> {
+            TridevIntegrationReviewManager.ConfirmResult result;
+            try {
+                result = reviewManager.linkHistoricalExisting(eventId, transactionRef);
+            } catch (RuntimeException failure) {
+                result = null;
+            }
+
+            final TridevIntegrationReviewManager.ConfirmResult finalResult = result;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                button.setText("Link Existing");
+                if (finalResult == null) {
+                    button.setEnabled(true);
+                    Toast.makeText(
+                            this,
+                            "Historical transaction could not be linked safely.",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Toast.makeText(this, finalResult.message, Toast.LENGTH_LONG).show();
+                refreshAll();
+            });
+        }, "HistoricalSmsLink").start();
     }
 
     private void processMapping(
