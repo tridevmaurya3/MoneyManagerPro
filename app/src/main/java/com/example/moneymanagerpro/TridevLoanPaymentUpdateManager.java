@@ -16,8 +16,10 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Source-authoritative EDIT propagation for LoanManagerPro payments.
@@ -32,6 +34,11 @@ import java.util.Locale;
  * - Category stays unchanged for amount/date edits.
  * - If EMI <-> PREPAYMENT type changes, only then is the new configured expense
  *   category resolved and applied.
+ *
+ * Recovery rule:
+ * Older/failed edit builds could accidentally post more than one source-owned
+ * ledger row for the same loanId + paymentId. A later trusted EDIT collapses
+ * those rows back to one canonical transaction instead of creating another one.
  */
 public final class TridevLoanPaymentUpdateManager {
 
@@ -156,21 +163,35 @@ public final class TridevLoanPaymentUpdateManager {
                         "No earlier MoneyManager representation exists for this LoanManager payment");
             }
 
-            OwnedLedgerRow owned = findOwnedLedgerRow(events);
-            if (owned == null) {
-                QueueLoanEvent linked = firstLinkedEvent(events);
-                boolean family = linked != null && "FAMILY".equals(linked.scope);
-                if (linked != null) {
-                    return result(true, false, family, "PRESERVED", linked.eventId,
-                            linked.moneyTransactionRef,
-                            "The LoanManager payment is linked to an existing/manual MoneyManager transaction, so it was not edited automatically");
+            List<OwnedLedgerRow> ownedRows = findOwnedLedgerRows(events);
+            Set<Long> ownedIds = new HashSet<>();
+            for (OwnedLedgerRow row : ownedRows) ownedIds.add(row.transactionId);
+
+            QueueLoanEvent manualLinked = firstManualLinkedEvent(events, ownedIds);
+            if (manualLinked != null) {
+                // If an old failed build also created source-owned duplicates beside
+                // the verified manual/existing ledger row, remove only those
+                // integration-owned duplicates. The manual row itself is preserved.
+                if (!ownedRows.isEmpty()) {
+                    deleteOwnedDuplicates(ownedRows, -1L);
+                    markAllEventsPreserved(queueDb, events, manualLinked);
                 }
+                return result(true, false, "FAMILY".equals(manualLinked.scope),
+                        "PRESERVED", manualLinked.eventId, manualLinked.moneyTransactionRef,
+                        "The LoanManager payment is linked to an existing/manual MoneyManager transaction, so that manual row was preserved");
+            }
+
+            if (ownedRows.isEmpty()) {
                 QueueLoanEvent first = events.get(0);
                 return result(true, false, "FAMILY".equals(first.scope),
                         "REPOST_REQUIRED", first.eventId, null,
-                        "The earlier source-owned MoneyManager row is missing and needs safe reposting");
+                        "The earlier source-owned MoneyManager row is missing; edit was not reposted to avoid a duplicate");
             }
 
+            // Events are ordered oldest first. Preserve the earliest surviving
+            // source-owned transaction so its historical account/category route
+            // and MoneyManager transaction id remain stable.
+            OwnedLedgerRow owned = ownedRows.get(0);
             QueueLoanEvent canonical = owned.queueEvent;
             boolean familyVisible = "FAMILY".equals(canonical.scope);
             String oldType = paymentTypeFromSourceRecord(canonical.sourceRecordId);
@@ -197,13 +218,12 @@ public final class TridevLoanPaymentUpdateManager {
                 queueCategoryHint = safeCategoryHint;
             }
 
-            updateOwnedLedgerRow(
-                    owned,
-                    amountMinor,
-                    occurredAt,
-                    categoryValue);
-            updateCanonicalQueueRow(
+            updateOwnedLedgerRow(owned, amountMinor, occurredAt, categoryValue);
+
+            int removedDuplicates = deleteOwnedDuplicates(ownedRows, owned.transactionId);
+            collapseQueueEvents(
                     queueDb,
+                    events,
                     canonical,
                     safeLoanId,
                     safePaymentId,
@@ -211,11 +231,14 @@ public final class TridevLoanPaymentUpdateManager {
                     amountMinor,
                     occurredAt,
                     categoryRef,
-                    queueCategoryHint);
+                    queueCategoryHint,
+                    owned.transactionId);
 
             return result(true, true, familyVisible, "UPDATED",
                     canonical.eventId, String.valueOf(owned.transactionId),
-                    "Existing LoanManager-created MoneyManager transaction updated in place");
+                    removedDuplicates > 0
+                            ? "Existing LoanManager transaction updated and duplicate MoneyManager rows collapsed"
+                            : "Existing LoanManager-created MoneyManager transaction updated in place");
         } catch (RuntimeException failure) {
             return result(false, false, false, "FAILED", "", null,
                     "Loan payment edit failed safely in MoneyManager");
@@ -230,18 +253,20 @@ public final class TridevLoanPaymentUpdateManager {
             @NonNull String loanId,
             @NonNull String paymentId) {
         List<QueueLoanEvent> result = new ArrayList<>();
+        String sourcePrefix = "bank:" + loanId + ":" + paymentId + ":%";
         try (Cursor cursor = db.rawQuery(
                 "SELECT event_id, source_record_id, scope, money_transaction_ref, "
                         + "money_category_ref, category_hint FROM " + QUEUE_TABLE
                         + " WHERE source_app = ? AND event_type = ?"
-                        + " AND loan_ref = ? AND loan_payment_ref = ?"
-                        + " ORDER BY CASE WHEN sync_state = ? THEN 0 ELSE 1 END, id DESC",
+                        + " AND ((loan_ref = ? AND loan_payment_ref = ?)"
+                        + " OR source_record_id LIKE ?)"
+                        + " ORDER BY id ASC",
                 new String[]{
                         TridevIntegrationContract.APP_LOAN_MANAGER,
                         TridevIntegrationContract.EventType.LOAN_PAYMENT.name(),
                         loanId,
                         paymentId,
-                        TridevIntegrationContract.SyncState.SYNCED.name()
+                        sourcePrefix
                 })) {
             while (cursor.moveToNext()) {
                 String eventId = cursor.isNull(0) ? "" : cursor.getString(0);
@@ -258,8 +283,10 @@ public final class TridevLoanPaymentUpdateManager {
         return result;
     }
 
-    @Nullable
-    private OwnedLedgerRow findOwnedLedgerRow(@NonNull List<QueueLoanEvent> events) {
+    @NonNull
+    private List<OwnedLedgerRow> findOwnedLedgerRows(@NonNull List<QueueLoanEvent> events) {
+        List<OwnedLedgerRow> result = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
         SupportSQLiteDatabase ledger = ledgerDatabase.getOpenHelper().getReadableDatabase();
         for (QueueLoanEvent event : events) {
             String marker = marker(event.eventId);
@@ -268,35 +295,46 @@ public final class TridevLoanPaymentUpdateManager {
                     "SELECT id, account, category, note FROM transactions"
                             + " WHERE instr(note, ?) > 0"
                             + " AND instr(note, 'Synced from LoanManagerPro') > 0"
-                            + " ORDER BY id DESC LIMIT 1",
+                            + " ORDER BY id ASC",
                     new Object[]{marker})) {
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(0);
+                    if (id <= 0L || !seen.add(id)) continue;
+                    result.add(new OwnedLedgerRow(
+                            id,
+                            cursor.isNull(1) ? "" : cursor.getString(1),
+                            cursor.isNull(2) ? "" : cursor.getString(2),
+                            cursor.isNull(3) ? "" : cursor.getString(3),
+                            event));
+                }
+            }
+        }
+        return result;
+    }
+
+    @Nullable
+    private QueueLoanEvent firstManualLinkedEvent(
+            @NonNull List<QueueLoanEvent> events,
+            @NonNull Set<Long> ownedIds) {
+        SupportSQLiteDatabase ledger = ledgerDatabase.getOpenHelper().getReadableDatabase();
+        for (QueueLoanEvent event : events) {
+            long id = parseLong(event.moneyTransactionRef);
+            if (id <= 0L || ownedIds.contains(id)) continue;
+            try (Cursor cursor = ledger.query(
+                    "SELECT id, note FROM transactions WHERE id = ? LIMIT 1",
+                    new Object[]{id})) {
                 if (!cursor.moveToFirst()) continue;
-                long id = cursor.getLong(0);
-                if (id <= 0L) continue;
-                return new OwnedLedgerRow(
-                        id,
-                        cursor.isNull(1) ? "" : cursor.getString(1),
-                        cursor.isNull(2) ? "" : cursor.getString(2),
-                        cursor.isNull(3) ? "" : cursor.getString(3),
-                        event);
+                String note = cursor.isNull(1) ? "" : cursor.getString(1);
+                if (!isLoanManagerOwnedNote(note)) return event;
             }
         }
         return null;
     }
 
-    @Nullable
-    private QueueLoanEvent firstLinkedEvent(@NonNull List<QueueLoanEvent> events) {
-        SupportSQLiteDatabase ledger = ledgerDatabase.getOpenHelper().getReadableDatabase();
-        for (QueueLoanEvent event : events) {
-            long id = parseLong(event.moneyTransactionRef);
-            if (id <= 0L) continue;
-            try (Cursor cursor = ledger.query(
-                    "SELECT id FROM transactions WHERE id = ? LIMIT 1",
-                    new Object[]{id})) {
-                if (cursor.moveToFirst()) return event;
-            }
-        }
-        return null;
+    private boolean isLoanManagerOwnedNote(@Nullable String note) {
+        String safe = clean(note);
+        return safe.contains(MARKER_PREFIX)
+                && safe.contains("Synced from LoanManagerPro");
     }
 
     private void updateOwnedLedgerRow(
@@ -319,8 +357,36 @@ public final class TridevLoanPaymentUpdateManager {
         });
     }
 
-    private void updateCanonicalQueueRow(
+    private int deleteOwnedDuplicates(
+            @NonNull List<OwnedLedgerRow> ownedRows,
+            long canonicalTransactionId) {
+        final int[] removed = {0};
+        ledgerDatabase.runInTransaction(() -> {
+            SupportSQLiteDatabase ledger = ledgerDatabase.getOpenHelper().getWritableDatabase();
+            for (OwnedLedgerRow row : ownedRows) {
+                if (row.transactionId <= 0L || row.transactionId == canonicalTransactionId) continue;
+                String marker = marker(row.queueEvent.eventId);
+                if (marker.isEmpty()) continue;
+                try (Cursor cursor = ledger.query(
+                        "SELECT id FROM transactions WHERE id = ?"
+                                + " AND instr(note, ?) > 0"
+                                + " AND instr(note, 'Synced from LoanManagerPro') > 0 LIMIT 1",
+                        new Object[]{row.transactionId, marker})) {
+                    if (!cursor.moveToFirst()) continue;
+                }
+                ledger.execSQL(
+                        "DELETE FROM transactions WHERE id = ? AND instr(note, ?) > 0"
+                                + " AND instr(note, 'Synced from LoanManagerPro') > 0",
+                        new Object[]{row.transactionId, marker});
+                removed[0]++;
+            }
+        });
+        return removed[0];
+    }
+
+    private void collapseQueueEvents(
             @NonNull SQLiteDatabase db,
+            @NonNull List<QueueLoanEvent> events,
             @NonNull QueueLoanEvent canonical,
             @NonNull String loanId,
             @NonNull String paymentId,
@@ -328,43 +394,75 @@ public final class TridevLoanPaymentUpdateManager {
             long amountMinor,
             long occurredAt,
             @NonNull String categoryRef,
-            @NonNull String categoryHint) {
-        // A previous interrupted edit can already have queued the new source
-        // identity. Release that duplicate identity first so the canonical row can
-        // keep one stable source-record mapping without violating the unique index.
-        ContentValues duplicate = new ContentValues();
-        duplicate.putNull("source_record_id");
-        duplicate.put("sync_state", TridevIntegrationContract.SyncState.SUPERSEDED.name());
-        duplicate.putNull("duplicate_of_event_id");
-        duplicate.put("duplicate_score", 0);
-        duplicate.put("last_error", "Superseded by source-authoritative LoanManager edit");
-        duplicate.put("updated_at", System.currentTimeMillis());
+            @NonNull String categoryHint,
+            long canonicalTransactionId) {
+        for (QueueLoanEvent event : events) {
+            if (canonical.eventId.equals(event.eventId)) continue;
+            ContentValues duplicate = new ContentValues();
+            duplicate.putNull("source_record_id");
+            duplicate.put("sync_state", TridevIntegrationContract.SyncState.SUPERSEDED.name());
+            duplicate.put("duplicate_of_event_id", canonical.eventId);
+            duplicate.put("duplicate_score", 100);
+            duplicate.putNull("money_transaction_ref");
+            duplicate.put("last_error", "Collapsed duplicate LoanManager edit into canonical payment");
+            duplicate.put("updated_at", System.currentTimeMillis());
+            db.update(QUEUE_TABLE, duplicate, "event_id = ?", new String[]{event.eventId});
+        }
+
+        // Release any unexpected row that already holds the edited source identity
+        // but was not returned by the legacy stable-reference query.
+        ContentValues release = new ContentValues();
+        release.putNull("source_record_id");
+        release.put("sync_state", TridevIntegrationContract.SyncState.SUPERSEDED.name());
+        release.putNull("duplicate_of_event_id");
+        release.put("duplicate_score", 0);
+        release.putNull("money_transaction_ref");
+        release.put("last_error", "Superseded by source-authoritative LoanManager edit");
+        release.put("updated_at", System.currentTimeMillis());
         db.update(
                 QUEUE_TABLE,
-                duplicate,
-                "source_app = ? AND event_type = ? AND loan_ref = ? AND loan_payment_ref = ?"
-                        + " AND source_record_id = ? AND event_id <> ?",
+                release,
+                "source_app = ? AND event_type = ? AND source_record_id = ? AND event_id <> ?",
                 new String[]{
                         TridevIntegrationContract.APP_LOAN_MANAGER,
                         TridevIntegrationContract.EventType.LOAN_PAYMENT.name(),
-                        loanId,
-                        paymentId,
                         newSourceRecord,
                         canonical.eventId
                 });
 
         ContentValues values = new ContentValues();
         values.put("source_record_id", newSourceRecord);
+        values.put("loan_ref", loanId);
+        values.put("loan_payment_ref", paymentId);
         values.put("amount_minor", amountMinor);
         values.put("occurred_at", occurredAt);
         values.put("sync_state", TridevIntegrationContract.SyncState.SYNCED.name());
         values.putNull("duplicate_of_event_id");
         values.put("duplicate_score", 0);
+        values.put("money_transaction_ref", String.valueOf(canonicalTransactionId));
         values.put("last_error", "");
         values.put("updated_at", System.currentTimeMillis());
         if (!categoryRef.isEmpty()) values.put("money_category_ref", categoryRef);
         if (!categoryHint.isEmpty()) values.put("category_hint", categoryHint);
         db.update(QUEUE_TABLE, values, "event_id = ?", new String[]{canonical.eventId});
+    }
+
+    private void markAllEventsPreserved(
+            @NonNull SQLiteDatabase db,
+            @NonNull List<QueueLoanEvent> events,
+            @NonNull QueueLoanEvent manualLinked) {
+        for (QueueLoanEvent event : events) {
+            if (manualLinked.eventId.equals(event.eventId)) continue;
+            ContentValues values = new ContentValues();
+            values.putNull("source_record_id");
+            values.put("sync_state", TridevIntegrationContract.SyncState.SUPERSEDED.name());
+            values.put("duplicate_of_event_id", manualLinked.eventId);
+            values.put("duplicate_score", 100);
+            values.putNull("money_transaction_ref");
+            values.put("last_error", "Source-owned duplicate removed; manual MoneyManager representation preserved");
+            values.put("updated_at", System.currentTimeMillis());
+            db.update(QUEUE_TABLE, values, "event_id = ?", new String[]{event.eventId});
+        }
     }
 
     @NonNull
