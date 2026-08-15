@@ -1,13 +1,17 @@
 package com.example.moneymanagerpro;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 
 import androidx.annotation.Nullable;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.example.moneymanagerpro.cloud.TridevIntegrationCloudScheduler;
 import com.example.moneymanagerpro.database.DatabaseClient;
+
+import java.io.File;
 
 /**
  * Single MoneyManagerPro entry point for structured events coming from the
@@ -23,6 +27,8 @@ import com.example.moneymanagerpro.database.DatabaseClient;
 public final class TridevFinanceIntegrationCoordinator {
 
     private static final String NOTE_MARKER_PREFIX = "TRIDEV_EVENT:";
+    private static final String QUEUE_DB = "TridevIntegrationQueue.db";
+    private static final String QUEUE_TABLE = "integration_events";
 
     public enum Outcome {
         POSTED,
@@ -85,6 +91,12 @@ public final class TridevFinanceIntegrationCoordinator {
         final TridevEventQueue.EnqueueResult enqueue;
         try {
             enqueue = queue.enqueue(event);
+            // A trusted LoanManager payment keeps a stable event/source identity
+            // even when the user later changes its MoneyManager bank/category or
+            // Family visibility. Refresh only routing metadata for that exact same
+            // payment before reconciliation. This fixes stale mappings without
+            // weakening cross-event duplicate protection.
+            refreshTrustedLoanRoutingIfSafe(event);
             // Debounced WorkManager sync snapshots the final queue state after
             // posting/reconciliation settles; no raw SMS body is ever included.
             TridevIntegrationCloudScheduler.scheduleSoon(appContext);
@@ -197,6 +209,91 @@ public final class TridevFinanceIntegrationCoordinator {
         TridevTransactionPostingEngine.Result posting =
                 postingEngine.process(processingEventId);
         return resultFromPosting(enqueue.eventId, processingEventId, posting);
+    }
+
+    /**
+     * Refreshes only mutable routing metadata for an exact, trusted LoanManager
+     * payment identity. A mapping-only NEEDS_REVIEW row (no duplicate candidate,
+     * score zero) is reopened to PENDING so a corrected account/category can be
+     * tried again. Duplicate/reconciliation review states are intentionally left
+     * untouched.
+     */
+    private void refreshTrustedLoanRoutingIfSafe(TridevIntegrationContract.Event incoming) {
+        if (incoming == null
+                || !TridevIntegrationContract.APP_LOAN_MANAGER.equals(incoming.sourceApp)
+                || incoming.eventType != TridevIntegrationContract.EventType.LOAN_PAYMENT) {
+            return;
+        }
+
+        String eventId = incoming.eventId == null ? "" : incoming.eventId.trim();
+        String sourceRecordId = incoming.sourceRecordId == null
+                ? "" : incoming.sourceRecordId.trim();
+        if (eventId.isEmpty() || sourceRecordId.isEmpty()) return;
+
+        TridevEventQueue.QueueItem existing = queue.find(eventId);
+        if (existing == null || existing.event == null) return;
+        if (!TridevIntegrationContract.APP_LOAN_MANAGER.equals(existing.event.sourceApp)) return;
+        String existingSourceRecord = existing.event.sourceRecordId == null
+                ? "" : existing.event.sourceRecordId.trim();
+        if (!sourceRecordId.equals(existingSourceRecord)) return;
+
+        TridevIntegrationContract.SyncState state = existing.event.syncState;
+        if (state == TridevIntegrationContract.SyncState.SUPERSEDED) return;
+
+        boolean mappingOnlyReview = state == TridevIntegrationContract.SyncState.NEEDS_REVIEW
+                && cleanToNull(existing.duplicateOfEventId) == null
+                && existing.duplicateScore == 0;
+        boolean failedRetry = state == TridevIntegrationContract.SyncState.FAILED;
+        if (state == TridevIntegrationContract.SyncState.NEEDS_REVIEW && !mappingOnlyReview) {
+            return;
+        }
+
+        File queueFile = appContext.getDatabasePath(QUEUE_DB);
+        if (queueFile == null || !queueFile.exists()) return;
+
+        SQLiteDatabase db = null;
+        try {
+            db = SQLiteDatabase.openDatabase(
+                    queueFile.getAbsolutePath(),
+                    null,
+                    SQLiteDatabase.OPEN_READWRITE);
+            ContentValues values = new ContentValues();
+            values.put("scope", incoming.scope.name());
+            values.put("account_hint", safeMetadata(incoming.accountHint));
+            values.put("merchant_hint", safeMetadata(incoming.merchantHint));
+            values.put("category_hint", safeMetadata(incoming.categoryHint));
+            values.put("dedupe_fingerprint", TridevEventFingerprint.build(incoming));
+            values.put("updated_at", System.currentTimeMillis());
+
+            if (mappingOnlyReview || failedRetry) {
+                values.put("sync_state", TridevIntegrationContract.SyncState.PENDING.name());
+                values.putNull("duplicate_of_event_id");
+                values.put("duplicate_score", 0);
+                values.put("last_error", "");
+            }
+
+            db.update(
+                    QUEUE_TABLE,
+                    values,
+                    "event_id = ? AND source_app = ? AND source_record_id = ?",
+                    new String[]{eventId, incoming.sourceApp, sourceRecordId});
+        } catch (RuntimeException ignored) {
+            // Fail closed. Normal queue state remains authoritative if the refresh
+            // cannot be applied safely.
+        } finally {
+            if (db != null) {
+                try { db.close(); } catch (RuntimeException ignored) { }
+            }
+        }
+    }
+
+    private String safeMetadata(@Nullable String value) {
+        String safe = value == null ? "" : value.trim()
+                .replace('\n', ' ')
+                .replace('\r', ' ')
+                .replaceAll("\\s+", " ");
+        if (safe.length() > 200) safe = safe.substring(0, 200).trim();
+        return safe;
     }
 
     private Result resultFromPosting(
