@@ -25,8 +25,8 @@ import java.util.Locale;
  *
  * Only active account/card labels, stable refs, category names/types and
  * structured finance metadata are exposed. Family Hub may additionally read a
- * current-month aggregate summary. Individual transaction rows, notes, contacts
- * and raw SMS bodies are never exposed here.
+ * current-month aggregate summary and category aggregates. Individual
+ * transaction rows, notes, contacts and raw SMS bodies are never exposed here.
  */
 public final class TridevCompanionFinanceProvider extends ContentProvider {
 
@@ -154,6 +154,10 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
             result.putString("period_start", snapshot.periodStart);
             result.putString("period_end", snapshot.periodEnd);
             result.putString("period_label", snapshot.periodLabel);
+            result.putStringArray("expense_category_labels", snapshot.expenseCategoryLabels);
+            result.putLongArray("expense_category_totals_minor", snapshot.expenseCategoryTotalsMinor);
+            result.putStringArray("income_category_labels", snapshot.incomeCategoryLabels);
+            result.putLongArray("income_category_totals_minor", snapshot.incomeCategoryTotalsMinor);
             result.putLong("generated_at", snapshot.generatedAt);
             return result;
         } catch (RuntimeException unavailable) {
