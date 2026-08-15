@@ -28,8 +28,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * STEP 13C/13D - Read-only account/card and selectable-period finance endpoint
- * for Family Hub.
+ * STEP 13C/13D/13E - Read-only account/card, selectable-period and yearly
+ * finance analytics endpoint for Family Hub.
  *
  * MoneyManagerPro remains the canonical ledger. Only aggregate totals are
  * exposed. Individual transaction rows, notes, merchant text, SMS bodies,
@@ -43,6 +43,13 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
             "get_account_breakdown_v1";
     public static final String METHOD_PERIOD_FINANCE =
             "get_period_finance_v1";
+    public static final String METHOD_YEAR_FINANCE =
+            "get_year_finance_v1";
+
+    private static final String[] MONTH_LABELS = {
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
 
     @Override
     public boolean onCreate() {
@@ -66,6 +73,13 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
             return response("REJECTED",
                     "Family Hub package or pinned signing certificate is not trusted");
         }
+
+        if (METHOD_YEAR_FINANCE.equals(method)) {
+            int year = requestedYear(extras);
+            if (year == 0) return response("REJECTED", "Invalid finance year");
+            return loadYearBreakdown(context, year);
+        }
+
         if (!METHOD_ACCOUNT_BREAKDOWN.equals(method)
                 && !METHOD_PERIOD_FINANCE.equals(method)) {
             return response("REJECTED", "Unsupported finance analytics request");
@@ -89,6 +103,95 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
         }
         if (year < 2000 || year > 2100 || month < 1 || month > 12) return null;
         return new int[]{year, month};
+    }
+
+    private int requestedYear(@Nullable Bundle extras) {
+        int year = Calendar.getInstance().get(Calendar.YEAR);
+        if (extras != null) year = extras.getInt("year", year);
+        return year >= 2000 && year <= 2100 ? year : 0;
+    }
+
+    @NonNull
+    private Bundle loadYearBreakdown(@NonNull Context context, int year) {
+        try {
+            BigDecimal[] income = zeroMonths();
+            BigDecimal[] expense = zeroMonths();
+            int[] transactionCounts = new int[12];
+            BigDecimal totalIncome = BigDecimal.ZERO;
+            BigDecimal totalExpense = BigDecimal.ZERO;
+            int totalTransactions = 0;
+
+            List<Transaction> transactions = DatabaseClient.getInstance(
+                    context.getApplicationContext())
+                    .getAppDatabase()
+                    .transactionDao()
+                    .getAllTransactions();
+            if (transactions != null) {
+                Calendar parsed = Calendar.getInstance();
+                for (Transaction transaction : transactions) {
+                    if (transaction == null) continue;
+                    Date date = parseDate(transaction.getDate());
+                    if (date == null) continue;
+                    parsed.setTime(date);
+                    if (parsed.get(Calendar.YEAR) != year) continue;
+
+                    String type = safe(transaction.getType()).toUpperCase(Locale.ROOT);
+                    if (!"EXPENSE".equals(type) && !"INCOME".equals(type)) continue;
+
+                    int monthIndex = parsed.get(Calendar.MONTH);
+                    if (monthIndex < 0 || monthIndex > 11) continue;
+                    BigDecimal amount = BigDecimal.valueOf(Math.abs(transaction.getAmount()));
+                    if ("EXPENSE".equals(type)) {
+                        expense[monthIndex] = expense[monthIndex].add(amount);
+                        totalExpense = totalExpense.add(amount);
+                    } else {
+                        income[monthIndex] = income[monthIndex].add(amount);
+                        totalIncome = totalIncome.add(amount);
+                    }
+                    transactionCounts[monthIndex]++;
+                    totalTransactions++;
+                }
+            }
+
+            long[] incomeMinor = new long[12];
+            long[] expenseMinor = new long[12];
+            long[] remainingMinor = new long[12];
+            for (int index = 0; index < 12; index++) {
+                incomeMinor[index] = toMinor(income[index]);
+                expenseMinor[index] = toMinor(expense[index]);
+                remainingMinor[index] = subtractSafe(incomeMinor[index], expenseMinor[index]);
+            }
+
+            long totalIncomeMinor = toMinor(totalIncome);
+            long totalExpenseMinor = toMinor(totalExpense);
+            Bundle result = response("OK", "MoneyManager yearly finance comparison ready");
+            result.putString("currency", TridevIntegrationContract.DEFAULT_CURRENCY);
+            result.putInt("year", year);
+            result.putString("year_label", String.valueOf(year));
+            result.putLong("total_income_minor", totalIncomeMinor);
+            result.putLong("total_expense_minor", totalExpenseMinor);
+            result.putLong("total_remaining_minor",
+                    subtractSafe(totalIncomeMinor, totalExpenseMinor));
+            result.putInt("transaction_count", totalTransactions);
+            result.putStringArray("month_labels", MONTH_LABELS.clone());
+            result.putLongArray("month_income_minor", incomeMinor);
+            result.putLongArray("month_expense_minor", expenseMinor);
+            result.putLongArray("month_remaining_minor", remainingMinor);
+            result.putIntArray("month_transaction_counts", transactionCounts);
+            result.putLong("generated_at", System.currentTimeMillis());
+            return result;
+        } catch (RuntimeException unavailable) {
+            return response("FAILED", "MoneyManager yearly finance analytics are unavailable");
+        }
+    }
+
+    @NonNull
+    private BigDecimal[] zeroMonths() {
+        BigDecimal[] values = new BigDecimal[12];
+        for (int index = 0; index < values.length; index++) {
+            values[index] = BigDecimal.ZERO;
+        }
+        return values;
     }
 
     @NonNull
