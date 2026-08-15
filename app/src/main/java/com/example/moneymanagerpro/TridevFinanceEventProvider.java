@@ -19,32 +19,18 @@ import java.util.Locale;
 
 /**
  * Package-locked same-device IPC endpoint for Tridev finance events.
- *
- * Trust gates:
- * - SmartSMSPro: Binder caller UID must resolve to the exact package and that
- *   package must be the phone's current default SMS application.
- * - Family Hub: Binder caller UID must resolve to the exact package AND its APK
- *   must be signed with the same certificate as MoneyManagerPro.
- *
- * A caller cannot gain access by placing a package-name string in a Bundle.
- * Structured finance metadata only is accepted; raw SMS bodies and Family Hub
- * free-form notes are never accepted by this provider.
+ * Raw SMS bodies are never accepted by this provider.
  */
 public final class TridevFinanceEventProvider extends ContentProvider {
 
     public static final String AUTHORITY =
             "com.example.moneymanagerpro.tridev.finance";
-    public static final String METHOD_ACCEPT_V1 =
-            "accept_finance_event_v1";
-    public static final String METHOD_CANCEL_V1 =
-            "cancel_finance_event_v1";
-    public static final String METHOD_ACCOUNT_CATALOG_V1 =
-            "get_account_catalog_v1";
+    public static final String METHOD_ACCEPT_V1 = "accept_finance_event_v1";
+    public static final String METHOD_CANCEL_V1 = "cancel_finance_event_v1";
+    public static final String METHOD_ACCOUNT_CATALOG_V1 = "get_account_catalog_v1";
 
-    private static final String TRUSTED_SMART_SMS_PACKAGE =
-            "com.tridev.smartsmspro";
-    private static final String TRUSTED_FAMILY_HUB_PACKAGE =
-            "com.tridev.familyhub";
+    private static final String TRUSTED_SMART_SMS_PACKAGE = "com.tridev.smartsmspro";
+    private static final String TRUSTED_FAMILY_HUB_PACKAGE = "com.tridev.familyhub";
 
     private static final String KEY_EVENT_ID = "event_id";
     private static final String KEY_SOURCE_RECORD_ID = "source_record_id";
@@ -106,18 +92,20 @@ public final class TridevFinanceEventProvider extends ContentProvider {
         }
 
         if (METHOD_CANCEL_V1.equals(method)) {
-            if (caller != CallerKind.FAMILY_HUB) {
-                return response("REJECTED", "", null, null,
-                        "This caller cannot cancel Family Hub finance events");
+            if (caller == CallerKind.SMART_SMS) {
+                return cancelSmartSmsFinance(context, extras);
             }
-            return cancelFamilyHubGrocery(context, extras);
+            if (caller == CallerKind.FAMILY_HUB) {
+                return cancelFamilyHubGrocery(context, extras);
+            }
+            return response("REJECTED", "", null, null,
+                    "This caller cannot cancel finance events");
         }
 
         if (!METHOD_ACCEPT_V1.equals(method)) {
             return response("REJECTED", "", null, null,
                     "Unsupported integration method");
         }
-
         if (extras == null) {
             return response("REJECTED", "", null, null,
                     "Finance event payload is missing");
@@ -250,16 +238,13 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             }
             return;
         }
-        throw new IllegalArgumentException(
-                "Unsupported Family Hub finance event type");
+        throw new IllegalArgumentException("Unsupported Family Hub finance event type");
     }
 
     @NonNull
     private TridevIntegrationContract.Scope familyScope(
             @NonNull TridevIntegrationContract.EventType eventType,
             @NonNull String scopeValue) {
-        // STEP 8 grocery events predate the explicit scope field and are always
-        // family-domain source events.
         if (eventType == TridevIntegrationContract.EventType.GROCERY_PURCHASE) {
             return TridevIntegrationContract.Scope.FAMILY;
         }
@@ -269,8 +254,7 @@ public final class TridevFinanceEventProvider extends ContentProvider {
         if ("FAMILY".equalsIgnoreCase(scopeValue)) {
             return TridevIntegrationContract.Scope.FAMILY;
         }
-        throw new IllegalArgumentException(
-                "Family Finance visibility scope is required");
+        throw new IllegalArgumentException("Family Finance visibility scope is required");
     }
 
     @NonNull
@@ -311,6 +295,32 @@ public final class TridevFinanceEventProvider extends ContentProvider {
         String type = safe(item.type);
         if (!type.isEmpty()) label += " • " + type;
         return label.length() <= 120 ? label : label.substring(0, 120).trim();
+    }
+
+    @NonNull
+    private Bundle cancelSmartSmsFinance(
+            @NonNull Context context,
+            @Nullable Bundle extras) {
+        if (extras == null) {
+            return response("REJECTED", "", null, null,
+                    "SmartSMS cancellation payload is missing");
+        }
+        try {
+            String sourceRecordId = structured(
+                    extras.getString(KEY_SOURCE_RECORD_ID), 160, false);
+            TridevSmartSmsFinanceCancellationManager.Result result =
+                    new TridevSmartSmsFinanceCancellationManager(context)
+                            .cancel(sourceRecordId);
+            return response(
+                    result.handled ? "CANCELLED" : "REJECTED",
+                    "",
+                    null,
+                    null,
+                    result.reason);
+        } catch (RuntimeException invalidPayload) {
+            return response("REJECTED", "", null, null,
+                    "SmartSMS cancellation failed validation");
+        }
     }
 
     @NonNull
@@ -387,8 +397,7 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                         || type == TridevIntegrationContract.EventType.EXPENSE) {
                     return type;
                 }
-                throw new IllegalArgumentException(
-                        "Unsupported Family Hub finance event type");
+                throw new IllegalArgumentException("Unsupported Family Hub finance event type");
             }
             switch (type) {
                 case SMS_FINANCIAL_SIGNAL:
@@ -400,9 +409,7 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                     return TridevIntegrationContract.EventType.SMS_FINANCIAL_SIGNAL;
             }
         } catch (IllegalArgumentException invalid) {
-            if (caller == CallerKind.FAMILY_HUB) {
-                throw invalid;
-            }
+            if (caller == CallerKind.FAMILY_HUB) throw invalid;
             return TridevIntegrationContract.EventType.SMS_FINANCIAL_SIGNAL;
         }
     }
@@ -471,7 +478,6 @@ public final class TridevFinanceEventProvider extends ContentProvider {
         return safe.length() <= 240 ? safe : safe.substring(0, 240).trim();
     }
 
-    // This provider exposes no database CRUD surface. IPC is call()-only.
     @Nullable
     @Override
     public Cursor query(
