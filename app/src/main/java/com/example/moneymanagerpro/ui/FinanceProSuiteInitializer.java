@@ -24,7 +24,7 @@ import com.example.moneymanagerpro.TridevIntegrationContract;
 import com.example.moneymanagerpro.TridevIntegrationHealthManager;
 import com.example.moneymanagerpro.activities.DashboardActivity;
 import com.example.moneymanagerpro.activities.FinanceIntelligenceHubActivity;
-import com.example.moneymanagerpro.activities.SpecialReconciliationActivity;
+import com.example.moneymanagerpro.activities.SmartSmsTransactionReviewActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -372,7 +372,7 @@ public final class FinanceProSuiteInitializer extends ContentProvider {
 
     private void openReconciliation(@NonNull Activity activity) {
         try {
-            activity.startActivity(new Intent(activity, SpecialReconciliationActivity.class));
+            activity.startActivity(new Intent(activity, SmartSmsTransactionReviewActivity.class));
         } catch (RuntimeException ignored) {
         }
     }
