@@ -121,8 +121,15 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                     extras.getString(KEY_DIRECTION), 20, false);
             String scopeValue = structured(
                     extras.getString(KEY_SCOPE), 20, true);
-            boolean forceReview = caller == CallerKind.FAMILY_HUB
-                    && extras.getBoolean(KEY_FORCE_REVIEW, false);
+
+            boolean requestedForceReview = extras.getBoolean(KEY_FORCE_REVIEW, false);
+            boolean smartSmsHistorical = caller == CallerKind.SMART_SMS
+                    && requestedForceReview
+                    && eventId.startsWith("smartsms:history:")
+                    && sourceRecordId.matches("sms:[0-9]+");
+            boolean forceReview = (caller == CallerKind.FAMILY_HUB && requestedForceReview)
+                    || smartSmsHistorical;
+
             long amountMinor = extras.getLong(KEY_AMOUNT_MINOR, 0L);
             String currency = structured(
                     extras.getString(KEY_CURRENCY), 8, false)
@@ -201,6 +208,24 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             TridevFinanceIntegrationCoordinator.Result result =
                     new TridevFinanceIntegrationCoordinator(context)
                             .acceptAndProcess(event);
+
+            // Historical SMS is match-only. If the normal strict integration
+            // gates did not already reconcile it, try the legacy manual-entry
+            // pattern: same amount + direction + local date, but only when that
+            // candidate is unique. Ambiguity stays visible for explicit review.
+            if (smartSmsHistorical
+                    && result.outcome == TridevFinanceIntegrationCoordinator.Outcome.NEEDS_REVIEW) {
+                TridevHistoricalSmartSmsReconciler.Result historical =
+                        new TridevHistoricalSmartSmsReconciler(context).reconcile(event);
+                if (historical.linked && historical.transactionId > 0L) {
+                    return response(
+                            "RECONCILED",
+                            event.eventId,
+                            event.eventId,
+                            String.valueOf(historical.transactionId),
+                            historical.reason);
+                }
+            }
 
             return response(
                     result.outcome.name(),
