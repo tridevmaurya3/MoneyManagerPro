@@ -24,8 +24,9 @@ import java.util.Locale;
  * later calls.
  *
  * Only active account/card labels, stable refs, category names/types and
- * structured finance metadata are exposed. Balances, transaction history,
- * notes, contacts and raw SMS bodies are never exposed here.
+ * structured finance metadata are exposed. Family Hub may additionally read a
+ * current-month aggregate summary. Individual transaction rows, notes, contacts
+ * and raw SMS bodies are never exposed here.
  */
 public final class TridevCompanionFinanceProvider extends ContentProvider {
 
@@ -33,6 +34,7 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
             "com.example.moneymanagerpro.tridev.companion";
 
     public static final String METHOD_MASTER_CATALOG = "get_master_catalog_v1";
+    public static final String METHOD_FINANCE_SUMMARY = "get_finance_summary_v1";
     public static final String METHOD_ACCEPT_FAMILY = "accept_family_event_v1";
     public static final String METHOD_CANCEL_GROCERY = "cancel_family_grocery_v1";
     public static final String METHOD_ACCEPT_LOAN = "accept_loan_payment_v1";
@@ -62,6 +64,13 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
 
         if (METHOD_MASTER_CATALOG.equals(method)) {
             return masterCatalog(context);
+        }
+        if (METHOD_FINANCE_SUMMARY.equals(method)) {
+            if (caller != CallerKind.FAMILY_HUB) {
+                return response("REJECTED", "", null, null,
+                        "Only Family Hub can read the finance summary");
+            }
+            return financeSummary(context);
         }
         if (METHOD_ACCEPT_FAMILY.equals(method)) {
             if (caller != CallerKind.FAMILY_HUB) {
@@ -124,6 +133,32 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
         } catch (RuntimeException unavailable) {
             return response("FAILED", "", null, null,
                     "MoneyManager master catalog is unavailable");
+        }
+    }
+
+    @NonNull
+    private Bundle financeSummary(@NonNull Context context) {
+        try {
+            TridevFinanceMasterSummary.Snapshot snapshot =
+                    TridevFinanceMasterSummary.loadCurrentMonth(context);
+            Bundle result = response("OK", "", null, null,
+                    "MoneyManager current-month finance summary ready");
+            result.putString("currency", TridevIntegrationContract.DEFAULT_CURRENCY);
+            result.putLong("income_minor", snapshot.incomeMinor);
+            result.putLong("expense_minor", snapshot.expenseMinor);
+            result.putLong("remaining_minor", snapshot.remainingMinor);
+            result.putLong("total_account_balance_minor", snapshot.totalAccountBalanceMinor);
+            result.putInt("transaction_count", snapshot.transactionCount);
+            result.putInt("account_count", snapshot.accountCount);
+            result.putInt("active_card_count", snapshot.activeCardCount);
+            result.putString("period_start", snapshot.periodStart);
+            result.putString("period_end", snapshot.periodEnd);
+            result.putString("period_label", snapshot.periodLabel);
+            result.putLong("generated_at", snapshot.generatedAt);
+            return result;
+        } catch (RuntimeException unavailable) {
+            return response("FAILED", "", null, null,
+                    "MoneyManager finance summary is unavailable");
         }
     }
 
