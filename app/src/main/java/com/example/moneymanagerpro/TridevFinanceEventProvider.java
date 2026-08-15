@@ -205,6 +205,39 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                             TridevIntegrationContract.MatchConfidence.UNMATCHED,
                             references);
 
+            TridevHistoricalSmartSmsReconciler historicalReconciler =
+                    smartSmsHistorical
+                            ? new TridevHistoricalSmartSmsReconciler(context)
+                            : null;
+            TridevHistoricalSmartSmsReconciler.Preparation historicalPreparation =
+                    historicalReconciler == null
+                            ? null
+                            : historicalReconciler.prepare(event);
+
+            // Upgrade safety: a prior version may already have this exact SMS
+            // source in the queue. Never revive a historical SYNCED/SUPERSEDED
+            // source into fresh posting merely because the new app retries it.
+            if (historicalPreparation != null && historicalPreparation.existingSource) {
+                if (historicalPreparation.state
+                        == TridevIntegrationContract.SyncState.SYNCED) {
+                    return response(
+                            "RECONCILED",
+                            event.eventId,
+                            historicalPreparation.queueEventId,
+                            historicalPreparation.transactionId,
+                            "Historical SmartSMS source is already linked to MoneyManager");
+                }
+                if (historicalPreparation.state
+                        == TridevIntegrationContract.SyncState.SUPERSEDED) {
+                    return response(
+                            "DUPLICATE",
+                            event.eventId,
+                            historicalPreparation.queueEventId,
+                            historicalPreparation.transactionId,
+                            "Historical SmartSMS source is already represented by another finance event");
+                }
+            }
+
             TridevFinanceIntegrationCoordinator.Result result =
                     new TridevFinanceIntegrationCoordinator(context)
                             .acceptAndProcess(event);
@@ -214,14 +247,18 @@ public final class TridevFinanceEventProvider extends ContentProvider {
             // pattern: same amount + direction + local date, but only when that
             // candidate is unique. Ambiguity stays visible for explicit review.
             if (smartSmsHistorical
-                    && result.outcome == TridevFinanceIntegrationCoordinator.Outcome.NEEDS_REVIEW) {
+                    && result.outcome == TridevFinanceIntegrationCoordinator.Outcome.NEEDS_REVIEW
+                    && historicalReconciler != null) {
+                String queueEventId = historicalPreparation == null
+                        ? event.eventId
+                        : historicalPreparation.queueEventId;
                 TridevHistoricalSmartSmsReconciler.Result historical =
-                        new TridevHistoricalSmartSmsReconciler(context).reconcile(event);
+                        historicalReconciler.reconcile(event, queueEventId);
                 if (historical.linked && historical.transactionId > 0L) {
                     return response(
                             "RECONCILED",
                             event.eventId,
-                            event.eventId,
+                            queueEventId,
                             String.valueOf(historical.transactionId),
                             historical.reason);
                 }
