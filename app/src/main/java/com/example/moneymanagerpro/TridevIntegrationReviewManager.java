@@ -16,6 +16,9 @@ import java.util.Locale;
  */
 public final class TridevIntegrationReviewManager {
 
+    private static final String HISTORICAL_REVIEW_MARKER =
+            "Historical SmartSMS source is reconciliation-only";
+
     public static final class Choice {
         public final String canonicalRef;
         public final String label;
@@ -130,8 +133,11 @@ public final class TridevIntegrationReviewManager {
             if (queueItem == null || queueItem.event == null) continue;
             TridevIntegrationContract.Event event = queueItem.event;
             String moneyType = moneyManagerType(event);
+            boolean historicalLocked = isHistoricalSmartSmsReview(queueItem);
             boolean duplicateLocked = hasDuplicateEvidence(queueItem);
-            boolean specialLocked = requiresSpecialReconciliation(event) || moneyType == null;
+            boolean specialLocked = historicalLocked
+                    || requiresSpecialReconciliation(event)
+                    || moneyType == null;
 
             List<Choice> categories = moneyType == null
                     ? Collections.emptyList()
@@ -156,7 +162,9 @@ public final class TridevIntegrationReviewManager {
                     && !categories.isEmpty();
 
             String lockReason = "";
-            if (duplicateLocked) {
+            if (historicalLocked) {
+                lockReason = "Historical SmartSMS is reconciliation-only. Link it to an existing manual MoneyManager transaction; it cannot create a new row.";
+            } else if (duplicateLocked) {
                 lockReason = "Possible duplicate/existing MoneyManager transaction needs reconciliation before mapping can post it.";
             } else if (specialLocked) {
                 lockReason = "Transfer, refund, card-payment or other special event requires reconciliation and will not be auto-posted.";
@@ -204,6 +212,11 @@ public final class TridevIntegrationReviewManager {
 
         TridevIntegrationContract.Event event = item.event;
         String moneyType = moneyManagerType(event);
+        if (isHistoricalSmartSmsReview(item)) {
+            return confirm(false, false,
+                    TridevTransactionPostingEngine.Outcome.NEEDS_REVIEW,
+                    "Historical SmartSMS is reconciliation-only. Choose the existing manual transaction in Reconciliation Center; a new row cannot be posted.");
+        }
         if (hasDuplicateEvidence(item)) {
             return confirm(false, false,
                     TridevTransactionPostingEngine.Outcome.NEEDS_REVIEW,
@@ -317,6 +330,15 @@ public final class TridevIntegrationReviewManager {
                     && expectedType.equalsIgnoreCase(clean(item.type))) return true;
         }
         return false;
+    }
+
+    private boolean isHistoricalSmartSmsReview(TridevEventQueue.QueueItem item) {
+        if (item == null || item.event == null) return false;
+        TridevIntegrationContract.Event event = item.event;
+        if (!TridevIntegrationContract.APP_SMART_SMS.equals(event.sourceApp)) return false;
+        if (!clean(event.sourceRecordId).matches("sms:[0-9]+")) return false;
+        return clean(event.eventId).startsWith("smartsms:history:")
+                || clean(item.lastError).contains(HISTORICAL_REVIEW_MARKER);
     }
 
     private boolean hasDuplicateEvidence(TridevEventQueue.QueueItem item) {
