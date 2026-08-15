@@ -376,7 +376,7 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
             TridevFinanceIntegrationCoordinator.Result result =
                     new TridevFinanceIntegrationCoordinator(context).acceptAndProcess(event);
             if (result.outcome == TridevFinanceIntegrationCoordinator.Outcome.DUPLICATE) {
-                Bundle reconciled = finalizedDuplicateResponse(context, result.eventId);
+                Bundle reconciled = finalizedDuplicateResponse(context, event);
                 if (reconciled != null) return reconciled;
             }
             return response(result.outcome.name(), result.eventId,
@@ -388,27 +388,71 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
         }
     }
 
+    /**
+     * A duplicate-chain is finalized only when its canonical MoneyManager ledger
+     * representation can still be strongly verified. If the canonical queue row
+     * still says SYNCED but the ledger row was deleted/reused, reopen this exact
+     * LoanManager payment and post it through the normal safe mapping engine.
+     */
     @Nullable
     private Bundle finalizedDuplicateResponse(
             @NonNull Context context,
-            @NonNull String loanEventId) {
-        TridevEventQueue.QueueItem current =
-                TridevEventQueue.getInstance(context).find(loanEventId);
+            @NonNull TridevIntegrationContract.Event loanEvent) {
+        String loanEventId = safe(loanEvent.eventId);
+        TridevEventQueue queue = TridevEventQueue.getInstance(context);
+        TridevEventQueue.QueueItem current = queue.find(loanEventId);
         if (current == null || current.event == null) return null;
+
         String nextId = safe(current.duplicateOfEventId);
         for (int depth = 0; depth < 6 && !nextId.isEmpty(); depth++) {
-            TridevEventQueue.QueueItem canonical =
-                    TridevEventQueue.getInstance(context).find(nextId);
+            TridevEventQueue.QueueItem canonical = queue.find(nextId);
             if (canonical == null || canonical.event == null) return null;
+
             String transactionId = canonical.event.references == null
                     ? ""
                     : safe(canonical.event.references.moneyManagerTransactionId);
-            if (canonical.event.syncState == TridevIntegrationContract.SyncState.SYNCED
-                    && !transactionId.isEmpty()) {
-                return response("RECONCILED", loanEventId,
-                        canonical.event.eventId, transactionId,
-                        "Loan payment reconciled to finalized cross-app transaction");
+            if (canonical.event.syncState == TridevIntegrationContract.SyncState.SYNCED) {
+                TridevExistingTransactionMatcher.Match verified =
+                        new TridevExistingTransactionMatcher(context).findBest(canonical.event);
+                if (verified != null && verified.score >= 90) {
+                    String verifiedId = String.valueOf(verified.transactionId);
+                    if (!verifiedId.equals(transactionId)) {
+                        queue.confirmExistingMoneyManagerTransaction(
+                                canonical.event.eventId, verified.transactionId);
+                    }
+                    return response("RECONCILED", loanEventId,
+                            canonical.event.eventId, verifiedId,
+                            "Loan payment reconciled to a verified MoneyManager transaction");
+                }
+
+                // The canonical queue row is stale: no strong ledger transaction
+                // represents it anymore. Reopen this exact LoanManager payment.
+                if (!queue.confirmNotDuplicate(loanEventId)) {
+                    return response("NEEDS_REVIEW", loanEventId,
+                            canonical.event.eventId, null,
+                            "Stale duplicate link could not be reopened safely");
+                }
+
+                TridevFinanceIntegrationCoordinator.Result recovered =
+                        new TridevFinanceIntegrationCoordinator(context)
+                                .acceptAndProcess(loanEvent);
+                if (recovered.outcome == TridevFinanceIntegrationCoordinator.Outcome.POSTED
+                        || recovered.outcome
+                        == TridevFinanceIntegrationCoordinator.Outcome.RECONCILED) {
+                    if (!canonical.event.eventId.equals(loanEventId)) {
+                        queue.confirmDuplicate(canonical.event.eventId, loanEventId);
+                    }
+                    return response(recovered.outcome.name(), loanEventId,
+                            loanEventId, recovered.moneyManagerTransactionId,
+                            "Stale duplicate link recovered through the LoanManager payment: "
+                                    + recovered.reason);
+                }
+
+                return response(recovered.outcome.name(), loanEventId,
+                        recovered.canonicalEventId, recovered.moneyManagerTransactionId,
+                        "Stale duplicate recovery did not finalize: " + recovered.reason);
             }
+
             if (canonical.event.syncState
                     != TridevIntegrationContract.SyncState.SUPERSEDED) return null;
             nextId = safe(canonical.duplicateOfEventId);
