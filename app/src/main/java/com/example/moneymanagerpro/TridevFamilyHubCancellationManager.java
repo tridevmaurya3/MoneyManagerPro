@@ -13,7 +13,7 @@ import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 
 /**
- * STEP 8 - safe cancellation for a Family Hub grocery purchase that was undone.
+ * Safe cancellation for Family Hub-owned finance events.
  *
  * Only a MoneyManager row carrying the exact deterministic TRIDEV_EVENT marker
  * and "Synced from Family Hub" provenance may be deleted. A manual/existing
@@ -35,10 +35,12 @@ public final class TridevFamilyHubCancellationManager {
 
     public static final class Result {
         public final boolean handled;
+        public final boolean ledgerRemoved;
         public final String reason;
 
-        private Result(boolean handled, String reason) {
+        private Result(boolean handled, boolean ledgerRemoved, String reason) {
             this.handled = handled;
+            this.ledgerRemoved = ledgerRemoved;
             this.reason = reason == null ? "" : reason;
         }
     }
@@ -57,15 +59,36 @@ public final class TridevFamilyHubCancellationManager {
     public Result cancelGroceryPurchase(
             @NonNull String eventId,
             @NonNull String sourceRecordId) {
+        return cancelFamilyEvent(eventId, sourceRecordId, true);
+    }
+
+    @NonNull
+    public Result cancelFinanceEntry(
+            @NonNull String eventId,
+            @NonNull String sourceRecordId) {
+        return cancelFamilyEvent(eventId, sourceRecordId, false);
+    }
+
+    @NonNull
+    private Result cancelFamilyEvent(
+            @NonNull String eventId,
+            @NonNull String sourceRecordId,
+            boolean groceryExpected) {
         TridevEventQueue.QueueItem item = queue.find(eventId);
         if (item == null || item.event == null) {
-            return success("Family Hub purchase was not present in the integration queue");
+            return success(false, "Family Hub event was not present in the integration queue");
         }
+
         TridevIntegrationContract.Event event = item.event;
+        boolean validType = groceryExpected
+                ? event.eventType == TridevIntegrationContract.EventType.GROCERY_PURCHASE
+                : (event.eventType == TridevIntegrationContract.EventType.EXPENSE
+                    || event.eventType == TridevIntegrationContract.EventType.INCOME);
+
         if (!TridevIntegrationContract.APP_FAMILY_HUB.equals(event.sourceApp)
-                || event.eventType != TridevIntegrationContract.EventType.GROCERY_PURCHASE
+                || !validType
                 || !clean(sourceRecordId).equals(clean(event.sourceRecordId))) {
-            return failure("Cancellation did not match the original Family Hub purchase");
+            return failure("Cancellation did not match the original Family Hub event");
         }
 
         long autoCreatedTransactionId = findAutoCreatedTransaction(event.eventId);
@@ -74,9 +97,6 @@ public final class TridevFamilyHubCancellationManager {
 
         ExternalEvidence evidence = findExternalEvidence(event);
         if (evidence != null) {
-            // Another app independently describes the same real-world payment.
-            // Never remove the ledger row simply because the Family Hub checklist
-            // was undone.
             markCancelled(event.eventId, false);
             if (autoCreatedTransactionId <= 0L && linkedTransactionId <= 0L
                     && !evidence.eventId.isEmpty()) {
@@ -84,22 +104,28 @@ public final class TridevFamilyHubCancellationManager {
                 new TridevTransactionPostingEngine(appContext)
                         .process(evidence.eventId);
             }
-            return success("Family Hub purchase was cancelled, but an independent finance signal remains active");
+            return success(false,
+                    "Family Hub event was cancelled, but an independent finance signal remains active");
         }
 
         if (autoCreatedTransactionId > 0L) {
             deleteOnlyAutoCreatedFamilyHubRow(event.eventId, autoCreatedTransactionId);
             markCancelled(event.eventId, true);
-            return success("Auto-created MoneyManager grocery entry was removed after Family Hub undo");
+            return success(true,
+                    groceryExpected
+                            ? "Auto-created MoneyManager grocery entry was removed after Family Hub undo"
+                            : "Auto-created MoneyManager finance entry was removed after Family Hub delete");
         }
 
         // A linked existing/manual MoneyManager row has no Family Hub marker and
         // must remain untouched.
         markCancelled(event.eventId, false);
         if (linkedTransactionId > 0L) {
-            return success("Family Hub link was cancelled; existing MoneyManager transaction was preserved");
+            return success(false,
+                    "Family Hub link was cancelled; existing MoneyManager transaction was preserved");
         }
-        return success("Family Hub grocery event was cancelled before any MoneyManager row was created");
+        return success(false,
+                "Family Hub event was cancelled before any MoneyManager row was created");
     }
 
     private long findAutoCreatedTransaction(@NonNull String eventId) {
@@ -204,7 +230,6 @@ public final class TridevFamilyHubCancellationManager {
     @Nullable
     private SQLiteDatabase openQueueDatabase() {
         try {
-            // queue.find() above ensures the helper/database has been created.
             return SQLiteDatabase.openDatabase(
                     appContext.getDatabasePath(QUEUE_DB).getPath(),
                     null,
@@ -230,13 +255,13 @@ public final class TridevFamilyHubCancellationManager {
     }
 
     @NonNull
-    private Result success(@NonNull String reason) {
-        return new Result(true, reason);
+    private Result success(boolean ledgerRemoved, @NonNull String reason) {
+        return new Result(true, ledgerRemoved, reason);
     }
 
     @NonNull
     private Result failure(@NonNull String reason) {
-        return new Result(false, reason);
+        return new Result(false, false, reason);
     }
 
     @NonNull
