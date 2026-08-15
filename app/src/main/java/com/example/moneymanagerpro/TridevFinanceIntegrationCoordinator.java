@@ -12,6 +12,10 @@ import com.example.moneymanagerpro.cloud.TridevIntegrationCloudScheduler;
 import com.example.moneymanagerpro.database.DatabaseClient;
 
 import java.io.File;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 /**
  * Single MoneyManagerPro entry point for structured events coming from the
@@ -29,6 +33,8 @@ public final class TridevFinanceIntegrationCoordinator {
     private static final String NOTE_MARKER_PREFIX = "TRIDEV_EVENT:";
     private static final String QUEUE_DB = "TridevIntegrationQueue.db";
     private static final String QUEUE_TABLE = "integration_events";
+    private static final long LEDGER_RECONCILIATION_TIME_WINDOW_MS =
+            24L * 60L * 60L * 1000L;
 
     public enum Outcome {
         POSTED,
@@ -164,10 +170,11 @@ public final class TridevFinanceIntegrationCoordinator {
                 : guard.reason;
 
         if (effectiveState == TridevIntegrationContract.SyncState.SYNCED) {
-            // A queue flag is not sufficient proof after the user manually deletes
-            // the corresponding MoneyManager transaction. Verify that the ledger
-            // row still exists. If it does not, reopen the canonical queue event
-            // and let the normal crash-safe posting engine recreate it exactly once.
+            // A queue flag/reference is not sufficient proof after the user deletes
+            // a transaction. SQLite row ids can later be reused, and stale refs must
+            // never make a different ledger row look like this EMI. Verify the
+            // referenced row still represents the canonical event (amount/type/date
+            // or exact event marker). If not, reopen and recreate exactly once.
             if (!isLedgerRepresentationAlive(canonicalEventId, effectiveTransactionId)
                     && queue.confirmNotDuplicate(canonicalEventId)) {
                 TridevTransactionPostingEngine.Result recovered =
@@ -388,14 +395,24 @@ public final class TridevFinanceIntegrationCoordinator {
     }
 
     /**
-     * Returns true only when a queue reconciliation still has a real ledger row.
-     * Existing MoneyManager rows reconciled by fuzzy/exact matching may not carry
-     * a TRIDEV_EVENT marker, so the stored transaction id is checked first. Rows
-     * posted by the integration engine are also recoverable by their marker.
+     * A stored transaction id is not proof by itself: after a ledger delete,
+     * SQLite may reuse that id for another row. A reconciliation is alive only
+     * when the referenced row still represents the canonical queued event.
+     *
+     * Integration-owned rows with the exact TRIDEV_EVENT marker are accepted only
+     * when amount/type still match. Manually-entered rows (no marker) must also be
+     * within the original 24-hour reconciliation window.
      */
     private boolean isLedgerRepresentationAlive(
             @Nullable String canonicalEventId,
             @Nullable String transactionId) {
+        TridevEventQueue.QueueItem canonicalItem = canonicalEventId == null
+                ? null
+                : queue.find(canonicalEventId);
+        TridevIntegrationContract.Event expected = canonicalItem == null
+                ? null
+                : canonicalItem.event;
+
         try {
             SupportSQLiteDatabase ledger = DatabaseClient.getInstance(appContext)
                     .getAppDatabase()
@@ -405,26 +422,106 @@ public final class TridevFinanceIntegrationCoordinator {
             Long parsedId = parsePositiveLong(transactionId);
             if (parsedId != null) {
                 try (Cursor cursor = ledger.query(
-                        "SELECT 1 FROM transactions WHERE id = ? LIMIT 1",
+                        "SELECT amount, type, note, date FROM transactions WHERE id = ? LIMIT 1",
                         new Object[]{parsedId})) {
-                    if (cursor.moveToFirst()) return true;
+                    if (cursor.moveToFirst()) {
+                        if (expected == null) return true; // fail closed when queue identity is unavailable
+                        if (ledgerRowRepresentsEvent(cursor, expected, canonicalEventId)) return true;
+                    }
                 }
             }
 
             String marker = eventMarker(canonicalEventId);
             if (!marker.isEmpty()) {
                 try (Cursor cursor = ledger.query(
-                        "SELECT 1 FROM transactions WHERE instr(note, ?) > 0 LIMIT 1",
+                        "SELECT amount, type, note, date FROM transactions "
+                                + "WHERE instr(note, ?) > 0 ORDER BY id DESC LIMIT 1",
                         new Object[]{marker})) {
-                    if (cursor.moveToFirst()) return true;
+                    if (cursor.moveToFirst()) {
+                        if (expected == null) return true;
+                        return ledgerRowRepresentsEvent(cursor, expected, canonicalEventId);
+                    }
                 }
             }
         } catch (RuntimeException ignored) {
-            // Fail closed: if the ledger cannot be verified, do not manufacture a
-            // second transaction. The caller will retain the existing reconciliation.
+            // Fail closed: if the ledger cannot be verified at all, do not create
+            // a second transaction just because a read temporarily failed.
             return true;
         }
         return false;
+    }
+
+    private boolean ledgerRowRepresentsEvent(
+            Cursor cursor,
+            TridevIntegrationContract.Event expected,
+            @Nullable String canonicalEventId) {
+        if (cursor == null || expected == null || cursor.getColumnCount() < 4) return false;
+
+        long ledgerMinor;
+        try {
+            ledgerMinor = Math.round(Math.abs(cursor.getDouble(0)) * 100.0d);
+        } catch (RuntimeException invalidAmount) {
+            return false;
+        }
+        if (ledgerMinor != expected.amountMinor) return false;
+
+        String expectedType = expectedMoneyManagerType(expected);
+        String ledgerType = cursor.isNull(1) ? "" : cursor.getString(1).trim();
+        if (!expectedType.isEmpty() && !expectedType.equalsIgnoreCase(ledgerType)) return false;
+
+        String note = cursor.isNull(2) ? "" : cursor.getString(2);
+        String marker = eventMarker(canonicalEventId);
+        if (!marker.isEmpty() && note != null && note.contains(marker)) {
+            return true;
+        }
+
+        String date = cursor.isNull(3) ? "" : cursor.getString(3);
+        long ledgerTime = parseMoneyManagerDate(date);
+        long expectedTime = expected.occurredAt > 0L ? expected.occurredAt : expected.createdAt;
+        if (ledgerTime <= 0L || expectedTime <= 0L) return false;
+        return Math.abs(ledgerTime - expectedTime) <= LEDGER_RECONCILIATION_TIME_WINDOW_MS;
+    }
+
+    private String expectedMoneyManagerType(TridevIntegrationContract.Event event) {
+        if (event == null) return "";
+        if (event.direction == TridevIntegrationContract.Direction.DEBIT) return "EXPENSE";
+        if (event.direction == TridevIntegrationContract.Direction.CREDIT) return "INCOME";
+        switch (event.eventType) {
+            case INCOME:
+            case REFUND:
+                return "INCOME";
+            case EXPENSE:
+            case GROCERY_PURCHASE:
+            case BILL_PAYMENT:
+            case LOAN_PAYMENT:
+                return "EXPENSE";
+            default:
+                return "";
+        }
+    }
+
+    private long parseMoneyManagerDate(@Nullable String raw) {
+        if (raw == null || raw.trim().isEmpty()) return 0L;
+        String value = raw.trim();
+        String[] patterns = {
+                "yyyy-MM-dd HH:mm",
+                "yyyy-MM-dd HH:mm:ss",
+                "yyyy-MM-dd",
+                "dd-MM-yyyy HH:mm",
+                "dd/MM/yyyy HH:mm",
+                "dd-MM-yyyy",
+                "dd/MM/yyyy"
+        };
+        for (String pattern : patterns) {
+            SimpleDateFormat format = new SimpleDateFormat(pattern, Locale.US);
+            format.setLenient(false);
+            try {
+                Date parsed = format.parse(value);
+                if (parsed != null) return parsed.getTime();
+            } catch (ParseException ignored) {
+            }
+        }
+        return 0L;
     }
 
     @Nullable
