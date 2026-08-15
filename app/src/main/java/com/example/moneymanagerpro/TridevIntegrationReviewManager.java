@@ -1,23 +1,31 @@
 package com.example.moneymanagerpro;
 
-import androidx.annotation.Nullable;
+import android.database.Cursor;
 
+import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteDatabase;
+
+import com.example.moneymanagerpro.database.DatabaseClient;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * STEP 6 - Account & Category Mapping / Review Center backend.
  *
- * This manager exposes only structured integration metadata. It never reads or
- * displays raw SMS bodies, never creates accounts/categories, and never forces
- * transfer/refund/duplicate candidates into the ledger.
+ * Historical SmartSMS rows are reconciliation-only: they may link an existing
+ * manual MoneyManager transaction but may never be mapped into a newly posted row.
  */
 public final class TridevIntegrationReviewManager {
 
     private static final String HISTORICAL_REVIEW_MARKER =
             "Historical SmartSMS source is reconciliation-only";
+    private static final int MAX_HISTORICAL_CANDIDATES = 20;
 
     public static final class Choice {
         public final String canonicalRef;
@@ -46,9 +54,11 @@ public final class TridevIntegrationReviewManager {
         public final boolean canConfirmMapping;
         public final boolean duplicateLocked;
         public final boolean specialLocked;
+        public final boolean historicalReconciliationOnly;
         public final String lockReason;
         public final List<Choice> accountChoices;
         public final List<Choice> categoryChoices;
+        public final List<Choice> historicalTransactionChoices;
 
         private ReviewItem(
                 String eventId,
@@ -67,9 +77,11 @@ public final class TridevIntegrationReviewManager {
                 boolean canConfirmMapping,
                 boolean duplicateLocked,
                 boolean specialLocked,
+                boolean historicalReconciliationOnly,
                 String lockReason,
                 List<Choice> accountChoices,
-                List<Choice> categoryChoices) {
+                List<Choice> categoryChoices,
+                List<Choice> historicalTransactionChoices) {
             this.eventId = clean(eventId);
             this.sourceLabel = clean(sourceLabel);
             this.direction = clean(direction);
@@ -86,9 +98,12 @@ public final class TridevIntegrationReviewManager {
             this.canConfirmMapping = canConfirmMapping;
             this.duplicateLocked = duplicateLocked;
             this.specialLocked = specialLocked;
+            this.historicalReconciliationOnly = historicalReconciliationOnly;
             this.lockReason = clean(lockReason);
             this.accountChoices = Collections.unmodifiableList(accountChoices);
             this.categoryChoices = Collections.unmodifiableList(categoryChoices);
+            this.historicalTransactionChoices =
+                    Collections.unmodifiableList(historicalTransactionChoices);
         }
     }
 
@@ -113,12 +128,17 @@ public final class TridevIntegrationReviewManager {
     private final TridevEventQueue queue;
     private final TridevMoneyMappingEngine mapper;
     private final TridevTransactionPostingEngine postingEngine;
+    private final SupportSQLiteDatabase ledger;
 
     public TridevIntegrationReviewManager(android.content.Context context) {
         android.content.Context appContext = context.getApplicationContext();
         queue = TridevEventQueue.getInstance(appContext);
         mapper = new TridevMoneyMappingEngine(appContext);
         postingEngine = new TridevTransactionPostingEngine(appContext);
+        ledger = DatabaseClient.getInstance(appContext)
+                .getAppDatabase()
+                .getOpenHelper()
+                .getReadableDatabase();
     }
 
     public List<ReviewItem> loadReviewItems(int requestedLimit) {
@@ -142,6 +162,9 @@ public final class TridevIntegrationReviewManager {
             List<Choice> categories = moneyType == null
                     ? Collections.emptyList()
                     : buildCategoryChoices(catalog, expectedCategoryType(moneyType));
+            List<Choice> historicalChoices = historicalLocked
+                    ? buildHistoricalTransactionChoices(event)
+                    : Collections.emptyList();
 
             TridevMoneyMappingEngine.MappingResult accountSuggestion = null;
             TridevMoneyMappingEngine.MappingResult categorySuggestion = null;
@@ -163,7 +186,9 @@ public final class TridevIntegrationReviewManager {
 
             String lockReason = "";
             if (historicalLocked) {
-                lockReason = "Historical SmartSMS is reconciliation-only. Link it to an existing manual MoneyManager transaction; it cannot create a new row.";
+                lockReason = historicalChoices.isEmpty()
+                        ? "Historical SmartSMS is reconciliation-only. No same-date manual transaction matches this amount and direction, so no new row will be created."
+                        : "Historical SmartSMS is reconciliation-only. Choose the correct existing manual transaction below; no new row will be created.";
             } else if (duplicateLocked) {
                 lockReason = "Possible duplicate/existing MoneyManager transaction needs reconciliation before mapping can post it.";
             } else if (specialLocked) {
@@ -191,12 +216,46 @@ public final class TridevIntegrationReviewManager {
                     canConfirm,
                     duplicateLocked,
                     specialLocked,
+                    historicalLocked,
                     lockReason,
                     new ArrayList<>(accountChoices),
-                    new ArrayList<>(categories)));
+                    new ArrayList<>(categories),
+                    new ArrayList<>(historicalChoices)));
         }
 
         return Collections.unmodifiableList(result);
+    }
+
+    public ConfirmResult linkHistoricalExisting(
+            String eventId,
+            String transactionCanonicalRef) {
+        TridevEventQueue.QueueItem item = queue.find(eventId);
+        if (item == null || item.event == null) {
+            return confirm(false, false,
+                    TridevTransactionPostingEngine.Outcome.NOT_FOUND,
+                    "Review item is no longer available.");
+        }
+        if (!isHistoricalSmartSmsReview(item)) {
+            return confirm(false, false,
+                    TridevTransactionPostingEngine.Outcome.NEEDS_REVIEW,
+                    "This item is not a historical SmartSMS reconciliation record.");
+        }
+
+        long transactionId = parseTransactionRef(transactionCanonicalRef);
+        if (transactionId <= 0L || !isHistoricalCandidate(item.event, transactionId)) {
+            return confirm(false, false,
+                    TridevTransactionPostingEngine.Outcome.NEEDS_REVIEW,
+                    "The selected MoneyManager transaction no longer matches amount, direction and date.");
+        }
+
+        boolean linked = queue.confirmExistingMoneyManagerTransaction(eventId, transactionId);
+        return linked
+                ? confirm(false, true,
+                        TridevTransactionPostingEngine.Outcome.RECONCILED_EXISTING,
+                        "Historical SMS linked to the existing manual MoneyManager transaction. No new entry was created.")
+                : confirm(false, false,
+                        TridevTransactionPostingEngine.Outcome.FAILED,
+                        "The existing manual transaction could not be linked safely.");
     }
 
     public ConfirmResult confirmMappingsAndProcess(
@@ -215,7 +274,7 @@ public final class TridevIntegrationReviewManager {
         if (isHistoricalSmartSmsReview(item)) {
             return confirm(false, false,
                     TridevTransactionPostingEngine.Outcome.NEEDS_REVIEW,
-                    "Historical SmartSMS is reconciliation-only. Choose the existing manual transaction in Reconciliation Center; a new row cannot be posted.");
+                    "Historical SmartSMS is reconciliation-only. Link an existing manual transaction; a new row cannot be posted.");
         }
         if (hasDuplicateEvidence(item)) {
             return confirm(false, false,
@@ -278,6 +337,65 @@ public final class TridevIntegrationReviewManager {
             default:
                 return confirm(true, false, posting.outcome,
                         "Mapping saved, but the queued event was not found for processing.");
+        }
+    }
+
+    private List<Choice> buildHistoricalTransactionChoices(
+            TridevIntegrationContract.Event event) {
+        List<Choice> result = new ArrayList<>();
+        String expectedType = moneyManagerType(event);
+        if (expectedType == null || expectedType.isEmpty() || event.amountMinor <= 0L) {
+            return result;
+        }
+
+        double amount = event.amountMinor / 100.0d;
+        try (Cursor cursor = ledger.query(
+                "SELECT id, type, account, category, date FROM transactions "
+                        + "WHERE ABS(amount - ?) < 0.005 ORDER BY id DESC LIMIT 250",
+                new Object[]{amount})) {
+            while (cursor.moveToNext() && result.size() < MAX_HISTORICAL_CANDIDATES) {
+                long id = cursor.getLong(0);
+                String type = text(cursor, 1);
+                String account = text(cursor, 2);
+                String category = text(cursor, 3);
+                String date = text(cursor, 4);
+                if (id <= 0L || !expectedType.equalsIgnoreCase(type)) continue;
+                Long candidateTime = parseLedgerDate(date);
+                if (candidateTime == null || !sameLocalDay(effectiveTime(event), candidateTime)) {
+                    continue;
+                }
+                String label = "#" + id
+                        + " • " + safeLabel(account, "Account not set")
+                        + " • " + safeLabel(category, "Category not set")
+                        + " • " + safeLabel(date, "Date not set");
+                result.add(new Choice("transaction:" + id, label));
+            }
+        } catch (RuntimeException ignored) {
+            return new ArrayList<>();
+        }
+        return result;
+    }
+
+    private boolean isHistoricalCandidate(
+            TridevIntegrationContract.Event event,
+            long transactionId) {
+        if (transactionId <= 0L || event.amountMinor <= 0L) return false;
+        String expectedType = moneyManagerType(event);
+        if (expectedType == null || expectedType.isEmpty()) return false;
+        try (Cursor cursor = ledger.query(
+                "SELECT amount, type, date FROM transactions WHERE id = ? LIMIT 1",
+                new Object[]{transactionId})) {
+            if (!cursor.moveToFirst()) return false;
+            double amount = cursor.getDouble(0);
+            String type = text(cursor, 1);
+            String date = text(cursor, 2);
+            if (Math.abs(amount - (event.amountMinor / 100.0d)) >= 0.005d) return false;
+            if (!expectedType.equalsIgnoreCase(type)) return false;
+            Long candidateTime = parseLedgerDate(date);
+            return candidateTime != null
+                    && sameLocalDay(effectiveTime(event), candidateTime);
+        } catch (RuntimeException ignored) {
+            return false;
         }
     }
 
@@ -411,6 +529,60 @@ public final class TridevIntegrationReviewManager {
 
     private String expectedCategoryType(String moneyType) {
         return "INCOME".equalsIgnoreCase(moneyType) ? "Income" : "Expense";
+    }
+
+    private long effectiveTime(TridevIntegrationContract.Event event) {
+        return event.occurredAt > 0L ? event.occurredAt : event.createdAt;
+    }
+
+    private boolean sameLocalDay(long left, long right) {
+        SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        return day.format(new Date(left)).equals(day.format(new Date(right)));
+    }
+
+    @Nullable
+    private Long parseLedgerDate(@Nullable String raw) {
+        String value = clean(raw);
+        if (value.isEmpty()) return null;
+        String[] patterns = {
+                "yyyy-MM-dd HH:mm",
+                "yyyy-MM-dd HH:mm:ss",
+                "yyyy-MM-dd",
+                "dd-MM-yyyy HH:mm",
+                "dd/MM/yyyy HH:mm",
+                "dd-MM-yyyy",
+                "dd/MM/yyyy"
+        };
+        for (String pattern : patterns) {
+            SimpleDateFormat format = new SimpleDateFormat(pattern, Locale.US);
+            format.setLenient(false);
+            try {
+                Date parsed = format.parse(value);
+                if (parsed != null) return parsed.getTime();
+            } catch (ParseException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private long parseTransactionRef(@Nullable String value) {
+        String safe = clean(value).toLowerCase(Locale.ROOT);
+        if (!safe.matches("transaction:[0-9]+")) return 0L;
+        try {
+            return Long.parseLong(safe.substring("transaction:".length()));
+        } catch (NumberFormatException ignored) {
+            return 0L;
+        }
+    }
+
+    private String text(Cursor cursor, int index) {
+        return cursor == null || index < 0 || index >= cursor.getColumnCount() || cursor.isNull(index)
+                ? "" : clean(cursor.getString(index));
+    }
+
+    private String safeLabel(String value, String fallback) {
+        String safe = clean(value);
+        return safe.isEmpty() ? fallback : safe;
     }
 
     private String safeKey(String value) {
