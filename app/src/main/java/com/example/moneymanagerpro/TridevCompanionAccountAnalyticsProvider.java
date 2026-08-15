@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.moneymanagerpro.database.DatabaseClient;
+import com.example.moneymanagerpro.model.AccountBalance;
 import com.example.moneymanagerpro.model.Transaction;
 
 import java.math.BigDecimal;
@@ -27,12 +28,12 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * STEP 13C - Read-only account/card aggregate endpoint for Family Hub.
+ * STEP 13C/13D - Read-only account/card and selectable-period finance endpoint
+ * for Family Hub.
  *
- * MoneyManagerPro remains the canonical ledger. This provider exposes only
- * current-month totals grouped by the transaction account/card label. It never
- * exposes individual transaction rows, notes, merchant text, SMS bodies,
- * account numbers or per-account balances.
+ * MoneyManagerPro remains the canonical ledger. Only aggregate totals are
+ * exposed. Individual transaction rows, notes, merchant text, SMS bodies,
+ * account numbers and per-account balances are never exposed.
  */
 public final class TridevCompanionAccountAnalyticsProvider extends ContentProvider {
 
@@ -40,6 +41,8 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
             "com.example.moneymanagerpro.tridev.accountanalytics";
     public static final String METHOD_ACCOUNT_BREAKDOWN =
             "get_account_breakdown_v1";
+    public static final String METHOD_PERIOD_FINANCE =
+            "get_period_finance_v1";
 
     @Override
     public boolean onCreate() {
@@ -63,16 +66,38 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
             return response("REJECTED",
                     "Family Hub package or pinned signing certificate is not trusted");
         }
-        if (!METHOD_ACCOUNT_BREAKDOWN.equals(method)) {
-            return response("REJECTED", "Unsupported account analytics request");
+        if (!METHOD_ACCOUNT_BREAKDOWN.equals(method)
+                && !METHOD_PERIOD_FINANCE.equals(method)) {
+            return response("REJECTED", "Unsupported finance analytics request");
         }
-        return loadBreakdown(context);
+
+        int[] period = requestedPeriod(extras);
+        if (period == null) {
+            return response("REJECTED", "Invalid finance period");
+        }
+        return loadBreakdown(context, period[0], period[1]);
+    }
+
+    @Nullable
+    private int[] requestedPeriod(@Nullable Bundle extras) {
+        Calendar now = Calendar.getInstance();
+        int year = now.get(Calendar.YEAR);
+        int month = now.get(Calendar.MONTH) + 1;
+        if (extras != null) {
+            year = extras.getInt("year", year);
+            month = extras.getInt("month", month);
+        }
+        if (year < 2000 || year > 2100 || month < 1 || month > 12) return null;
+        return new int[]{year, month};
     }
 
     @NonNull
-    private Bundle loadBreakdown(@NonNull Context context) {
+    private Bundle loadBreakdown(@NonNull Context context, int year, int month) {
         try {
             Calendar start = Calendar.getInstance();
+            start.clear();
+            start.set(Calendar.YEAR, year);
+            start.set(Calendar.MONTH, month - 1);
             start.set(Calendar.DAY_OF_MONTH, 1);
             start.set(Calendar.HOUR_OF_DAY, 0);
             start.set(Calendar.MINUTE, 0);
@@ -89,8 +114,11 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
             Map<String, String> canonicalLabels = catalogLabels(context);
             Map<String, BigDecimal> expenseByAccount = new HashMap<>();
             Map<String, BigDecimal> incomeByAccount = new HashMap<>();
+            Map<String, BigDecimal> expenseByCategory = new HashMap<>();
+            Map<String, BigDecimal> incomeByCategory = new HashMap<>();
             BigDecimal expenseTotal = BigDecimal.ZERO;
             BigDecimal incomeTotal = BigDecimal.ZERO;
+            int transactionCount = 0;
 
             List<Transaction> transactions = DatabaseClient.getInstance(
                     context.getApplicationContext())
@@ -109,37 +137,78 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
                             Math.abs(transaction.getAmount()));
                     String account = accountLabel(
                             transaction.getAccount(), canonicalLabels);
+                    String category = categoryLabel(transaction.getCategory());
 
                     if ("EXPENSE".equals(type)) {
                         expenseTotal = expenseTotal.add(amount);
                         expenseByAccount.merge(account, amount, BigDecimal::add);
+                        expenseByCategory.merge(category, amount, BigDecimal::add);
                     } else {
                         incomeTotal = incomeTotal.add(amount);
                         incomeByAccount.merge(account, amount, BigDecimal::add);
+                        incomeByCategory.merge(category, amount, BigDecimal::add);
+                    }
+                    transactionCount++;
+                }
+            }
+
+            BigDecimal totalAccountBalance = BigDecimal.ZERO;
+            List<AccountBalance> balances = DatabaseClient.getInstance(
+                    context.getApplicationContext())
+                    .getAppDatabase()
+                    .accountDao()
+                    .getAccountBalances();
+            if (balances != null) {
+                for (AccountBalance balance : balances) {
+                    if (balance != null) {
+                        totalAccountBalance = totalAccountBalance.add(
+                                BigDecimal.valueOf(balance.currentBalance));
                     }
                 }
             }
 
-            Breakdown expense = breakdown(expenseByAccount);
-            Breakdown income = breakdown(incomeByAccount);
+            TridevMoneyMappingEngine.Catalog catalog =
+                    new TridevMoneyMappingEngine(context).readCatalog();
+
+            Breakdown expenseAccounts = breakdown(expenseByAccount);
+            Breakdown incomeAccounts = breakdown(incomeByAccount);
+            Breakdown expenseCategories = breakdown(expenseByCategory);
+            Breakdown incomeCategories = breakdown(incomeByCategory);
             SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
             SimpleDateFormat label = new SimpleDateFormat("MMMM yyyy", Locale.ENGLISH);
 
-            Bundle result = response("OK", "MoneyManager account analytics ready");
+            long incomeMinor = toMinor(incomeTotal);
+            long expenseMinor = toMinor(expenseTotal);
+
+            Bundle result = response("OK", "MoneyManager period finance analytics ready");
             result.putString("currency", TridevIntegrationContract.DEFAULT_CURRENCY);
             result.putString("period_start", iso.format(start.getTime()));
             result.putString("period_end", iso.format(end.getTime()));
             result.putString("period_label", label.format(start.getTime()));
-            result.putLong("expense_total_minor", toMinor(expenseTotal));
-            result.putLong("income_total_minor", toMinor(incomeTotal));
-            result.putStringArray("expense_account_labels", expense.labels);
-            result.putLongArray("expense_account_totals_minor", expense.totalsMinor);
-            result.putStringArray("income_account_labels", income.labels);
-            result.putLongArray("income_account_totals_minor", income.totalsMinor);
+            result.putInt("period_year", year);
+            result.putInt("period_month", month);
+            result.putLong("expense_total_minor", expenseMinor);
+            result.putLong("income_total_minor", incomeMinor);
+            result.putLong("expense_minor", expenseMinor);
+            result.putLong("income_minor", incomeMinor);
+            result.putLong("remaining_minor", subtractSafe(incomeMinor, expenseMinor));
+            result.putLong("total_account_balance_minor", toMinor(totalAccountBalance));
+            result.putInt("transaction_count", transactionCount);
+            result.putInt("account_count", catalog.accounts == null ? 0 : catalog.accounts.size());
+            result.putInt("active_card_count",
+                    catalog.creditCards == null ? 0 : catalog.creditCards.size());
+            result.putStringArray("expense_account_labels", expenseAccounts.labels);
+            result.putLongArray("expense_account_totals_minor", expenseAccounts.totalsMinor);
+            result.putStringArray("income_account_labels", incomeAccounts.labels);
+            result.putLongArray("income_account_totals_minor", incomeAccounts.totalsMinor);
+            result.putStringArray("expense_category_labels", expenseCategories.labels);
+            result.putLongArray("expense_category_totals_minor", expenseCategories.totalsMinor);
+            result.putStringArray("income_category_labels", incomeCategories.labels);
+            result.putLongArray("income_category_totals_minor", incomeCategories.totalsMinor);
             result.putLong("generated_at", System.currentTimeMillis());
             return result;
         } catch (RuntimeException unavailable) {
-            return response("FAILED", "MoneyManager account analytics are unavailable");
+            return response("FAILED", "MoneyManager finance analytics are unavailable");
         }
     }
 
@@ -189,6 +258,12 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
     }
 
     @NonNull
+    private String categoryLabel(@Nullable String value) {
+        String clean = metadata(value, 80);
+        return clean.isEmpty() ? "Uncategorised" : clean;
+    }
+
+    @NonNull
     private Breakdown breakdown(@NonNull Map<String, BigDecimal> source) {
         List<Map.Entry<String, BigDecimal>> entries = new ArrayList<>(source.entrySet());
         entries.sort((left, right) -> {
@@ -215,6 +290,14 @@ public final class TridevCompanionAccountAnalyticsProvider extends ContentProvid
         private Breakdown(@NonNull String[] labels, @NonNull long[] totalsMinor) {
             this.labels = labels;
             this.totalsMinor = totalsMinor;
+        }
+    }
+
+    private long subtractSafe(long left, long right) {
+        try {
+            return Math.subtractExact(left, right);
+        } catch (ArithmeticException overflow) {
+            return left >= 0L ? Long.MAX_VALUE : Long.MIN_VALUE;
         }
     }
 
