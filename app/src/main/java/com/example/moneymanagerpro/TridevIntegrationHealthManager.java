@@ -17,17 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * STEP 11 - read-only Integration Health & Sync Center backend.
- *
- * It combines two different signals instead of pretending that "installed"
- * means "working":
- * 1) connection readiness (package visibility + trust requirements), and
- * 2) actual queue activity (pending/review/failed/synced events and last update).
- *
- * Retry is deliberately limited to PENDING/FAILED events. NEEDS_REVIEW items
- * are never forced through automatically.
- */
+/** Read-only Integration Health & Sync Center backend. */
 public final class TridevIntegrationHealthManager {
 
     private static final String QUEUE_DB = "TridevIntegrationQueue.db";
@@ -173,12 +163,12 @@ public final class TridevIntegrationHealthManager {
                 "Master ledger active on this device",
                 moneyStats));
         apps.add(buildSmartSmsHealth(smartStats));
-        apps.add(buildSignatureAppHealth(
+        apps.add(buildCompanionHealth(
                 TridevIntegrationContract.APP_FAMILY_HUB,
                 "Family Hub",
                 FAMILY_HUB_PACKAGE,
                 familyStats));
-        apps.add(buildSignatureAppHealth(
+        apps.add(buildCompanionHealth(
                 TridevIntegrationContract.APP_LOAN_MANAGER,
                 "LoanManagerPro",
                 LOAN_MANAGER_PACKAGE,
@@ -282,7 +272,12 @@ public final class TridevIntegrationHealthManager {
                 stats);
     }
 
-    private AppHealth buildSignatureAppHealth(
+    /**
+     * Family Hub and LoanManagerPro keep independent signing keys. Their exact
+     * package certificate is pinned on first trusted connection and must remain
+     * unchanged afterwards.
+     */
+    private AppHealth buildCompanionHealth(
             String appId,
             String label,
             String packageName,
@@ -296,20 +291,19 @@ public final class TridevIntegrationHealthManager {
                     stats);
         }
 
-        int signatureResult;
+        boolean trusted;
         try {
-            signatureResult = appContext.getPackageManager().checkSignatures(
-                    appContext.getPackageName(),
-                    packageName);
+            trusted = TridevCompanionTrust.verifyOrPinInstalledPackage(
+                    appContext, packageName);
         } catch (RuntimeException failure) {
-            signatureResult = PackageManager.SIGNATURE_NO_MATCH;
+            trusted = false;
         }
-        if (signatureResult != PackageManager.SIGNATURE_MATCH) {
+        if (!trusted) {
             return new AppHealth(
                     appId,
                     label,
                     Readiness.ACTION_REQUIRED,
-                    "Installed • signing certificate does not match MoneyManagerPro",
+                    "Installed • companion signing certificate changed or could not be verified",
                     stats);
         }
 
@@ -319,8 +313,8 @@ public final class TridevIntegrationHealthManager {
                 label,
                 active ? Readiness.CONNECTED : Readiness.READY,
                 active
-                        ? "Trusted signing match • integration activity detected"
-                        : "Trusted signing match • ready for the first event",
+                        ? "Trusted companion certificate • integration activity detected"
+                        : "Trusted companion certificate • master catalog ready",
                 stats);
     }
 
