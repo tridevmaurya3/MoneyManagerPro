@@ -1,10 +1,13 @@
 package com.example.moneymanagerpro;
 
 import android.content.Context;
+import android.database.Cursor;
 
 import androidx.annotation.Nullable;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.example.moneymanagerpro.cloud.TridevIntegrationCloudScheduler;
+import com.example.moneymanagerpro.database.DatabaseClient;
 
 /**
  * Single MoneyManagerPro entry point for structured events coming from the
@@ -18,6 +21,8 @@ import com.example.moneymanagerpro.cloud.TridevIntegrationCloudScheduler;
  * bypass TridevEventQueue and write directly to MoneyManager transactions.
  */
 public final class TridevFinanceIntegrationCoordinator {
+
+    private static final String NOTE_MARKER_PREFIX = "TRIDEV_EVENT:";
 
     public enum Outcome {
         POSTED,
@@ -147,6 +152,16 @@ public final class TridevFinanceIntegrationCoordinator {
                 : guard.reason;
 
         if (effectiveState == TridevIntegrationContract.SyncState.SYNCED) {
+            // A queue flag is not sufficient proof after the user manually deletes
+            // the corresponding MoneyManager transaction. Verify that the ledger
+            // row still exists. If it does not, reopen the canonical queue event
+            // and let the normal crash-safe posting engine recreate it exactly once.
+            if (!isLedgerRepresentationAlive(canonicalEventId, effectiveTransactionId)
+                    && queue.confirmNotDuplicate(canonicalEventId)) {
+                TridevTransactionPostingEngine.Result recovered =
+                        postingEngine.process(canonicalEventId);
+                return resultFromPosting(enqueue.eventId, canonicalEventId, recovered);
+            }
             return new Result(
                     Outcome.RECONCILED,
                     enqueue.eventId,
@@ -181,12 +196,18 @@ public final class TridevFinanceIntegrationCoordinator {
                 : event.eventId;
         TridevTransactionPostingEngine.Result posting =
                 postingEngine.process(processingEventId);
+        return resultFromPosting(enqueue.eventId, processingEventId, posting);
+    }
 
+    private Result resultFromPosting(
+            String inboundEventId,
+            String processingEventId,
+            TridevTransactionPostingEngine.Result posting) {
         switch (posting.outcome) {
             case POSTED:
                 return new Result(
                         Outcome.POSTED,
-                        enqueue.eventId,
+                        inboundEventId,
                         cleanToNull(processingEventId),
                         posting.moneyManagerTransactionId,
                         posting.reason);
@@ -194,21 +215,21 @@ public final class TridevFinanceIntegrationCoordinator {
             case ALREADY_HANDLED:
                 return new Result(
                         Outcome.RECONCILED,
-                        enqueue.eventId,
+                        inboundEventId,
                         cleanToNull(processingEventId),
                         posting.moneyManagerTransactionId,
                         posting.reason);
             case NEEDS_REVIEW:
                 return new Result(
                         Outcome.NEEDS_REVIEW,
-                        enqueue.eventId,
+                        inboundEventId,
                         cleanToNull(processingEventId),
                         null,
                         posting.reason);
             case FAILED:
                 return new Result(
                         Outcome.FAILED,
-                        enqueue.eventId,
+                        inboundEventId,
                         cleanToNull(processingEventId),
                         null,
                         posting.reason);
@@ -216,7 +237,7 @@ public final class TridevFinanceIntegrationCoordinator {
             default:
                 return new Result(
                         Outcome.QUEUED,
-                        enqueue.eventId,
+                        inboundEventId,
                         cleanToNull(processingEventId),
                         null,
                         "Event remains safely queued for a later retry");
@@ -229,13 +250,20 @@ public final class TridevFinanceIntegrationCoordinator {
         if (canonicalEventId == null) canonicalEventId = enqueue.eventId;
         if (enqueue.syncState == TridevIntegrationContract.SyncState.SYNCED) {
             TridevEventQueue.QueueItem item = queue.find(canonicalEventId);
+            String transactionId = item == null || item.event.references == null
+                    ? null
+                    : cleanToNull(item.event.references.moneyManagerTransactionId);
+            if (!isLedgerRepresentationAlive(canonicalEventId, transactionId)
+                    && queue.confirmNotDuplicate(canonicalEventId)) {
+                TridevTransactionPostingEngine.Result recovered =
+                        postingEngine.process(canonicalEventId);
+                return resultFromPosting(enqueue.eventId, canonicalEventId, recovered);
+            }
             return new Result(
                     Outcome.RECONCILED,
                     enqueue.eventId,
                     cleanToNull(canonicalEventId),
-                    item == null || item.event.references == null
-                            ? null
-                            : cleanToNull(item.event.references.moneyManagerTransactionId),
+                    transactionId,
                     enqueue.reason);
         }
         if (enqueue.syncState == TridevIntegrationContract.SyncState.SUPERSEDED) {
@@ -260,6 +288,66 @@ public final class TridevFinanceIntegrationCoordinator {
                 cleanToNull(canonicalEventId),
                 null,
                 enqueue.reason);
+    }
+
+    /**
+     * Returns true only when a queue reconciliation still has a real ledger row.
+     * Existing MoneyManager rows reconciled by fuzzy/exact matching may not carry
+     * a TRIDEV_EVENT marker, so the stored transaction id is checked first. Rows
+     * posted by the integration engine are also recoverable by their marker.
+     */
+    private boolean isLedgerRepresentationAlive(
+            @Nullable String canonicalEventId,
+            @Nullable String transactionId) {
+        try {
+            SupportSQLiteDatabase ledger = DatabaseClient.getInstance(appContext)
+                    .getAppDatabase()
+                    .getOpenHelper()
+                    .getReadableDatabase();
+
+            Long parsedId = parsePositiveLong(transactionId);
+            if (parsedId != null) {
+                try (Cursor cursor = ledger.query(
+                        "SELECT 1 FROM transactions WHERE id = ? LIMIT 1",
+                        new Object[]{parsedId})) {
+                    if (cursor.moveToFirst()) return true;
+                }
+            }
+
+            String marker = eventMarker(canonicalEventId);
+            if (!marker.isEmpty()) {
+                try (Cursor cursor = ledger.query(
+                        "SELECT 1 FROM transactions WHERE instr(note, ?) > 0 LIMIT 1",
+                        new Object[]{marker})) {
+                    if (cursor.moveToFirst()) return true;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Fail closed: if the ledger cannot be verified, do not manufacture a
+            // second transaction. The caller will retain the existing reconciliation.
+            return true;
+        }
+        return false;
+    }
+
+    @Nullable
+    private Long parsePositiveLong(@Nullable String value) {
+        String safe = cleanToNull(value);
+        if (safe == null) return null;
+        try {
+            long parsed = Long.parseLong(safe);
+            return parsed > 0L ? parsed : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private String eventMarker(@Nullable String eventId) {
+        String safe = eventId == null ? "" : eventId.trim()
+                .replaceAll("[^A-Za-z0-9:_\\-]", "");
+        if (safe.isEmpty()) return "";
+        if (safe.length() > 100) safe = safe.substring(0, 100);
+        return NOTE_MARKER_PREFIX + safe;
     }
 
     @Nullable
