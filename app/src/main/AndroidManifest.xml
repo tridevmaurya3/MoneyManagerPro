@@ -47,6 +47,12 @@
             android:grantUriPermissions="false" />
 
         <provider
+            android:name=".TridevCompanionAccountAnalyticsProvider"
+            android:authorities="com.example.moneymanagerpro.tridev.accountanalytics"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <provider
             android:name=".account.CreditCardAccountSyncInitializer"
             android:authorities="${applicationId}.credit_card_account_sync_initializer"
             android:exported="false"
