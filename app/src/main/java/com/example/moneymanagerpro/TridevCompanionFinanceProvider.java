@@ -37,6 +37,7 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
     public static final String METHOD_FINANCE_SUMMARY = "get_finance_summary_v1";
     public static final String METHOD_ACCEPT_FAMILY = "accept_family_event_v1";
     public static final String METHOD_CANCEL_GROCERY = "cancel_family_grocery_v1";
+    public static final String METHOD_CANCEL_FAMILY_FINANCE = "cancel_family_finance_event_v1";
     public static final String METHOD_ACCEPT_LOAN = "accept_loan_payment_v1";
 
     private enum CallerKind { FAMILY_HUB, LOAN_MANAGER, NONE }
@@ -85,6 +86,13 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
                         "Only Family Hub can cancel grocery events");
             }
             return cancelFamilyGrocery(context, extras);
+        }
+        if (METHOD_CANCEL_FAMILY_FINANCE.equals(method)) {
+            if (caller != CallerKind.FAMILY_HUB) {
+                return response("REJECTED", "", null, null,
+                        "Only Family Hub can cancel finance events");
+            }
+            return cancelFamilyFinance(context, extras);
         }
         if (METHOD_ACCEPT_LOAN.equals(method)) {
             if (caller != CallerKind.LOAN_MANAGER) {
@@ -276,6 +284,29 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
         } catch (RuntimeException invalid) {
             return response("REJECTED", "", null, null,
                     "Grocery cancellation failed validation");
+        }
+    }
+
+    @NonNull
+    private Bundle cancelFamilyFinance(
+            @NonNull Context context,
+            @Nullable Bundle extras) {
+        if (extras == null) return response("REJECTED", "", null, null,
+                "Finance cancellation payload is missing");
+        try {
+            String eventId = structured(extras.getString("event_id"), 120, false);
+            String sourceRecordId = structured(
+                    extras.getString("source_record_id"), 160, false);
+            TridevFamilyHubCancellationManager.Result result =
+                    new TridevFamilyHubCancellationManager(context)
+                            .cancelFinanceEntry(eventId, sourceRecordId);
+            String status = result.handled
+                    ? (result.ledgerRemoved ? "CANCELLED" : "PRESERVED")
+                    : "REJECTED";
+            return response(status, eventId, null, null, result.reason);
+        } catch (RuntimeException invalid) {
+            return response("REJECTED", "", null, null,
+                    "Finance cancellation failed validation");
         }
     }
 
