@@ -13,10 +13,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Read-only canonical finance summary exposed to trusted companion apps.
@@ -25,6 +28,10 @@ import java.util.Locale;
  * the ledger and never exposes individual transaction rows, notes or balances
  * by account. It intentionally mirrors the monthly Income/Expense semantics
  * already used by MoneyManager widgets: Remaining = Income - Expense.
+ *
+ * STEP 13B additionally exposes only current-month category aggregates. The
+ * aggregate contains a category label and its total amount, never a merchant,
+ * note, SMS body or individual transaction row.
  */
 public final class TridevFinanceMasterSummary {
 
@@ -39,6 +46,10 @@ public final class TridevFinanceMasterSummary {
         @NonNull public final String periodStart;
         @NonNull public final String periodEnd;
         @NonNull public final String periodLabel;
+        @NonNull public final String[] expenseCategoryLabels;
+        @NonNull public final long[] expenseCategoryTotalsMinor;
+        @NonNull public final String[] incomeCategoryLabels;
+        @NonNull public final long[] incomeCategoryTotalsMinor;
         public final long generatedAt;
 
         private Snapshot(
@@ -52,6 +63,8 @@ public final class TridevFinanceMasterSummary {
                 @NonNull String periodStart,
                 @NonNull String periodEnd,
                 @NonNull String periodLabel,
+                @NonNull CategoryBreakdown expenseCategories,
+                @NonNull CategoryBreakdown incomeCategories,
                 long generatedAt) {
             this.incomeMinor = incomeMinor;
             this.expenseMinor = expenseMinor;
@@ -63,7 +76,21 @@ public final class TridevFinanceMasterSummary {
             this.periodStart = periodStart;
             this.periodEnd = periodEnd;
             this.periodLabel = periodLabel;
+            this.expenseCategoryLabels = expenseCategories.labels;
+            this.expenseCategoryTotalsMinor = expenseCategories.totalsMinor;
+            this.incomeCategoryLabels = incomeCategories.labels;
+            this.incomeCategoryTotalsMinor = incomeCategories.totalsMinor;
             this.generatedAt = generatedAt;
+        }
+    }
+
+    private static final class CategoryBreakdown {
+        @NonNull final String[] labels;
+        @NonNull final long[] totalsMinor;
+
+        private CategoryBreakdown(@NonNull String[] labels, @NonNull long[] totalsMinor) {
+            this.labels = labels;
+            this.totalsMinor = totalsMinor;
         }
     }
 
@@ -89,6 +116,8 @@ public final class TridevFinanceMasterSummary {
 
         BigDecimal income = BigDecimal.ZERO;
         BigDecimal expense = BigDecimal.ZERO;
+        Map<String, BigDecimal> expenseByCategory = new HashMap<>();
+        Map<String, BigDecimal> incomeByCategory = new HashMap<>();
         int transactionCount = 0;
 
         List<Transaction> transactions = DatabaseClient.getInstance(app)
@@ -102,11 +131,14 @@ public final class TridevFinanceMasterSummary {
                 }
                 String type = safe(transaction.getType()).toUpperCase(Locale.ROOT);
                 BigDecimal amount = BigDecimal.valueOf(Math.abs(transaction.getAmount()));
+                String category = categoryLabel(transaction.getCategory());
                 if ("INCOME".equals(type)) {
                     income = income.add(amount);
+                    incomeByCategory.merge(category, amount, BigDecimal::add);
                     transactionCount++;
                 } else if ("EXPENSE".equals(type)) {
                     expense = expense.add(amount);
+                    expenseByCategory.merge(category, amount, BigDecimal::add);
                     transactionCount++;
                 }
             }
@@ -148,7 +180,37 @@ public final class TridevFinanceMasterSummary {
                 iso.format(start.getTime()),
                 iso.format(end.getTime()),
                 label.format(start.getTime()),
+                breakdown(expenseByCategory),
+                breakdown(incomeByCategory),
                 System.currentTimeMillis());
+    }
+
+    @NonNull
+    private static CategoryBreakdown breakdown(@NonNull Map<String, BigDecimal> source) {
+        List<Map.Entry<String, BigDecimal>> entries = new ArrayList<>(source.entrySet());
+        entries.sort((left, right) -> {
+            int byAmount = right.getValue().compareTo(left.getValue());
+            return byAmount != 0
+                    ? byAmount
+                    : left.getKey().compareToIgnoreCase(right.getKey());
+        });
+
+        String[] labels = new String[entries.size()];
+        long[] totalsMinor = new long[entries.size()];
+        for (int index = 0; index < entries.size(); index++) {
+            Map.Entry<String, BigDecimal> entry = entries.get(index);
+            labels[index] = entry.getKey();
+            totalsMinor[index] = toMinor(entry.getValue());
+        }
+        return new CategoryBreakdown(labels, totalsMinor);
+    }
+
+    @NonNull
+    private static String categoryLabel(String value) {
+        String clean = safe(value).replace('\n', ' ').replace('\r', ' ')
+                .replaceAll("\\s+", " ");
+        if (clean.isEmpty()) return "Uncategorised";
+        return clean.length() <= 80 ? clean : clean.substring(0, 80).trim();
     }
 
     private static long subtractSafe(long left, long right) {
