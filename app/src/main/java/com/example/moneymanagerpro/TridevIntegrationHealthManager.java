@@ -262,13 +262,15 @@ public final class TridevIntegrationHealthManager {
                     "Installed • set SmartSMSPro as the default SMS app to enable trusted sync",
                     stats);
         }
+
+        boolean active = stats != null && stats.total > 0;
         return new AppHealth(
                 TridevIntegrationContract.APP_SMART_SMS,
                 "SmartSMSPro",
-                stats != null && stats.total > 0 ? Readiness.CONNECTED : Readiness.READY,
-                stats != null && stats.total > 0
+                Readiness.CONNECTED,
+                active
                         ? "Trusted default SMS app • integration activity detected"
-                        : "Trusted default SMS app • ready for the first financial SMS",
+                        : "Trusted default SMS app • connected on this device • waiting for the first financial SMS",
                 stats);
     }
 
@@ -276,6 +278,9 @@ public final class TridevIntegrationHealthManager {
      * Family Hub and LoanManagerPro keep independent signing keys. Their exact
      * package certificate is pinned on first trusted connection and must remain
      * unchanged afterwards.
+     *
+     * Connection state is deliberately device/trust based, not account/event
+     * based. Queue activity is reported separately through the counters below.
      */
     private AppHealth buildCompanionHealth(
             String appId,
@@ -311,10 +316,10 @@ public final class TridevIntegrationHealthManager {
         return new AppHealth(
                 appId,
                 label,
-                active ? Readiness.CONNECTED : Readiness.READY,
+                Readiness.CONNECTED,
                 active
                         ? "Trusted companion certificate • integration activity detected"
-                        : "Trusted companion certificate • master catalog ready",
+                        : "Trusted companion certificate • connected on this device • no finance activity yet",
                 stats);
     }
 
