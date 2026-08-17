@@ -377,6 +377,13 @@
             app:backgroundTint="@color/purple_surface"
             app:strokeColor="@color/purple_outline" />
 
+        <!-- NON-DESTRUCTIVE ARCHIVED ACCOUNT RECOVERY -->
+
+        <com.example.moneymanagerpro.account.ArchivedAccountRecoveryView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" />
+
         <!-- YOUR ACCOUNTS SECTION -->
 
         <TextView
