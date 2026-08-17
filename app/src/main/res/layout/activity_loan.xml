@@ -14,131 +14,91 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingTop="14dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="36dp">
-
-        <!-- BACK BUTTON -->
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="28dp">
 
         <TextView
             android:id="@+id/btnBack"
             android:layout_width="wrap_content"
-            android:layout_height="44dp"
+            android:layout_height="38dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center_vertical"
-            android:minWidth="74dp"
-            android:paddingStart="4dp"
-            android:paddingEnd="12dp"
+            android:minWidth="64dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="8dp"
             android:text="←  Back"
             android:textColor="@color/primary"
-            android:textSize="15sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
-
-        <!-- PAGE TITLE -->
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
-            android:text="Smart Loan Tracker"
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="Manage loans taken or given, EMI payments, receipts and outstanding balances."
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
-
-        <!-- INTRODUCTION CARD -->
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="17dp"
-            app:cardBackgroundColor="@color/warning_surface"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="1dp"
-            app:strokeColor="@color/warning_outline"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="17dp">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="50dp"
-                    android:layout_height="50dp"
-                    app:cardBackgroundColor="@color/app_surface"
-                    app:cardCornerRadius="15dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/warning_outline"
-                    app:strokeWidth="1dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:text="₹"
-                        android:textColor="@color/warning"
-                        android:textSize="22sp"
-                        android:textStyle="bold" />
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="14dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Loans, EMI &amp; Payments"
-                        android:textColor="@color/warning"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="Previous payments remain separate. Only new EMI or receipt entries affect transactions."
-                        android:textColor="@color/app_text_secondary"
-                        android:textSize="11sp" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- LOAN TYPE INFORMATION -->
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Smart Loan Tracker"
+                    android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="2"
+                    android:text="Loans, EMI payments and outstanding balances in one place."
+                    android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
+
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="8dp"
+                app:cardBackgroundColor="@color/warning_surface"
+                app:cardCornerRadius="13dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/warning_outline"
+                app:strokeWidth="1dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="₹"
+                    android:textColor="@color/warning"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
             android:orientation="horizontal">
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
-                android:layout_height="92dp"
-                android:layout_marginEnd="5dp"
+                android:layout_height="58dp"
+                android:layout_marginEnd="4dp"
                 android:layout_weight="1"
                 app:cardBackgroundColor="@color/expense_surface"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="14dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/expense_outline"
                 app:strokeWidth="1dp">
@@ -146,37 +106,43 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="10dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="10dp">
 
                     <TextView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
                         android:gravity="center"
                         android:text="↓"
                         android:textColor="@color/expense"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:gravity="center"
-                        android:text="Loan Taken"
-                        android:textColor="@color/expense"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
+                        android:layout_marginStart="5dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:gravity="center"
-                        android:text="Money to repay"
-                        android:textColor="@color/app_text_secondary"
-                        android:textSize="9sp" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Loan Taken"
+                            android:textColor="@color/expense"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="To repay"
+                            android:textColor="@color/app_text_secondary"
+                            android:textSize="9sp" />
+
+                    </LinearLayout>
 
                 </LinearLayout>
 
@@ -184,11 +150,11 @@
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
-                android:layout_height="92dp"
-                android:layout_marginStart="5dp"
+                android:layout_height="58dp"
+                android:layout_marginStart="4dp"
                 android:layout_weight="1"
                 app:cardBackgroundColor="@color/success_surface"
-                app:cardCornerRadius="16dp"
+                app:cardCornerRadius="14dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/success_outline"
                 app:strokeWidth="1dp">
@@ -196,37 +162,43 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="10dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="10dp">
 
                     <TextView
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
                         android:gravity="center"
                         android:text="↑"
                         android:textColor="@color/success"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:gravity="center"
-                        android:text="Loan Given"
-                        android:textColor="@color/success"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
+                        android:layout_marginStart="5dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:gravity="center"
-                        android:text="Money to receive"
-                        android:textColor="@color/app_text_secondary"
-                        android:textSize="9sp" />
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Loan Given"
+                            android:textColor="@color/success"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="To receive"
+                            android:textColor="@color/app_text_secondary"
+                            android:textSize="9sp" />
+
+                    </LinearLayout>
 
                 </LinearLayout>
 
@@ -234,31 +206,27 @@
 
         </LinearLayout>
 
-        <!-- CREATE TRACKER HEADING -->
-
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="25dp"
+            android:layout_marginTop="14dp"
             android:text="Create Loan Tracker"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:text="Enter loan details, previous payments and the upcoming EMI schedule"
+            android:layout_marginTop="2dp"
+            android:text="Compact loan details and EMI schedule"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
-
-        <!-- LOAN FORM -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             app:cardBackgroundColor="@color/app_surface"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="1dp"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
             app:strokeColor="@color/app_outline_soft"
             app:strokeWidth="1dp">
 
@@ -266,89 +234,23 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="17dp">
-
-                <!-- BASIC INFORMATION -->
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
-                        app:cardBackgroundColor="@color/info_surface"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="@color/info_outline"
-                        app:strokeWidth="1dp">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:gravity="center"
-                            android:text="1"
-                            android:textColor="@color/secondary"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Basic Loan Information"
-                            android:textColor="@color/app_text_primary"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Name, loan type and total repayable amount"
-                            android:textColor="@color/app_text_secondary"
-                            android:textSize="10sp" />
-
-                    </LinearLayout>
-
-                </LinearLayout>
-
-                <!-- PERSON NAME -->
+                android:padding="12dp">
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Bank or Person Name"
+                    android:text="Basic Details"
                     android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Enter the bank, company or person's name"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/inputPersonName"
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Example: SBI Home Loan">
+                    android:layout_marginTop="7dp"
+                    android:hint="Bank or person name">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etPersonName"
@@ -357,652 +259,362 @@
                         android:inputType="textCapWords"
                         android:maxLength="80"
                         android:maxLines="1"
-                        android:minHeight="54dp"
+                        android:minHeight="48dp"
                         android:textColor="@color/app_text_primary"
-                        android:textSize="15sp" />
+                        android:textSize="14sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- LOAN TYPE -->
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Loan Type"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Choose whether money was taken or given"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Select loan type"
-                    app:endIconMode="dropdown_menu">
-
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/dropdownLoanType"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:clickable="true"
-                        android:focusable="false"
-                        android:gravity="start|center_vertical"
-                        android:inputType="none"
-                        android:minHeight="54dp"
-                        android:paddingStart="15dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="15sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- TOTAL AMOUNT -->
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Total Repayable Amount"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Enter the complete amount including applicable interest"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputTotalAmount"
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Total amount"
-                    app:prefixText="₹  ">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etTotalAmount"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="start|center_vertical"
-                        android:inputType="numberDecimal"
-                        android:maxLines="1"
-                        android:minHeight="56dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- SECTION DIVIDER -->
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="20dp"
-                    android:layout_marginBottom="17dp"
-                    android:background="@color/app_divider" />
-
-                <!-- PREVIOUS PAYMENTS -->
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
+                    android:layout_marginTop="7dp"
+                    android:baselineAligned="false"
                     android:orientation="horizontal">
 
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
-                        app:cardBackgroundColor="@color/purple_surface"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="@color/purple_outline"
-                        app:strokeWidth="1dp">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:gravity="center"
-                            android:text="2"
-                            android:textColor="@color/purple"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:hint="Loan type"
+                        app:endIconMode="dropdown_menu">
 
-                        <TextView
+                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                            android:id="@+id/dropdownLoanType"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Previous Payment Details"
+                            android:clickable="true"
+                            android:focusable="false"
+                            android:gravity="start|center_vertical"
+                            android:inputType="none"
+                            android:minHeight="48dp"
+                            android:paddingStart="12dp"
                             android:textColor="@color/app_text_primary"
-                            android:textSize="15sp"
+                            android:textSize="13sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputTotalAmount"
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:hint="Total amount"
+                        app:prefixText="₹ ">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etTotalAmount"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal"
+                            android:maxLines="1"
+                            android:minHeight="48dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="14sp"
                             android:textStyle="bold" />
 
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Payments made before creating this tracker"
-                            android:textColor="@color/app_text_secondary"
-                            android:textSize="10sp" />
-
-                    </LinearLayout>
+                    </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
-
-                <!-- HISTORICAL PAID -->
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Amount Already Paid"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="This amount will reduce the outstanding balance without creating a transaction"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputHistoricalPaid"
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Previously paid amount"
-                    app:helperText="Leave empty when no previous payment exists"
-                    app:prefixText="₹  ">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etHistoricalPaid"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="start|center_vertical"
-                        android:inputType="numberDecimal"
-                        android:maxLines="1"
-                        android:minHeight="54dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="16sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- PREVIOUS INSTALLMENTS -->
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Previous EMI Count"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Number of installments completed before using the app"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputHistoricalInstallments"
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Previous installments">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etHistoricalInstallments"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="number"
-                        android:maxLines="1"
-                        android:minHeight="54dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="16sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- SECTION DIVIDER -->
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="20dp"
-                    android:layout_marginBottom="17dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="9dp"
                     android:background="@color/app_divider" />
 
-                <!-- SCHEDULE -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Previous Payments"
+                    android:textColor="@color/app_text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
+                    android:layout_marginTop="7dp"
+                    android:baselineAligned="false"
                     android:orientation="horizontal">
 
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
-                        app:cardBackgroundColor="@color/success_surface"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="@color/success_outline"
-                        app:strokeWidth="1dp">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:gravity="center"
-                            android:text="3"
-                            android:textColor="@color/success"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputHistoricalPaid"
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:hint="Already paid"
+                        app:prefixText="₹ ">
 
-                        <TextView
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etHistoricalPaid"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Loan Schedule"
+                            android:inputType="numberDecimal"
+                            android:maxLines="1"
+                            android:minHeight="48dp"
                             android:textColor="@color/app_text_primary"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
+                            android:textSize="13sp" />
 
-                        <TextView
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputHistoricalInstallments"
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:hint="EMIs already paid">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etHistoricalInstallments"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Tenure, interest, EMI and upcoming due date"
-                            android:textColor="@color/app_text_secondary"
-                            android:textSize="10sp" />
+                            android:inputType="number"
+                            android:maxLines="1"
+                            android:minHeight="48dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="13sp" />
 
-                    </LinearLayout>
+                    </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
 
-                <!-- TENURE -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="9dp"
+                    android:background="@color/app_divider" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Total Tenure"
+                    android:text="EMI &amp; Schedule"
                     android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Total duration of the loan in months"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
+                    android:layout_marginTop="7dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputTenureMonths"
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Tenure in months">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etTenureMonths"
-                        android:layout_width="match_parent"
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputTenureMonths"
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:inputType="number"
-                        android:maxLines="1"
-                        android:minHeight="54dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="16sp" />
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:hint="Tenure months">
 
-                </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etTenureMonths"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:maxLines="1"
+                            android:minHeight="48dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="13sp" />
 
-                <!-- START DATE -->
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Loan Start Date"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Select the original loan starting date"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Start date">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etStartDate"
-                        android:layout_width="match_parent"
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/inputInterestRate"
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:clickable="true"
-                        android:cursorVisible="false"
-                        android:focusable="false"
-                        android:inputType="none"
-                        android:minHeight="54dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="15sp"
-                        android:textStyle="bold" />
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:hint="Interest rate"
+                        app:suffixText="%">
 
-                </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etInterestRate"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal"
+                            android:maxLines="1"
+                            android:minHeight="48dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="13sp" />
 
-                <!-- INTEREST RATE -->
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Interest Rate"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Optional annual interest rate percentage"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/inputInterestRate"
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Interest rate percentage">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etInterestRate"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="numberDecimal"
-                        android:maxLines="1"
-                        android:minHeight="54dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="16sp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- EMI AMOUNT -->
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Monthly EMI Amount"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Regular EMI payment or receipt amount"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
+                </LinearLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/inputEmiAmount"
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Monthly EMI"
-                    app:helperText="Used to estimate remaining EMIs and closure date"
-                    app:prefixText="₹  ">
+                    android:layout_marginTop="7dp"
+                    android:hint="Regular EMI amount"
+                    app:prefixText="₹ ">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etEmiAmount"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="start|center_vertical"
                         android:inputType="numberDecimal"
                         android:maxLines="1"
-                        android:minHeight="56dp"
+                        android:minHeight="48dp"
                         android:textColor="@color/app_text_primary"
-                        android:textSize="18sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- DUE DATE -->
-
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Next EMI Due Date"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:layout_marginTop="7dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Select the next scheduled payment or receipt date"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MoneyManagerPro.TextInputLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Next due date">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etDueDate"
-                        android:layout_width="match_parent"
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:clickable="true"
-                        android:cursorVisible="false"
-                        android:focusable="false"
-                        android:inputType="none"
-                        android:minHeight="54dp"
-                        android:textColor="@color/app_text_primary"
-                        android:textSize="15sp"
-                        android:textStyle="bold" />
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:hint="Start date"
+                        app:endIconMode="none">
 
-                </com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etStartDate"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="false"
+                            android:gravity="start|center_vertical"
+                            android:minHeight="48dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="12sp" />
 
-                <!-- NOTE -->
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
-                    android:text="Loan Note"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.MoneyManagerPro.TextInputLayout"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:hint="Next due date"
+                        app:endIconMode="none">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Optional loan account, agreement or reminder information"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etDueDate"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:clickable="true"
+                            android:focusable="false"
+                            android:gravity="start|center_vertical"
+                            android:minHeight="48dp"
+                            android:textColor="@color/app_text_primary"
+                            android:textSize="12sp" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="Optional note"
-                    app:counterEnabled="true"
-                    app:counterMaxLength="250">
+                    android:layout_marginTop="7dp"
+                    android:hint="Optional note">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etLoanNote"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="start|top"
+                        android:gravity="top|start"
                         android:inputType="textCapSentences|textMultiLine"
                         android:maxLength="250"
-                        android:maxLines="5"
-                        android:minHeight="96dp"
-                        android:minLines="3"
-                        android:paddingTop="14dp"
+                        android:maxLines="3"
+                        android:minHeight="64dp"
+                        android:paddingTop="12dp"
                         android:textColor="@color/app_text_primary"
-                        android:textSize="14sp" />
+                        android:textSize="13sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- SAVE BUTTON -->
-
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSaveLoan"
-                    style="@style/Widget.MoneyManagerPro.Button.Secondary"
+                    style="@style/Widget.MoneyManagerPro.Button.Primary"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_marginTop="20dp"
-                    android:text="Save Smart Loan"
-                    android:textColor="@color/white"
-                    app:backgroundTint="@color/primary"
-                    app:cornerRadius="18dp" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- PAYMENT INFORMATION -->
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="13dp"
-            app:cardBackgroundColor="@color/info_surface"
-            app:cardCornerRadius="15dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/info_outline"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="13dp">
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:text="Save Smart Loan" />
 
                 <TextView
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
-                    android:gravity="center"
-                    android:text="i"
-                    android:textColor="@color/secondary"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:lineSpacingExtra="2dp"
-                    android:text="A new EMI or extra payment creates a transaction. Historical payments only set the starting loan balance."
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:text="Previous payments stay historical; new payments update finance data."
                     android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
+                    android:textSize="9sp" />
 
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
-
-        <!-- YOUR LOANS -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="25dp"
-            android:text="Your Smart Loans"
+            android:layout_marginTop="16dp"
+            android:text="Saved Loans"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:text="Track outstanding amount, payment progress, due dates and loan history"
+            android:layout_marginTop="2dp"
+            android:text="Active and completed loan trackers"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
 
-        <!-- EMPTY STATE -->
-
-        <TextView
-            android:id="@+id/txtEmptyLoans"
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center"
-            android:lineSpacingExtra="3dp"
-            android:paddingStart="20dp"
-            android:paddingTop="30dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="30dp"
-            android:text="No loan records created yet.&#10;Create your first smart loan tracker using the form above."
-            android:textColor="@color/app_text_secondary"
-            android:textSize="14sp"
-            android:visibility="gone" />
+            android:layout_marginTop="8dp"
+            app:cardBackgroundColor="@color/app_surface"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/app_outline_soft"
+            app:strokeWidth="1dp">
 
-        <!-- DYNAMIC LOAN CARDS -->
+            <TextView
+                android:id="@+id/txtEmptyLoans"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:padding="20dp"
+                android:text="No loans found. Create your first tracker above."
+                android:textColor="@color/app_text_secondary"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+        </com.google.android.material.card.MaterialCardView>
 
         <LinearLayout
             android:id="@+id/loanContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
+            android:layout_marginTop="8dp"
             android:orientation="vertical" />
 
     </LinearLayout>
