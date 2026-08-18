@@ -92,10 +92,10 @@ public final class ProUpgradeInitializer extends ContentProvider {
 
                         activity.getWindow()
                                 .getDecorView()
-                                .post(
-                                        () -> FluentProfessionalPolish
-                                                .apply(activity)
-                                );
+                                .post(() -> {
+                                    FluentProfessionalPolish.apply(activity);
+                                    CompactFormPolish.apply(activity);
+                                });
 
                         if (activity instanceof BackupActivity) {
                             activity.getWindow()
