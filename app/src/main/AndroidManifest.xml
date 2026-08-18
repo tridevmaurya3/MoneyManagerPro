@@ -47,6 +47,12 @@
             android:grantUriPermissions="false" />
 
         <provider
+            android:name=".TridevFamilyHubEditProvider"
+            android:authorities="com.example.moneymanagerpro.tridev.familyhubedit"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <provider
             android:name=".TridevLoanPaymentMutationProvider"
             android:authorities="com.example.moneymanagerpro.tridev.loanmutation"
             android:exported="true"
