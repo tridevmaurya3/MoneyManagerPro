@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
+import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 
 import java.math.BigDecimal;
@@ -27,6 +28,10 @@ import java.util.Locale;
  * - manually-created/reconciled MoneyManager rows are preserved untouched;
  * - account/card/category values must still resolve to active existing
  *   MoneyManager masters; nothing is created or renamed here.
+ *
+ * The ledger mutation deliberately uses Room's TransactionDao rather than raw
+ * execSQL. This keeps MoneyManager's normal transaction data path authoritative
+ * and lets all screens observe/read the corrected amount immediately.
  */
 public final class TridevFamilyHubEditManager {
 
@@ -220,6 +225,7 @@ public final class TridevFamilyHubEditManager {
             @NonNull TridevIntegrationContract.Event event,
             @NonNull Destination destination) {
         if (transactionId <= 0L || event.amountMinor <= 0L) return false;
+
         String marker = marker(canonicalEventId);
         String note = buildSafeNote(marker, event.merchantHint);
         String date = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
@@ -227,35 +233,55 @@ public final class TridevFamilyHubEditManager {
                         ? event.occurredAt : System.currentTimeMillis()));
         double amount = BigDecimal.valueOf(event.amountMinor)
                 .movePointLeft(2).doubleValue();
-        final boolean[] updated = {false};
+
+        AppDatabase database = DatabaseClient.getInstance(appContext).getAppDatabase();
+        final boolean[] verified = {false};
         try {
-            DatabaseClient.getInstance(appContext).getAppDatabase().runInTransaction(() -> {
-                SupportSQLiteDatabase db = DatabaseClient.getInstance(appContext)
-                        .getAppDatabase().getOpenHelper().getWritableDatabase();
-                db.execSQL(
-                        "UPDATE transactions SET amount = ?, type = ?, category = ?, "
-                                + "account = ?, date = ?, note = ? "
-                                + "WHERE id = ? AND instr(note, ?) > 0 "
-                                + "AND instr(note, 'Synced from Family Hub') > 0",
-                        new Object[]{amount, destination.moneyType, destination.category,
-                                destination.account, date, note, transactionId, marker});
-                try (Cursor cursor = db.query(
-                        "SELECT amount, type, category, account, note FROM transactions "
-                                + "WHERE id = ? LIMIT 1",
+            database.runInTransaction(() -> {
+                // Re-verify ownership immediately before mutation. This closes the
+                // window where a stale transaction id could otherwise point at a
+                // different row after deletion/id reuse.
+                SupportSQLiteDatabase sqlite = database.getOpenHelper().getReadableDatabase();
+                try (Cursor before = sqlite.query(
+                        "SELECT note FROM transactions WHERE id = ? LIMIT 1",
                         new Object[]{transactionId})) {
-                    if (cursor.moveToFirst()) {
-                        String storedNote = cursor.isNull(4) ? "" : cursor.getString(4);
-                        updated[0] = isOwnedNote(storedNote, marker)
-                                && destination.moneyType.equalsIgnoreCase(clean(cursor.getString(1)))
-                                && destination.category.equals(clean(cursor.getString(2)))
-                                && destination.account.equals(clean(cursor.getString(3)));
+                    if (!before.moveToFirst()
+                            || !isOwnedNote(before.getString(0), marker)) {
+                        return;
                     }
+                }
+
+                int changed = database.transactionDao().updateLinkedFamilyHubTransaction(
+                        transactionId,
+                        amount,
+                        destination.moneyType,
+                        destination.category,
+                        destination.account,
+                        date,
+                        note,
+                        marker);
+                if (changed != 1) return;
+
+                SupportSQLiteDatabase verifyDb = database.getOpenHelper().getReadableDatabase();
+                try (Cursor cursor = verifyDb.query(
+                        "SELECT amount, type, category, account, note, date "
+                                + "FROM transactions WHERE id = ? LIMIT 1",
+                        new Object[]{transactionId})) {
+                    if (!cursor.moveToFirst()) return;
+                    String storedNote = cursor.isNull(4) ? "" : cursor.getString(4);
+                    double storedAmount = cursor.getDouble(0);
+                    verified[0] = Math.abs(storedAmount - amount) < 0.005d
+                            && isOwnedNote(storedNote, marker)
+                            && destination.moneyType.equalsIgnoreCase(clean(cursor.getString(1)))
+                            && destination.category.equals(clean(cursor.getString(2)))
+                            && destination.account.equals(clean(cursor.getString(3)))
+                            && date.equals(clean(cursor.getString(5)));
                 }
             });
         } catch (RuntimeException ignored) {
             return false;
         }
-        return updated[0];
+        return verified[0];
     }
 
     private void refreshCanonicalQueueMetadata(
