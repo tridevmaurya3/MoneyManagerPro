@@ -30,6 +30,11 @@ import java.util.Set;
  * repositories, listeners or calculations. It only tightens the already
  * inflated Android views so every data-entry screen follows the same compact
  * Fluent form language as the Loan screen.
+ *
+ * Important: root/activity containers are intentionally excluded from padding
+ * and spacer compaction. Those containers can carry status/navigation bar
+ * WindowInsets, and shrinking them would make page headers overlap the system
+ * notification/status bar.
  */
 public final class CompactFormPolish {
 
@@ -190,7 +195,8 @@ public final class CompactFormPolish {
         if (group instanceof TextInputLayout
                 || group instanceof RecyclerView
                 || group instanceof ScrollView
-                || group instanceof NestedScrollView) {
+                || group instanceof NestedScrollView
+                || isOuterOrInsetContainer(group)) {
             return;
         }
 
@@ -209,6 +215,26 @@ public final class CompactFormPolish {
                 || bottom != group.getPaddingBottom()) {
             group.setPaddingRelative(start, top, end, bottom);
         }
+    }
+
+    /**
+     * Protects the activity root and any explicitly inset-aware container from
+     * the compact padding pass. The activity root is normally the direct child
+     * of android.R.id.content and is the most common place for WindowInsets to
+     * be converted into top/bottom padding.
+     */
+    private static boolean isOuterOrInsetContainer(@NonNull ViewGroup group) {
+        if (group.getId() == android.R.id.content
+                || group.getFitsSystemWindows()) {
+            return true;
+        }
+
+        ViewParent parent = group.getParent();
+        if (!(parent instanceof ViewGroup)) {
+            return true;
+        }
+
+        return ((ViewGroup) parent).getId() == android.R.id.content;
     }
 
     /**
@@ -383,7 +409,10 @@ public final class CompactFormPolish {
             @NonNull ViewGroup parent,
             @NonNull View child
     ) {
-        if (child.getClass() != View.class
+        // Never shrink a spacer owned by the activity root/inset container.
+        // Such a spacer may itself be the status-bar safety area.
+        if (isOuterOrInsetContainer(parent)
+                || child.getClass() != View.class
                 || child.getId() != View.NO_ID
                 || child.getBackground() != null
                 || countFormControls(parent, 2) < 2) {
