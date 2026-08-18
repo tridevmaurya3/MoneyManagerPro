@@ -26,6 +26,27 @@ public interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY id DESC")
     List<Transaction> getAllTransactions();
 
+    /**
+     * Updates only the exact integration-owned Family Hub row. The marker and
+     * provenance guards intentionally prevent any manual/reconciled MoneyManager
+     * transaction from being rewritten by a companion app edit.
+     */
+    @Query("UPDATE transactions SET amount = :amount, type = :type, "
+            + "category = :category, account = :account, date = :date, note = :note "
+            + "WHERE id = :transactionId "
+            + "AND instr(note, :marker) > 0 "
+            + "AND instr(note, 'Synced from Family Hub') > 0")
+    int updateLinkedFamilyHubTransaction(
+            long transactionId,
+            double amount,
+            String type,
+            String category,
+            String account,
+            String date,
+            String note,
+            String marker
+    );
+
     @Query("SELECT COALESCE(SUM(CASE " +
             "WHEN type = 'EXPENSE' THEN amount " +
             "WHEN type = 'INCOME' THEN -amount " +
