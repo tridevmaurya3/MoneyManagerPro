@@ -2137,7 +2137,7 @@ public class TransactionsActivity extends AppCompatActivity {
         );
 
         card.setRadius(
-                dp(19)
+                dp(15)
         );
 
         card.setCardElevation(
@@ -2175,9 +2175,9 @@ public class TransactionsActivity extends AppCompatActivity {
 
         cardParams.setMargins(
                 0,
-                dp(6),
+                dp(4),
                 0,
-                dp(6)
+                dp(4)
         );
 
         card.setLayoutParams(
@@ -2192,10 +2192,10 @@ public class TransactionsActivity extends AppCompatActivity {
         );
 
         content.setPadding(
-                dp(15),
-                dp(15),
-                dp(15),
-                dp(13)
+                dp(12),
+                dp(11),
+                dp(12),
+                dp(10)
         );
 
         LinearLayout topRow =
@@ -2678,8 +2678,8 @@ public class TransactionsActivity extends AppCompatActivity {
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
-                        dp(48),
-                        dp(48)
+                dp(40),
+                dp(40)
                 );
 
         icon.setLayoutParams(
@@ -2750,7 +2750,7 @@ public class TransactionsActivity extends AppCompatActivity {
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
-                        dp(30)
+                dp(26)
                 );
 
         badge.setLayoutParams(
@@ -2822,10 +2822,11 @@ public class TransactionsActivity extends AppCompatActivity {
     private TextView createNoteView(
             String note
     ) {
+        String displayNote = createDisplayNote(note);
         TextView noteView =
                 createText(
-                        "Note: " + note,
-                        11,
+                        displayNote,
+                        10,
                         getColorValue(
                                 R.color.app_text_secondary
                         ),
@@ -2838,10 +2839,10 @@ public class TransactionsActivity extends AppCompatActivity {
         );
 
         noteView.setPadding(
-                dp(12),
                 dp(10),
-                dp(12),
-                dp(10)
+                dp(7),
+                dp(10),
+                dp(7)
         );
 
         GradientDrawable background =
@@ -2876,7 +2877,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
         params.setMargins(
                 0,
-                dp(11),
+                dp(8),
                 0,
                 0
         );
@@ -2886,6 +2887,19 @@ public class TransactionsActivity extends AppCompatActivity {
         );
 
         return noteView;
+    }
+
+    private String createDisplayNote(String storedNote) {
+        String safe = safeText(storedNote);
+        String[] parts = safe.split("\\s*•\\s*");
+        StringBuilder visible = new StringBuilder();
+        for (String part : parts) {
+            String item = safeText(part);
+            if (item.isEmpty() || item.startsWith("TRIDEV_EVENT:")) continue;
+            if (visible.length() > 0) visible.append(" • ");
+            visible.append(item);
+        }
+        return visible.length() == 0 ? "Transaction note" : visible.toString();
     }
 
     private TextView createExpenseItemsView(
