@@ -2,7 +2,9 @@ package com.example.moneymanagerpro.utils;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
@@ -11,6 +13,7 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.activities.LoanActivity;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Loan;
 
@@ -100,6 +103,14 @@ public class LoanReminderWorker extends Worker {
 
         createNotificationChannel();
 
+        Intent openLoan = new Intent(getApplicationContext(), LoanActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent openLoanIntent = PendingIntent.getActivity(
+                getApplicationContext(),
+                5000 + loan.getId(),
+                openLoan,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(
                         getApplicationContext(),
@@ -111,6 +122,7 @@ public class LoanReminderWorker extends Worker {
                         .setStyle(new NotificationCompat.BigTextStyle()
                                 .bigText(message))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setContentIntent(openLoanIntent)
                         .setAutoCancel(true);
 
         NotificationManager notificationManager =
