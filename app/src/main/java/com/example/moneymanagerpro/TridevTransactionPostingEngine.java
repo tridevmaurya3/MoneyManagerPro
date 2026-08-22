@@ -385,7 +385,7 @@ public final class TridevTransactionPostingEngine {
         transaction.setCategory(category);
         transaction.setAccount(account);
         transaction.setDate(formatMoneyManagerDate(event));
-        transaction.setNote(buildSafeNote(event));
+        transaction.setNote(buildSafeNote(event, category, account));
         return transaction;
     }
 
@@ -401,12 +401,14 @@ public final class TridevTransactionPostingEngine {
                 .format(new Date(time));
     }
 
-    private String buildSafeNote(TridevIntegrationContract.Event event) {
+    private String buildSafeNote(TridevIntegrationContract.Event event,
+                                 String mappedCategory,
+                                 String mappedAccount) {
         String marker = marker(event.eventId);
         String source = sourceLabel(event.sourceApp);
         String merchant = safeMetadata(event.merchantHint, 60);
-        String category = safeMetadata(event.categoryHint, 50);
-        String account = safeMetadata(event.accountHint, 70);
+        String category = safeMetadata(mappedCategory, 50);
+        String account = safeMetadata(mappedAccount, 70);
         StringBuilder note = new StringBuilder(marker)
                 .append(" • Synced from ")
                 .append(source);
