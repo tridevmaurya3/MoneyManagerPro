@@ -2452,7 +2452,8 @@ public class TransactionsActivity extends AppCompatActivity {
         if (!note.isEmpty()) {
             content.addView(
                     createNoteView(
-                            note
+                            note,
+                            transaction
                     )
             );
         }
@@ -2820,9 +2821,10 @@ public class TransactionsActivity extends AppCompatActivity {
     }
 
     private TextView createNoteView(
-            String note
+            String note,
+            Transaction transaction
     ) {
-        String displayNote = createDisplayNote(note);
+        String displayNote = createDisplayNote(note, transaction);
         TextView noteView =
                 createText(
                         displayNote,
@@ -2889,13 +2891,22 @@ public class TransactionsActivity extends AppCompatActivity {
         return noteView;
     }
 
-    private String createDisplayNote(String storedNote) {
+    private String createDisplayNote(String storedNote, Transaction transaction) {
         String safe = safeText(storedNote);
+        String mappedCategory = safeText(transaction.getCategory());
+        String mappedAccount = safeText(transaction.getAccount());
         String[] parts = safe.split("\\s*•\\s*");
         StringBuilder visible = new StringBuilder();
         for (String part : parts) {
             String item = safeText(part);
             if (item.isEmpty() || item.startsWith("TRIDEV_EVENT:")) continue;
+            if (!mappedCategory.isEmpty()
+                    && item.matches("(?i)Category:\\s*category:\\d+")) {
+                item = "Category: " + mappedCategory;
+            } else if (!mappedAccount.isEmpty()
+                    && item.matches("(?i)Account:\\s*account:\\d+")) {
+                item = "Account: " + mappedAccount;
+            }
             if (visible.length() > 0) visible.append(" • ");
             visible.append(item);
         }
