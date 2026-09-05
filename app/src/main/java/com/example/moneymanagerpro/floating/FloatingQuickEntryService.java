@@ -36,6 +36,7 @@ public final class FloatingQuickEntryService extends Service {
             "money_manager_floating_quick_entry";
     private static final int NOTIFICATION_ID = 7402;
     private static final float MIN_BUBBLE_ALPHA = 0.28f;
+    private static final int BUBBLE_SIZE_DP = 56;
 
     private final Handler uiHandler =
             new Handler(Looper.getMainLooper());
@@ -124,12 +125,12 @@ public final class FloatingQuickEntryService extends Service {
         bubble.setContentDescription(
                 "Money Manager quick entry"
         );
-        bubble.setElevation(dp(9));
+        bubble.setElevation(dp(8));
         bubble.setPadding(
-                dp(7),
-                dp(7),
-                dp(7),
-                dp(7)
+                dp(5),
+                dp(5),
+                dp(5),
+                dp(5)
         );
 
         GradientDrawable halo = new GradientDrawable(
@@ -147,14 +148,13 @@ public final class FloatingQuickEntryService extends Service {
         );
         bubble.setBackground(halo);
 
-        // Keep the Money Manager identity without drawing the launcher icon's
-        // white adaptive-icon background. The rupee foreground sits directly
-        // on the same light-blue halo, matching the other floating controls.
+        // Transparent foreground only: dark-golden rupee directly on the
+        // light-blue halo, with no launcher/white backing layer.
         TextView appIcon = new TextView(this);
         appIcon.setContentDescription(null);
         appIcon.setText("₹");
-        appIcon.setTextColor(Color.parseColor("#355F76"));
-        appIcon.setTextSize(34f);
+        appIcon.setTextColor(Color.parseColor("#8B6508"));
+        appIcon.setTextSize(28f);
         appIcon.setTypeface(
                 appIcon.getTypeface(),
                 android.graphics.Typeface.BOLD
@@ -165,8 +165,8 @@ public final class FloatingQuickEntryService extends Service {
 
         FrameLayout.LayoutParams iconParams =
                 new FrameLayout.LayoutParams(
-                        dp(48),
-                        dp(48),
+                        dp(40),
+                        dp(40),
                         Gravity.CENTER
                 );
         bubble.addView(appIcon, iconParams);
@@ -176,7 +176,7 @@ public final class FloatingQuickEntryService extends Service {
                         .getBubbleAlpha(this)
         );
 
-        int size = dp(66);
+        int size = dp(BUBBLE_SIZE_DP);
         bubbleParams = new WindowManager.LayoutParams(
                 size,
                 size,
@@ -187,7 +187,7 @@ public final class FloatingQuickEntryService extends Service {
         );
         bubbleParams.gravity = Gravity.TOP | Gravity.START;
         bubbleParams.x = getResources()
-                .getDisplayMetrics().widthPixels - dp(86);
+                .getDisplayMetrics().widthPixels - dp(74);
         bubbleParams.y = Math.round(
                 getResources()
                         .getDisplayMetrics()
@@ -513,7 +513,7 @@ public final class FloatingQuickEntryService extends Service {
                     bubbleParams.x - stripWidth - dp(8)
             );
         } else {
-            actionStripParams.x = bubbleParams.x + dp(74);
+            actionStripParams.x = bubbleParams.x + dp(64);
         }
 
         actionStripParams.y = Math.max(
@@ -535,7 +535,7 @@ public final class FloatingQuickEntryService extends Service {
                 .getDisplayMetrics().widthPixels;
         int screenHeight = getResources()
                 .getDisplayMetrics().heightPixels;
-        int size = dp(66);
+        int size = dp(BUBBLE_SIZE_DP);
 
         bubbleParams.x = Math.max(
                 0,
