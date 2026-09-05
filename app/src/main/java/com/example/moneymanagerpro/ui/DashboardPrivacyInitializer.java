@@ -164,6 +164,7 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
     private static final class DashboardPrivacyController {
 
         private static final long IDLE_TIMEOUT_MS = 60_000L;
+        private static final long RUNTIME_DATA_LOCK_DELAY_MS = 350L;
 
         private static final int[] DASHBOARD_DATA_VIEW_IDS = {
                 R.id.txtBalance,
@@ -183,10 +184,20 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                 R.id.txtMonth3Amount
         };
 
+        private static final String[] RUNTIME_DASHBOARD_DATA_TAGS = {
+                "dashboard_reconciliation_center_v1"
+        };
+
         private final Activity activity;
         private final Handler handler =
                 new Handler(Looper.getMainLooper());
         private final Runnable idleLock = this::lock;
+        private final Runnable runtimeDataLock = () -> {
+            if (privacySwitch != null
+                    && !privacySwitch.isChecked()) {
+                setDashboardDataVisible(false);
+            }
+        };
 
         private SwitchMaterial privacySwitch;
         private TextView privacyStatus;
@@ -207,6 +218,7 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
 
         void lock() {
             handler.removeCallbacks(idleLock);
+            handler.removeCallbacks(runtimeDataLock);
             setDashboardDataVisible(false);
 
             if (privacySwitch != null && privacySwitch.isChecked()) {
@@ -216,10 +228,18 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
             }
 
             updatePrivacyStatus(false);
+
+            // Existing Dashboard extensions can inject summary cards just after
+            // onResume(). Re-apply the OFF state once those runtime cards exist.
+            handler.postDelayed(
+                    runtimeDataLock,
+                    RUNTIME_DATA_LOCK_DELAY_MS
+            );
         }
 
         void detach() {
             handler.removeCallbacks(idleLock);
+            handler.removeCallbacks(runtimeDataLock);
 
             Window window = activity.getWindow();
 
@@ -313,7 +333,10 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                     )
             );
             title.setTextSize(14);
-            title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
+            title.setTypeface(
+                    title.getTypeface(),
+                    android.graphics.Typeface.BOLD
+            );
 
             privacyStatus = new TextView(activity);
             privacyStatus.setTextSize(10);
@@ -334,6 +357,7 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                             return;
                         }
 
+                        handler.removeCallbacks(runtimeDataLock);
                         setDashboardDataVisible(isChecked);
                         updatePrivacyStatus(isChecked);
 
@@ -341,6 +365,10 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                             scheduleIdleLock();
                         } else {
                             handler.removeCallbacks(idleLock);
+                            handler.postDelayed(
+                                    runtimeDataLock,
+                                    RUNTIME_DATA_LOCK_DELAY_MS
+                            );
                         }
                     }
             );
@@ -422,6 +450,18 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
 
                 if (dataView != null) {
                     dataView.setVisibility(visibility);
+                }
+            }
+
+            View root = activity.findViewById(android.R.id.content);
+
+            if (root != null) {
+                for (String tag : RUNTIME_DASHBOARD_DATA_TAGS) {
+                    View taggedDataView = root.findViewWithTag(tag);
+
+                    if (taggedDataView != null) {
+                        taggedDataView.setVisibility(visibility);
+                    }
                 }
             }
         }
