@@ -9,6 +9,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,19 +22,19 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.view.WindowCallbackWrapper;
-import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.activities.DashboardActivity;
-import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 
 /**
- * Adds a privacy switch to the Dashboard without changing any finance database,
- * sync, Family Hub or Smart SMS connection logic.
+ * Adds a privacy switch beside the existing "Last 3 Months Overview" heading.
+ * The switch masks financial values only; existing dashboard cards, labels,
+ * database, sync, Family Hub and Smart SMS connection logic stay unchanged.
  */
 public final class DashboardPrivacyInitializer extends ContentProvider {
 
@@ -165,22 +167,20 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
 
         private static final long IDLE_TIMEOUT_MS = 60_000L;
         private static final long RUNTIME_DATA_LOCK_DELAY_MS = 350L;
+        private static final String HEADING_TEXT =
+                "Last 3 Months Overview";
+        private static final String AMOUNT_MASK = "****";
+        private static final String RUNTIME_MASK = "---";
 
-        private static final int[] DASHBOARD_DATA_VIEW_IDS = {
+        private static final int[] FINANCIAL_TEXT_VIEW_IDS = {
                 R.id.txtBalance,
                 R.id.txtIncome,
                 R.id.txtExpense,
                 R.id.txtCash,
                 R.id.txtCardPayments,
                 R.id.txtNetAvailableCash,
-                R.id.txtSelectedPeriod,
-                R.id.txtOverviewMonthLabel,
-                R.id.txtSummarySubtitle,
-                R.id.txtMonth1Title,
                 R.id.txtMonth1Amount,
-                R.id.txtMonth2Title,
                 R.id.txtMonth2Amount,
-                R.id.txtMonth3Title,
                 R.id.txtMonth3Amount
         };
 
@@ -189,17 +189,25 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
         };
 
         private SwitchMaterial privacySwitch;
-        private TextView privacyStatus;
         private boolean changingSwitchState;
+        private boolean dataVisible;
+        private boolean internalTextChange;
 
         private final Activity activity;
         private final Handler handler =
                 new Handler(Looper.getMainLooper());
+        private final Map<TextView, String> actualValues =
+                new HashMap<>();
+        private final Map<TextView, String> maskTokens =
+                new HashMap<>();
+        private final Map<TextView, TextWatcher> textWatchers =
+                new HashMap<>();
+
         private final Runnable idleLock = this::lock;
         private final Runnable runtimeDataLock = () -> {
-            if (privacySwitch != null
-                    && !privacySwitch.isChecked()) {
-                setDashboardDataVisible(false);
+            if (!dataVisible) {
+                registerRuntimeDashboardDataViews();
+                applyFinancialMask(false);
             }
         };
 
@@ -211,7 +219,8 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
         }
 
         void attachAndLock() {
-            ensurePrivacyCard();
+            ensurePrivacySwitchBesideHeading();
+            registerKnownFinancialViews();
             ensureInteractionTracking();
             lock();
         }
@@ -219,7 +228,11 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
         void lock() {
             handler.removeCallbacks(idleLock);
             handler.removeCallbacks(runtimeDataLock);
-            setDashboardDataVisible(false);
+
+            dataVisible = false;
+            registerKnownFinancialViews();
+            registerRuntimeDashboardDataViews();
+            applyFinancialMask(false);
 
             if (privacySwitch != null && privacySwitch.isChecked()) {
                 changingSwitchState = true;
@@ -227,10 +240,8 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                 changingSwitchState = false;
             }
 
-            updatePrivacyStatus(false);
-
-            // Existing Dashboard extensions can inject summary cards just after
-            // onResume(). Re-apply the OFF state once those runtime cards exist.
+            // Some existing dashboard extensions inject their values just after
+            // onResume(). Re-apply the mask after those runtime views appear.
             handler.postDelayed(
                     runtimeDataLock,
                     RUNTIME_DATA_LOCK_DELAY_MS
@@ -240,6 +251,17 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
         void detach() {
             handler.removeCallbacks(idleLock);
             handler.removeCallbacks(runtimeDataLock);
+
+            for (Map.Entry<TextView, TextWatcher> entry
+                    : textWatchers.entrySet()) {
+                entry.getKey().removeTextChangedListener(
+                        entry.getValue()
+                );
+            }
+
+            textWatchers.clear();
+            actualValues.clear();
+            maskTokens.clear();
 
             Window window = activity.getWindow();
 
@@ -254,103 +276,94 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
             privacyWindowCallback = null;
         }
 
-        private void ensurePrivacyCard() {
+        private void ensurePrivacySwitchBesideHeading() {
             if (privacySwitch != null) {
                 return;
             }
 
-            View thirdMonthCard =
-                    activity.findViewById(R.id.cardMonth3);
+            View root = activity.findViewById(android.R.id.content);
+            TextView heading = findTextViewByText(
+                    root,
+                    HEADING_TEXT
+            );
 
-            if (thirdMonthCard == null) {
+            if (heading == null) {
                 return;
             }
 
-            ViewParent rowParent = thirdMonthCard.getParent();
+            ViewParent parent = heading.getParent();
 
-            if (!(rowParent instanceof View)) {
-                return;
-            }
-
-            View monthsRow = (View) rowParent;
-            ViewParent containerParent = monthsRow.getParent();
-
-            if (!(containerParent instanceof LinearLayout)) {
+            if (!(parent instanceof LinearLayout)) {
                 return;
             }
 
             LinearLayout dashboardContainer =
-                    (LinearLayout) containerParent;
+                    (LinearLayout) parent;
+            int headingIndex =
+                    dashboardContainer.indexOfChild(heading);
 
-            MaterialCardView privacyCard =
-                    new MaterialCardView(activity);
-            privacyCard.setCardBackgroundColor(
-                    ContextCompat.getColor(
-                            activity,
-                            R.color.app_surface
-                    )
+            if (headingIndex < 0) {
+                return;
+            }
+
+            ViewGroup.LayoutParams oldParams =
+                    heading.getLayoutParams();
+
+            LinearLayout headingRow =
+                    new LinearLayout(activity);
+            headingRow.setOrientation(LinearLayout.HORIZONTAL);
+            headingRow.setGravity(
+                    android.view.Gravity.CENTER_VERTICAL
             );
-            privacyCard.setRadius(dp(16));
-            privacyCard.setCardElevation(dp(1));
-            privacyCard.setStrokeWidth(dp(1));
-            privacyCard.setStrokeColor(
-                    ContextCompat.getColor(
-                            activity,
-                            R.color.app_outline_soft
-                    )
+            headingRow.setTag(
+                    "dashboard_privacy_heading_row_v2"
             );
 
-            LinearLayout.LayoutParams cardParams =
+            LinearLayout.LayoutParams rowParams =
                     new LinearLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT
                     );
-            cardParams.setMargins(0, dp(10), 0, 0);
-            privacyCard.setLayoutParams(cardParams);
 
-            LinearLayout content = new LinearLayout(activity);
-            content.setOrientation(LinearLayout.HORIZONTAL);
-            content.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            content.setPadding(dp(14), dp(12), dp(12), dp(12));
+            if (oldParams instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams margins =
+                        (ViewGroup.MarginLayoutParams) oldParams;
+                rowParams.setMargins(
+                        margins.leftMargin,
+                        margins.topMargin,
+                        margins.rightMargin,
+                        margins.bottomMargin
+                );
+            }
 
-            LinearLayout labels = new LinearLayout(activity);
-            labels.setOrientation(LinearLayout.VERTICAL);
+            dashboardContainer.removeViewAt(headingIndex);
 
-            LinearLayout.LayoutParams labelParams =
+            LinearLayout.LayoutParams headingParams =
                     new LinearLayout.LayoutParams(
                             0,
                             ViewGroup.LayoutParams.WRAP_CONTENT,
                             1f
                     );
-            labels.setLayoutParams(labelParams);
-
-            TextView title = new TextView(activity);
-            title.setText("Dashboard Privacy");
-            title.setTextColor(
-                    ContextCompat.getColor(
-                            activity,
-                            R.color.app_text_primary
-                    )
-            );
-            title.setTextSize(14);
-            title.setTypeface(
-                    title.getTypeface(),
-                    android.graphics.Typeface.BOLD
-            );
-
-            privacyStatus = new TextView(activity);
-            privacyStatus.setTextSize(10);
-            privacyStatus.setPadding(0, dp(3), 0, 0);
-
-            labels.addView(title);
-            labels.addView(privacyStatus);
+            heading.setLayoutParams(headingParams);
 
             privacySwitch = new SwitchMaterial(activity);
+            privacySwitch.setTag(
+                    "dashboard_privacy_switch_v2"
+            );
             privacySwitch.setContentDescription(
-                    "Show or hide dashboard financial data"
+                    "Show or mask dashboard financial data"
             );
             privacySwitch.setChecked(false);
             privacySwitch.setUseMaterialThemeColors(true);
+
+            LinearLayout.LayoutParams switchParams =
+                    new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                    );
+            switchParams.setMarginStart(dp(8));
+            privacySwitch.setLayoutParams(switchParams);
+
             privacySwitch.setOnCheckedChangeListener(
                     (buttonView, isChecked) -> {
                         if (changingSwitchState) {
@@ -358,8 +371,7 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                         }
 
                         handler.removeCallbacks(runtimeDataLock);
-                        setDashboardDataVisible(isChecked);
-                        updatePrivacyStatus(isChecked);
+                        setFinancialDataVisible(isChecked);
 
                         if (isChecked) {
                             scheduleIdleLock();
@@ -373,22 +385,275 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                     }
             );
 
-            content.addView(labels);
-            content.addView(privacySwitch);
-            privacyCard.addView(content);
+            headingRow.addView(heading);
+            headingRow.addView(privacySwitch);
 
-            int rowIndex = dashboardContainer.indexOfChild(monthsRow);
+            dashboardContainer.addView(
+                    headingRow,
+                    headingIndex,
+                    rowParams
+            );
+        }
 
-            if (rowIndex < 0) {
+        private TextView findTextViewByText(
+                View view,
+                String targetText
+        ) {
+            if (view == null) {
+                return null;
+            }
+
+            if (view instanceof TextView) {
+                TextView textView = (TextView) view;
+
+                if (targetText.contentEquals(textView.getText())) {
+                    return textView;
+                }
+            }
+
+            if (!(view instanceof ViewGroup)) {
+                return null;
+            }
+
+            ViewGroup group = (ViewGroup) view;
+
+            for (int index = 0;
+                 index < group.getChildCount();
+                 index++) {
+                TextView match = findTextViewByText(
+                        group.getChildAt(index),
+                        targetText
+                );
+
+                if (match != null) {
+                    return match;
+                }
+            }
+
+            return null;
+        }
+
+        private void registerKnownFinancialViews() {
+            for (int viewId : FINANCIAL_TEXT_VIEW_IDS) {
+                View view = activity.findViewById(viewId);
+
+                if (view instanceof TextView) {
+                    registerMaskedTextView(
+                            (TextView) view,
+                            AMOUNT_MASK
+                    );
+                }
+            }
+        }
+
+        private void registerRuntimeDashboardDataViews() {
+            View root = activity.findViewById(android.R.id.content);
+
+            if (root == null) {
                 return;
             }
 
-            dashboardContainer.addView(
-                    privacyCard,
-                    rowIndex + 1
-            );
+            for (String tag : RUNTIME_DASHBOARD_DATA_TAGS) {
+                View taggedView = root.findViewWithTag(tag);
 
-            updatePrivacyStatus(false);
+                if (taggedView != null) {
+                    registerSensitiveRuntimeTextViews(
+                            taggedView
+                    );
+                }
+            }
+        }
+
+        private void registerSensitiveRuntimeTextViews(View view) {
+            if (view instanceof TextView) {
+                TextView textView = (TextView) view;
+                String value = String.valueOf(
+                        textView.getText()
+                );
+
+                if (looksSensitive(value)) {
+                    registerMaskedTextView(
+                            textView,
+                            RUNTIME_MASK
+                    );
+                }
+
+                return;
+            }
+
+            if (!(view instanceof ViewGroup)) {
+                return;
+            }
+
+            ViewGroup group = (ViewGroup) view;
+
+            for (int index = 0;
+                 index < group.getChildCount();
+                 index++) {
+                registerSensitiveRuntimeTextViews(
+                        group.getChildAt(index)
+                );
+            }
+        }
+
+        private boolean looksSensitive(String value) {
+            if (value == null || value.trim().isEmpty()) {
+                return false;
+            }
+
+            for (int index = 0;
+                 index < value.length();
+                 index++) {
+                char character = value.charAt(index);
+
+                if (Character.isDigit(character)
+                        || character == '₹'
+                        || character == '$'
+                        || character == '€'
+                        || character == '£') {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void registerMaskedTextView(
+                TextView textView,
+                String mask
+        ) {
+            if (maskTokens.containsKey(textView)) {
+                return;
+            }
+
+            actualValues.put(
+                    textView,
+                    String.valueOf(textView.getText())
+            );
+            maskTokens.put(textView, mask);
+
+            TextWatcher watcher = new TextWatcher() {
+                @Override
+                public void beforeTextChanged(
+                        CharSequence sequence,
+                        int start,
+                        int count,
+                        int after
+                ) {
+                }
+
+                @Override
+                public void onTextChanged(
+                        CharSequence sequence,
+                        int start,
+                        int before,
+                        int count
+                ) {
+                }
+
+                @Override
+                public void afterTextChanged(Editable editable) {
+                    if (internalTextChange) {
+                        return;
+                    }
+
+                    String currentText =
+                            editable == null
+                                    ? ""
+                                    : editable.toString();
+                    String currentMask =
+                            maskTokens.get(textView);
+
+                    if (dataVisible) {
+                        actualValues.put(
+                                textView,
+                                currentText
+                        );
+                        return;
+                    }
+
+                    if (currentMask == null
+                            || currentMask.equals(currentText)) {
+                        return;
+                    }
+
+                    // Dashboard data can refresh asynchronously while privacy is
+                    // OFF. Keep the newest real value privately, then re-mask it.
+                    actualValues.put(
+                            textView,
+                            currentText
+                    );
+                    setTextInternally(
+                            textView,
+                            currentMask
+                    );
+                }
+            };
+
+            textView.addTextChangedListener(watcher);
+            textWatchers.put(textView, watcher);
+
+            if (!dataVisible) {
+                setTextInternally(textView, mask);
+            }
+        }
+
+        private void setFinancialDataVisible(boolean visible) {
+            dataVisible = visible;
+            registerKnownFinancialViews();
+            registerRuntimeDashboardDataViews();
+            applyFinancialMask(visible);
+        }
+
+        private void applyFinancialMask(boolean visible) {
+            for (Map.Entry<TextView, String> entry
+                    : maskTokens.entrySet()) {
+                TextView textView = entry.getKey();
+                String mask = entry.getValue();
+
+                if (visible) {
+                    String actualValue =
+                            actualValues.get(textView);
+
+                    if (actualValue != null) {
+                        setTextInternally(
+                                textView,
+                                actualValue
+                        );
+                    }
+
+                    continue;
+                }
+
+                String currentText =
+                        String.valueOf(textView.getText());
+
+                if (!mask.equals(currentText)) {
+                    actualValues.put(
+                            textView,
+                            currentText
+                    );
+                }
+
+                setTextInternally(textView, mask);
+            }
+        }
+
+        private void setTextInternally(
+                TextView textView,
+                String value
+        ) {
+            if (value.contentEquals(textView.getText())) {
+                return;
+            }
+
+            internalTextChange = true;
+
+            try {
+                textView.setText(value);
+            } finally {
+                internalTextChange = false;
+            }
         }
 
         private void ensureInteractionTracking() {
@@ -437,53 +702,6 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
             handler.postDelayed(
                     idleLock,
                     IDLE_TIMEOUT_MS
-            );
-        }
-
-        private void setDashboardDataVisible(boolean visible) {
-            int visibility = visible
-                    ? View.VISIBLE
-                    : View.INVISIBLE;
-
-            for (int viewId : DASHBOARD_DATA_VIEW_IDS) {
-                View dataView = activity.findViewById(viewId);
-
-                if (dataView != null) {
-                    dataView.setVisibility(visibility);
-                }
-            }
-
-            View root = activity.findViewById(android.R.id.content);
-
-            if (root != null) {
-                for (String tag : RUNTIME_DASHBOARD_DATA_TAGS) {
-                    View taggedDataView = root.findViewWithTag(tag);
-
-                    if (taggedDataView != null) {
-                        taggedDataView.setVisibility(visibility);
-                    }
-                }
-            }
-        }
-
-        private void updatePrivacyStatus(boolean visible) {
-            if (privacyStatus == null) {
-                return;
-            }
-
-            privacyStatus.setText(
-                    visible
-                            ? "Visible • auto-locks after 1 minute idle"
-                            : "Hidden • switch on to show dashboard data"
-            );
-
-            privacyStatus.setTextColor(
-                    ContextCompat.getColor(
-                            activity,
-                            visible
-                                    ? R.color.success
-                                    : R.color.app_text_secondary
-                    )
             );
         }
 
