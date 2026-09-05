@@ -36,7 +36,7 @@ public final class FloatingQuickEntryService extends Service {
             "money_manager_floating_quick_entry";
     private static final int NOTIFICATION_ID = 7402;
     private static final float MIN_BUBBLE_ALPHA = 0.28f;
-    private static final int BUBBLE_SIZE_DP = 56;
+    private static final int BUBBLE_SIZE_DP = 50;
 
     private final Handler uiHandler =
             new Handler(Looper.getMainLooper());
@@ -127,34 +127,34 @@ public final class FloatingQuickEntryService extends Service {
         );
         bubble.setElevation(dp(8));
         bubble.setPadding(
-                dp(5),
-                dp(5),
-                dp(5),
-                dp(5)
+                dp(4),
+                dp(4),
+                dp(4),
+                dp(4)
         );
 
         GradientDrawable halo = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 new int[]{
-                        Color.parseColor("#55B9DDF6"),
-                        Color.parseColor("#468BC7F3"),
-                        Color.parseColor("#3375B9EA")
+                        Color.parseColor("#66D4ECFC"),
+                        Color.parseColor("#55A7D4F5"),
+                        Color.parseColor("#4489C2EF")
                 }
         );
         halo.setShape(GradientDrawable.OVAL);
         halo.setStroke(
                 dp(1),
-                Color.parseColor("#749AC7E5")
+                Color.parseColor("#9ACAE8FA")
         );
         bubble.setBackground(halo);
 
-        // Transparent foreground only: dark-golden rupee directly on the
+        // Transparent foreground only: bright-golden rupee directly on the
         // light-blue halo, with no launcher/white backing layer.
         TextView appIcon = new TextView(this);
         appIcon.setContentDescription(null);
         appIcon.setText("₹");
-        appIcon.setTextColor(Color.parseColor("#8B6508"));
-        appIcon.setTextSize(28f);
+        appIcon.setTextColor(Color.parseColor("#FFC107"));
+        appIcon.setTextSize(27f);
         appIcon.setTypeface(
                 appIcon.getTypeface(),
                 android.graphics.Typeface.BOLD
@@ -162,11 +162,17 @@ public final class FloatingQuickEntryService extends Service {
         appIcon.setGravity(Gravity.CENTER);
         appIcon.setBackgroundColor(Color.TRANSPARENT);
         appIcon.setIncludeFontPadding(false);
+        appIcon.setShadowLayer(
+                dp(1),
+                0f,
+                dp(1),
+                Color.parseColor("#7A4A00")
+        );
 
         FrameLayout.LayoutParams iconParams =
                 new FrameLayout.LayoutParams(
-                        dp(40),
-                        dp(40),
+                        dp(36),
+                        dp(36),
                         Gravity.CENTER
                 );
         bubble.addView(appIcon, iconParams);
@@ -187,7 +193,7 @@ public final class FloatingQuickEntryService extends Service {
         );
         bubbleParams.gravity = Gravity.TOP | Gravity.START;
         bubbleParams.x = getResources()
-                .getDisplayMetrics().widthPixels - dp(74);
+                .getDisplayMetrics().widthPixels - dp(66);
         bubbleParams.y = Math.round(
                 getResources()
                         .getDisplayMetrics()
@@ -513,7 +519,7 @@ public final class FloatingQuickEntryService extends Service {
                     bubbleParams.x - stripWidth - dp(8)
             );
         } else {
-            actionStripParams.x = bubbleParams.x + dp(64);
+            actionStripParams.x = bubbleParams.x + dp(58);
         }
 
         actionStripParams.y = Math.max(
