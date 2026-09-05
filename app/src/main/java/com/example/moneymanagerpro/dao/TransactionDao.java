@@ -126,11 +126,29 @@ public interface TransactionDao {
             String endDate
     );
 
-    @Query("SELECT COALESCE(SUM(amount), 0) " +
-            "FROM transactions " +
-            "WHERE type = 'EXPENSE' " +
-            "AND category = :category " +
-            "AND date BETWEEN :startDate AND :endDate")
+    /**
+     * Budget matching is intentionally source-agnostic. A budget keyword can
+     * match the expense category, payment account, transaction note/merchant,
+     * or any attached expense item's name/unit. EXISTS keeps one transaction
+     * from being counted more than once when several item rows match.
+     */
+    @Query("SELECT COALESCE(SUM(t.amount), 0) " +
+            "FROM transactions AS t " +
+            "WHERE UPPER(TRIM(t.type)) = 'EXPENSE' " +
+            "AND t.date BETWEEN :startDate AND :endDate " +
+            "AND (" +
+            "instr(LOWER(COALESCE(t.category, '')), LOWER(TRIM(:category))) > 0 " +
+            "OR instr(LOWER(COALESCE(t.account, '')), LOWER(TRIM(:category))) > 0 " +
+            "OR instr(LOWER(COALESCE(t.note, '')), LOWER(TRIM(:category))) > 0 " +
+            "OR EXISTS (" +
+            "SELECT 1 FROM expense_items AS ei " +
+            "WHERE ei.transactionId = t.id " +
+            "AND (" +
+            "instr(LOWER(COALESCE(ei.itemName, '')), LOWER(TRIM(:category))) > 0 " +
+            "OR instr(LOWER(COALESCE(ei.unit, '')), LOWER(TRIM(:category))) > 0" +
+            ")" +
+            ")" +
+            ")")
     double getExpenseTotalForCategoryPeriod(
             String category,
             String startDate,
