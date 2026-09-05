@@ -188,6 +188,10 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                 "dashboard_reconciliation_center_v1"
         };
 
+        private SwitchMaterial privacySwitch;
+        private TextView privacyStatus;
+        private boolean changingSwitchState;
+
         private final Activity activity;
         private final Handler handler =
                 new Handler(Looper.getMainLooper());
@@ -198,10 +202,6 @@ public final class DashboardPrivacyInitializer extends ContentProvider {
                 setDashboardDataVisible(false);
             }
         };
-
-        private SwitchMaterial privacySwitch;
-        private TextView privacyStatus;
-        private boolean changingSwitchState;
 
         private Window.Callback originalWindowCallback;
         private Window.Callback privacyWindowCallback;
