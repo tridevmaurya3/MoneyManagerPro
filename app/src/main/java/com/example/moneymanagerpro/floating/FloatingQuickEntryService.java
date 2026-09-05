@@ -47,6 +47,7 @@ public final class FloatingQuickEntryService extends Service {
     private WindowManager.LayoutParams bubbleParams;
     private WindowManager.LayoutParams actionStripParams;
     private int actionStripWidthPx;
+    private FloatingQuickEntryFormOverlay entryForm;
 
     @Override
     public void onCreate() {
@@ -92,6 +93,11 @@ public final class FloatingQuickEntryService extends Service {
     public void onDestroy() {
         uiHandler.removeCallbacksAndMessages(null);
         hideActionStrip();
+
+        if (entryForm != null) {
+            entryForm.dismiss();
+            entryForm = null;
+        }
 
         if (windowManager != null && bubbleView != null) {
             try {
@@ -245,18 +251,14 @@ public final class FloatingQuickEntryService extends Service {
                 createAction(
                         "+  Add Income",
                         Color.parseColor("#107C10"),
-                        view -> openEntry(
-                                FloatingAddIncomeActivity.class
-                        )
+                        view -> openEntry(false)
                 )
         );
         strip.addView(
                 createAction(
                         "−  Add Expense",
                         Color.parseColor("#C42B1C"),
-                        view -> openEntry(
-                                FloatingAddExpenseActivity.class
-                        )
+                        view -> openEntry(true)
                 )
         );
         strip.addView(
@@ -451,15 +453,23 @@ public final class FloatingQuickEntryService extends Service {
         return action;
     }
 
-    private void openEntry(Class<?> activityClass) {
+    private void openEntry(boolean expense) {
         hideActionStrip();
 
-        Intent intent = new Intent(this, activityClass);
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+        if (entryForm != null) {
+            entryForm.dismiss();
+        }
+
+        entryForm = new FloatingQuickEntryFormOverlay(
+                this,
+                expense,
+                overlay -> {
+                    if (entryForm == overlay) {
+                        entryForm = null;
+                    }
+                }
         );
-        startActivity(intent);
+        entryForm.show();
     }
 
     private void hideActionStrip() {
