@@ -21,7 +21,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -136,26 +135,33 @@ public final class FloatingQuickEntryService extends Service {
         GradientDrawable halo = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 new int[]{
-                        Color.parseColor("#55C9F3D7"),
-                        Color.parseColor("#469EE8BC"),
-                        Color.parseColor("#338CCBFA")
+                        Color.parseColor("#55B9DDF6"),
+                        Color.parseColor("#468BC7F3"),
+                        Color.parseColor("#3375B9EA")
                 }
         );
         halo.setShape(GradientDrawable.OVAL);
         halo.setStroke(
                 dp(1),
-                Color.parseColor("#8AB8E2C5")
+                Color.parseColor("#749AC7E5")
         );
         bubble.setBackground(halo);
 
-        ImageView appIcon = new ImageView(this);
+        // Keep the Money Manager identity without drawing the launcher icon's
+        // white adaptive-icon background. The rupee foreground sits directly
+        // on the same light-blue halo, matching the other floating controls.
+        TextView appIcon = new TextView(this);
         appIcon.setContentDescription(null);
-        appIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        appIcon.setImageDrawable(
-                getApplicationInfo().loadIcon(
-                        getPackageManager()
-                )
+        appIcon.setText("₹");
+        appIcon.setTextColor(Color.parseColor("#355F76"));
+        appIcon.setTextSize(34f);
+        appIcon.setTypeface(
+                appIcon.getTypeface(),
+                android.graphics.Typeface.BOLD
         );
+        appIcon.setGravity(Gravity.CENTER);
+        appIcon.setBackgroundColor(Color.TRANSPARENT);
+        appIcon.setIncludeFontPadding(false);
 
         FrameLayout.LayoutParams iconParams =
                 new FrameLayout.LayoutParams(
@@ -470,6 +476,9 @@ public final class FloatingQuickEntryService extends Service {
                 }
         );
         entryForm.show();
+        if (expense) {
+            FloatingQuickEntryLayoutPolish.apply(entryForm);
+        }
     }
 
     private void hideActionStrip() {
