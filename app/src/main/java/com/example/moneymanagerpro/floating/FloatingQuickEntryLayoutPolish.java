@@ -15,7 +15,8 @@ import java.lang.reflect.Field;
  * Presentation-only polish for the floating expense form.
  *
  * Keeps the existing save/data logic untouched while moving the existing
- * + Item action under the item list so it naturally follows newly added rows.
+ * + Item action under the item list and keeping compact item controls fully
+ * visible inside the small overlay.
  */
 final class FloatingQuickEntryLayoutPolish {
 
@@ -47,6 +48,7 @@ final class FloatingQuickEntryLayoutPolish {
 
             LinearLayout body = (LinearLayout) itemParent;
             if (FOOTER_TAG.equals(body.getTag())) {
+                polishAllItemCards(itemsContainer);
                 return;
             }
             body.setTag(FOOTER_TAG);
@@ -124,10 +126,13 @@ final class FloatingQuickEntryLayoutPolish {
                     dp(context, 6)
             );
 
+            polishAllItemCards(itemsContainer);
+
             itemsContainer.setOnHierarchyChangeListener(
                     new ViewGroup.OnHierarchyChangeListener() {
                         @Override
                         public void onChildViewAdded(View parent, View child) {
+                            polishItemCard(child);
                             footer.post(() -> {
                                 body.requestLayout();
                                 int target = Math.max(
@@ -154,6 +159,71 @@ final class FloatingQuickEntryLayoutPolish {
         }
     }
 
+    private static void polishAllItemCards(LinearLayout itemsContainer) {
+        for (int i = 0; i < itemsContainer.getChildCount(); i++) {
+            polishItemCard(itemsContainer.getChildAt(i));
+        }
+    }
+
+    /**
+     * The compact form originally placed Qty / Unit / Price in 34dp slots,
+     * while Android text controls can retain a larger internal minimum height.
+     * That made the lower rounded edge look cut off. Keep the row compact, but
+     * give it a real 38dp content height and remove hidden minimum-height/padding
+     * pressure from the three child controls.
+     */
+    private static void polishItemCard(View cardView) {
+        if (!(cardView instanceof ViewGroup)) {
+            return;
+        }
+
+        ViewGroup card = (ViewGroup) cardView;
+        if (card.getChildCount() < 2) {
+            return;
+        }
+
+        View detailCandidate = card.getChildAt(1);
+        if (!(detailCandidate instanceof ViewGroup)) {
+            return;
+        }
+
+        ViewGroup detailRow = (ViewGroup) detailCandidate;
+        Context context = card.getContext();
+
+        ViewGroup.LayoutParams detailParams = detailRow.getLayoutParams();
+        if (detailParams != null) {
+            detailParams.height = dp(context, 40);
+            detailRow.setLayoutParams(detailParams);
+        }
+        detailRow.setClipChildren(false);
+        detailRow.setClipToPadding(false);
+
+        for (int i = 0; i < detailRow.getChildCount(); i++) {
+            View control = detailRow.getChildAt(i);
+            control.setMinimumHeight(0);
+            ViewGroup.LayoutParams controlParams = control.getLayoutParams();
+            if (controlParams != null) {
+                controlParams.height = dp(context, 38);
+                control.setLayoutParams(controlParams);
+            }
+            if (control instanceof TextView) {
+                TextView text = (TextView) control;
+                text.setIncludeFontPadding(false);
+                text.setGravity(Gravity.CENTER_VERTICAL);
+                text.setPadding(
+                        dp(context, 9),
+                        0,
+                        dp(context, 8),
+                        0
+                );
+            }
+        }
+
+        card.setClipChildren(false);
+        card.setClipToPadding(false);
+        card.requestLayout();
+    }
+
     private static Object readField(
             FloatingQuickEntryFormOverlay overlay,
             String name
@@ -167,8 +237,7 @@ final class FloatingQuickEntryLayoutPolish {
         return Math.round(
                 value
                         * context.getResources()
-                        .getDisplayMetrics()
-                        .density
+                        .getDisplayMetrics().density
         );
     }
 }
