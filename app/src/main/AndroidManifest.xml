@@ -3,6 +3,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission
@@ -77,6 +80,12 @@
             android:initOrder="149" />
 
         <provider
+            android:name=".floating.FloatingQuickEntryInitializer"
+            android:authorities="${applicationId}.floating_quick_entry_initializer"
+            android:exported="false"
+            android:initOrder="144" />
+
+        <provider
             android:name=".ui.DashboardPrivacyInitializer"
             android:authorities="${applicationId}.dashboard_privacy_initializer"
             android:exported="false"
@@ -139,6 +148,27 @@
             android:authorities="${applicationId}.ai_budget_planner_initializer"
             android:exported="false"
             android:initOrder="90" />
+
+        <service
+            android:name=".floating.FloatingQuickEntryService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-enabled always-on Money Manager income and expense quick entry" />
+        </service>
+
+        <activity
+            android:name=".floating.FloatingAddIncomeActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@style/Theme.MoneyManagerPro.FloatingEntry" />
+        <activity
+            android:name=".floating.FloatingAddExpenseActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@style/Theme.MoneyManagerPro.FloatingEntry" />
 
         <activity android:name=".activities.FinanceIntelligenceHubActivity" android:exported="false" />
         <activity android:name=".activities.AdvancedFinanceDataActivity" android:exported="false" />
