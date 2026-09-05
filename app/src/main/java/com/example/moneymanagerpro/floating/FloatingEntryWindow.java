@@ -4,28 +4,25 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.PopupWindow;
-import android.widget.SeekBar;
 import android.widget.TextView;
 
+import com.example.moneymanagerpro.R;
+
 /**
- * Applies only to the floating subclasses. The original income/expense
- * activities and their database/save behavior remain untouched.
+ * Floating-only presentation for the existing Add Income / Add Expense
+ * activities. Their original fields, validation, database writes and save
+ * behavior remain untouched.
  */
 final class FloatingEntryWindow {
-
-    private static final float MIN_ALPHA = 0.38f;
-    private static final float MAX_ALPHA = 1.0f;
 
     private FloatingEntryWindow() {
     }
@@ -57,15 +54,15 @@ final class FloatingEntryWindow {
                 window.getAttributes();
         attributes.width = Math.min(
                 screenWidth - dp(activity, 20),
-                Math.round(screenWidth * 0.94f)
+                Math.round(screenWidth * 0.92f)
         );
         attributes.height = Math.min(
                 screenHeight - dp(activity, 34),
-                Math.round(screenHeight * 0.86f)
+                Math.round(screenHeight * 0.82f)
         );
         attributes.gravity = Gravity.CENTER;
         attributes.dimAmount = 0.18f;
-        attributes.alpha = MAX_ALPHA;
+        attributes.alpha = 1.0f;
         window.setAttributes(attributes);
 
         activity.setFinishOnTouchOutside(true);
@@ -93,7 +90,7 @@ final class FloatingEntryWindow {
                             }
                     );
             formBackground.setCornerRadius(
-                    dp(activity, 24)
+                    dp(activity, 22)
             );
             formBackground.setStroke(
                     dp(activity, 1),
@@ -103,10 +100,339 @@ final class FloatingEntryWindow {
             formRoot.setClipToOutline(true);
         }
 
+        compactFormPresentation(activity, content);
         addCloseControl(activity, content);
-        addTransparencyControl(activity, content);
         addResizeHandles(activity, content);
         addMoveHandle(activity, content);
+    }
+
+    private static void compactFormPresentation(
+            Activity activity,
+            ViewGroup content
+    ) {
+        View back = activity.findViewById(R.id.btnBack);
+        if (back != null) {
+            back.setVisibility(View.GONE);
+        }
+
+        hideNearestCardContainingText(
+                content,
+                "Income Entry"
+        );
+        hideNearestCardContainingText(
+                content,
+                "Expense Entry"
+        );
+        hideNearestCardContainingText(
+                content,
+                "The selected account balance will increase after this income is saved."
+        );
+        hideNearestCardContainingText(
+                content,
+                "The selected account balance will decrease after this expense is saved."
+        );
+
+        String[] helperTexts = {
+                "Record money received in one of your accounts.",
+                "Record money spent from one of your accounts.",
+                "Income Details",
+                "Expense Details",
+                "Enter the amount and select where the money was received",
+                "Enter the amount and choose the account used for payment",
+                "Enter the total amount you received",
+                "Enter the total amount you paid",
+                "Select the source of this income",
+                "Choose the account where this money was received",
+                "Example: Oil → 1 litre × price per litre. Add another row for Potatoes → 1 kg × price per kg.",
+                "Select what this money was spent on",
+                "Choose the account used to make this payment",
+                "Enter a UPI ID manually or scan a payment QR code to fill the receiver details automatically.",
+                "Tap the field to choose a different date",
+                "Optional information about this income",
+                "Optional information about this expense",
+                "Optionally attach the shop bill or payment receipt",
+                "Select an image from your device"
+        };
+
+        for (String text : helperTexts) {
+            hideTextExact(content, text);
+        }
+
+        View formRoot = content.getChildCount() > 0
+                ? content.getChildAt(0)
+                : null;
+        if (formRoot instanceof ViewGroup) {
+            ViewGroup rootGroup = (ViewGroup) formRoot;
+            if (rootGroup.getChildCount() > 0) {
+                View inner = rootGroup.getChildAt(0);
+                inner.setPadding(
+                        dp(activity, 12),
+                        dp(activity, 28),
+                        dp(activity, 12),
+                        dp(activity, 14)
+                );
+            }
+        }
+
+        compactMargins(activity, content);
+
+        setMinimumHeight(
+                activity,
+                content,
+                R.id.etAmount,
+                48
+        );
+        setMinimumHeight(
+                activity,
+                content,
+                R.id.dropdownCategory,
+                48
+        );
+        setMinimumHeight(
+                activity,
+                content,
+                R.id.dropdownAccount,
+                48
+        );
+        setMinimumHeight(
+                activity,
+                content,
+                R.id.etDate,
+                48
+        );
+        setMinimumHeight(
+                activity,
+                content,
+                R.id.etNote,
+                72
+        );
+        setMinimumHeight(
+                activity,
+                content,
+                R.id.dropdownUpiEntryMode,
+                46
+        );
+        setMinimumHeight(
+                activity,
+                content,
+                R.id.etUpiPayeeId,
+                46
+        );
+        setMinimumHeight(
+                activity,
+                content,
+                R.id.etUpiPayeeName,
+                46
+        );
+
+        capFixedHeight(
+                activity,
+                content,
+                R.id.btnSaveIncome,
+                50
+        );
+        capFixedHeight(
+                activity,
+                content,
+                R.id.btnSaveExpense,
+                50
+        );
+        capFixedHeight(
+                activity,
+                content,
+                R.id.btnMoreItem,
+                44
+        );
+        capFixedHeight(
+                activity,
+                content,
+                R.id.btnPayWithUpi,
+                46
+        );
+        capFixedHeight(
+                activity,
+                content,
+                R.id.btnAttachReceipt,
+                46
+        );
+    }
+
+    private static void hideNearestCardContainingText(
+            View root,
+            String text
+    ) {
+        TextView target = findTextViewExact(root, text);
+
+        if (target == null) {
+            return;
+        }
+
+        View current = target;
+
+        while (current != null) {
+            String className = current
+                    .getClass()
+                    .getName();
+
+            if (className.contains("MaterialCardView")) {
+                current.setVisibility(View.GONE);
+                return;
+            }
+
+            ViewParent parent = current.getParent();
+            current = parent instanceof View
+                    ? (View) parent
+                    : null;
+        }
+    }
+
+    private static void hideTextExact(
+            View root,
+            String text
+    ) {
+        TextView target = findTextViewExact(root, text);
+        if (target != null) {
+            target.setVisibility(View.GONE);
+        }
+    }
+
+    private static TextView findTextViewExact(
+            View root,
+            String text
+    ) {
+        if (root instanceof TextView) {
+            TextView textView = (TextView) root;
+            CharSequence value = textView.getText();
+
+            if (value != null
+                    && value.toString().trim().equals(text)) {
+                return textView;
+            }
+        }
+
+        if (root instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) root;
+
+            for (int index = 0;
+                 index < group.getChildCount();
+                 index++) {
+                TextView found = findTextViewExact(
+                        group.getChildAt(index),
+                        text
+                );
+
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static void compactMargins(
+            Activity activity,
+            ViewGroup group
+    ) {
+        if (group.getClass()
+                .getName()
+                .contains("TextInputLayout")) {
+            return;
+        }
+
+        for (int index = 0;
+             index < group.getChildCount();
+             index++) {
+            View child = group.getChildAt(index);
+            ViewGroup.LayoutParams rawParams =
+                    child.getLayoutParams();
+
+            if (rawParams
+                    instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams margins =
+                        (ViewGroup.MarginLayoutParams) rawParams;
+
+                margins.topMargin = Math.min(
+                        margins.topMargin,
+                        dp(activity, 8)
+                );
+                margins.bottomMargin = Math.min(
+                        margins.bottomMargin,
+                        dp(activity, 5)
+                );
+                child.setLayoutParams(margins);
+            }
+
+            if (child instanceof LinearLayout) {
+                int horizontal = Math.min(
+                        child.getPaddingLeft(),
+                        dp(activity, 12)
+                );
+                int verticalTop = Math.min(
+                        child.getPaddingTop(),
+                        dp(activity, 12)
+                );
+                int horizontalEnd = Math.min(
+                        child.getPaddingRight(),
+                        dp(activity, 12)
+                );
+                int verticalBottom = Math.min(
+                        child.getPaddingBottom(),
+                        dp(activity, 12)
+                );
+                child.setPadding(
+                        horizontal,
+                        verticalTop,
+                        horizontalEnd,
+                        verticalBottom
+                );
+            }
+
+            if (child instanceof ViewGroup) {
+                compactMargins(
+                        activity,
+                        (ViewGroup) child
+                );
+            }
+        }
+    }
+
+    private static void setMinimumHeight(
+            Activity activity,
+            View root,
+            int id,
+            int heightDp
+    ) {
+        View view = root.findViewById(id);
+        if (view != null) {
+            view.setMinimumHeight(
+                    dp(activity, heightDp)
+            );
+        }
+    }
+
+    private static void capFixedHeight(
+            Activity activity,
+            View root,
+            int id,
+            int heightDp
+    ) {
+        View view = root.findViewById(id);
+
+        if (view == null) {
+            return;
+        }
+
+        int target = dp(activity, heightDp);
+        view.setMinimumHeight(target);
+
+        ViewGroup.LayoutParams params =
+                view.getLayoutParams();
+
+        if (params != null && params.height > target) {
+            params.height = target;
+            view.setLayoutParams(params);
+        }
     }
 
     private static void addCloseControl(
@@ -123,49 +449,17 @@ final class FloatingEntryWindow {
 
         FrameLayout.LayoutParams params =
                 new FrameLayout.LayoutParams(
-                        dp(activity, 38),
-                        dp(activity, 38),
+                        dp(activity, 34),
+                        dp(activity, 34),
                         Gravity.TOP | Gravity.END
                 );
         params.setMargins(
                 0,
-                dp(activity, 8),
-                dp(activity, 8),
+                dp(activity, 7),
+                dp(activity, 7),
                 0
         );
         content.addView(close, params);
-    }
-
-    private static void addTransparencyControl(
-            Activity activity,
-            ViewGroup content
-    ) {
-        TextView transparency = createFloatingControl(
-                activity,
-                "◐",
-                "Transparency"
-        );
-
-        FrameLayout.LayoutParams params =
-                new FrameLayout.LayoutParams(
-                        dp(activity, 38),
-                        dp(activity, 38),
-                        Gravity.TOP | Gravity.END
-                );
-        params.setMargins(
-                0,
-                dp(activity, 8),
-                dp(activity, 52),
-                0
-        );
-        content.addView(transparency, params);
-
-        transparency.setOnClickListener(
-                view -> showTransparencyPopup(
-                        activity,
-                        transparency
-                )
-        );
     }
 
     private static TextView createFloatingControl(
@@ -178,7 +472,7 @@ final class FloatingEntryWindow {
         control.setContentDescription(contentDescription);
         control.setGravity(Gravity.CENTER);
         control.setTextColor(Color.parseColor("#28443A"));
-        control.setTextSize(20);
+        control.setTextSize(18);
         control.setElevation(dp(activity, 5));
 
         GradientDrawable background = new GradientDrawable();
@@ -190,138 +484,6 @@ final class FloatingEntryWindow {
         );
         control.setBackground(background);
         return control;
-    }
-
-    private static void showTransparencyPopup(
-            Activity activity,
-            View anchor
-    ) {
-        LinearLayout panel = new LinearLayout(activity);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(
-                dp(activity, 14),
-                dp(activity, 12),
-                dp(activity, 14),
-                dp(activity, 12)
-        );
-
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.parseColor("#E6222A2F"));
-        background.setCornerRadius(dp(activity, 16));
-        panel.setBackground(background);
-
-        TextView title = new TextView(activity);
-        title.setText("Transparency");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(13);
-        title.setTypeface(
-                title.getTypeface(),
-                android.graphics.Typeface.BOLD
-        );
-        panel.addView(title);
-
-        SeekBar seekBar = new SeekBar(activity);
-        seekBar.setMax(100);
-
-        Window window = activity.getWindow();
-        float currentAlpha = window == null
-                ? MAX_ALPHA
-                : window.getAttributes().alpha;
-        int progress = Math.round(
-                ((currentAlpha - MIN_ALPHA)
-                        / (MAX_ALPHA - MIN_ALPHA))
-                        * 100f
-        );
-        seekBar.setProgress(
-                Math.max(0, Math.min(100, progress))
-        );
-
-        LinearLayout.LayoutParams seekParams =
-                new LinearLayout.LayoutParams(
-                        dp(activity, 210),
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-        seekParams.topMargin = dp(activity, 5);
-        panel.addView(seekBar, seekParams);
-
-        TextView hint = new TextView(activity);
-        hint.setText("Less visible  ←  →  More visible");
-        hint.setTextColor(Color.parseColor("#E4EAED"));
-        hint.setTextSize(10);
-        panel.addView(hint);
-
-        PopupWindow popup = new PopupWindow(
-                panel,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                true
-        );
-        popup.setOutsideTouchable(true);
-        popup.setBackgroundDrawable(
-                new ColorDrawable(Color.TRANSPARENT)
-        );
-        popup.setElevation(dp(activity, 10));
-
-        Handler handler = new Handler(Looper.getMainLooper());
-        Runnable dismissPopup = () -> {
-            if (popup.isShowing()) {
-                popup.dismiss();
-            }
-        };
-
-        seekBar.setOnSeekBarChangeListener(
-                new SeekBar.OnSeekBarChangeListener() {
-                    @Override
-                    public void onProgressChanged(
-                            SeekBar bar,
-                            int value,
-                            boolean fromUser
-                    ) {
-                        if (!fromUser) {
-                            return;
-                        }
-
-                        Window activeWindow = activity.getWindow();
-
-                        if (activeWindow == null) {
-                            return;
-                        }
-
-                        float alpha = MIN_ALPHA
-                                + (MAX_ALPHA - MIN_ALPHA)
-                                * (value / 100f);
-                        WindowManager.LayoutParams attrs =
-                                activeWindow.getAttributes();
-                        attrs.alpha = alpha;
-                        activeWindow.setAttributes(attrs);
-                        handler.removeCallbacks(dismissPopup);
-                    }
-
-                    @Override
-                    public void onStartTrackingTouch(SeekBar bar) {
-                        handler.removeCallbacks(dismissPopup);
-                    }
-
-                    @Override
-                    public void onStopTrackingTouch(SeekBar bar) {
-                        handler.removeCallbacks(dismissPopup);
-                        handler.postDelayed(
-                                dismissPopup,
-                                1200L
-                        );
-                    }
-                }
-        );
-
-        popup.setOnDismissListener(
-                () -> handler.removeCallbacks(dismissPopup)
-        );
-
-        popup.showAsDropDown(
-                anchor,
-                -dp(activity, 210),
-                dp(activity, 4)
-        );
     }
 
     private static void addResizeHandles(
@@ -375,11 +537,11 @@ final class FloatingEntryWindow {
         handle.setContentDescription("Resize floating form");
         handle.setGravity(Gravity.CENTER);
         handle.setTextColor(Color.parseColor("#36584B"));
-        handle.setTextSize(15);
+        handle.setTextSize(13);
 
         GradientDrawable background = new GradientDrawable();
         background.setColor(Color.parseColor("#DDF7EFEA"));
-        background.setCornerRadius(dp(activity, 8));
+        background.setCornerRadius(dp(activity, 7));
         background.setStroke(
                 dp(activity, 1),
                 Color.parseColor("#AFC8BE")
@@ -388,8 +550,8 @@ final class FloatingEntryWindow {
 
         FrameLayout.LayoutParams params =
                 new FrameLayout.LayoutParams(
-                        dp(activity, 28),
-                        dp(activity, 28),
+                        dp(activity, 24),
+                        dp(activity, 24),
                         gravity
                 );
         content.addView(handle, params);
@@ -412,12 +574,12 @@ final class FloatingEntryWindow {
         handle.setContentDescription("Move floating form");
         handle.setGravity(Gravity.CENTER);
         handle.setTextColor(Color.parseColor("#628077"));
-        handle.setTextSize(22);
+        handle.setTextSize(19);
 
         FrameLayout.LayoutParams params =
                 new FrameLayout.LayoutParams(
-                        dp(activity, 64),
-                        dp(activity, 28),
+                        dp(activity, 54),
+                        dp(activity, 24),
                         Gravity.TOP | Gravity.CENTER_HORIZONTAL
                 );
         content.addView(handle, params);
@@ -499,7 +661,7 @@ final class FloatingEntryWindow {
                 );
                 attrs.height = clamp(
                         newHeight,
-                        dp(activity, 390),
+                        dp(activity, 360),
                         screenHeight - dp(activity, 22)
                 );
                 window.setAttributes(attrs);
