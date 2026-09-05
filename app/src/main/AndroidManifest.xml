@@ -77,6 +77,12 @@
             android:initOrder="149" />
 
         <provider
+            android:name=".ui.DashboardPrivacyInitializer"
+            android:authorities="${applicationId}.dashboard_privacy_initializer"
+            android:exported="false"
+            android:initOrder="143" />
+
+        <provider
             android:name=".ui.GlobalSignedFinanceColorInitializer"
             android:authorities="${applicationId}.global_signed_finance_colors"
             android:exported="false"
