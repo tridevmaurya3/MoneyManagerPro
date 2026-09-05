@@ -106,15 +106,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:hint="Unit (kg, litre, piece)"
+                android:hint="Select unit"
                 app:boxStrokeColor="@color/expense">
 
-                <com.google.android.material.textfield.TextInputEditText
+                <com.example.moneymanagerpro.ui.MeasurementUnitEditText
                     android:id="@+id/etItemUnit"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textCapWords"
-                    android:maxLength="30"
                     android:maxLines="1"
                     android:minHeight="54dp"
                     android:textColor="@color/app_text_primary"
