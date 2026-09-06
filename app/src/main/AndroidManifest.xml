@@ -16,6 +16,19 @@
         <package android:name="com.tridev.smartsmspro" />
         <package android:name="com.tridev.familyhub" />
         <package android:name="com.tridev.loanmanagerpro" />
+
+        <!-- Native UPI Scan & Pay discovery. Money Manager only opens the
+             selected app; QR scanning/payment stays inside that UPI app. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
+        <package android:name="com.google.android.apps.nbu.paisa.user" />
+        <package android:name="com.phonepe.app" />
+        <package android:name="net.one97.paytm" />
+        <package android:name="in.org.npci.upiapp" />
+        <package android:name="in.amazon.mShop.android.shopping" />
+        <package android:name="com.dreamplug.androidapp" />
     </queries>
 
     <application
@@ -78,6 +91,12 @@
             android:authorities="${applicationId}.pro_upgrade_initializer"
             android:exported="false"
             android:initOrder="149" />
+
+        <provider
+            android:name=".floating.InAppExpenseUpiInitializer"
+            android:authorities="${applicationId}.in_app_expense_upi_initializer"
+            android:exported="false"
+            android:initOrder="145" />
 
         <provider
             android:name=".floating.FloatingQuickEntryInitializer"
