@@ -148,8 +148,6 @@ public final class FloatingQuickEntryService extends Service {
         );
         bubble.setBackground(halo);
 
-        // Transparent foreground only: bright-golden rupee directly on the
-        // light-blue halo, with no launcher/white backing layer.
         TextView appIcon = new TextView(this);
         appIcon.setContentDescription(null);
         appIcon.setText("₹");
@@ -470,11 +468,40 @@ public final class FloatingQuickEntryService extends Service {
 
         if (entryForm != null) {
             entryForm.dismiss();
+            entryForm = null;
+        }
+
+        if (expense) {
+            Intent intent = new Intent(
+                    this,
+                    FloatingAddExpenseActivity.class
+            );
+            intent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_NO_ANIMATION
+                            | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+            );
+            try {
+                startActivity(intent);
+            } catch (Exception ignored) {
+                entryForm = new FloatingQuickEntryFormOverlay(
+                        this,
+                        true,
+                        overlay -> {
+                            if (entryForm == overlay) {
+                                entryForm = null;
+                            }
+                        }
+                );
+                entryForm.show();
+                FloatingQuickEntryLayoutPolish.apply(entryForm);
+            }
+            return;
         }
 
         entryForm = new FloatingQuickEntryFormOverlay(
                 this,
-                expense,
+                false,
                 overlay -> {
                     if (entryForm == overlay) {
                         entryForm = null;
@@ -482,9 +509,6 @@ public final class FloatingQuickEntryService extends Service {
                 }
         );
         entryForm.show();
-        if (expense) {
-            FloatingQuickEntryLayoutPolish.apply(entryForm);
-        }
     }
 
     private void hideActionStrip() {
