@@ -14,6 +14,7 @@ import androidx.annotation.Nullable;
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.activities.AddExpenseActivity;
 import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
+import com.example.moneymanagerpro.utils.UpiScannedIntentBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.mlkit.vision.barcode.common.Barcode;
@@ -30,12 +31,10 @@ import java.util.WeakHashMap;
 /**
  * Compatibility layer for the normal in-app Add Expense screen.
  *
- * The original screen used to scan a UPI QR, copy only payee/name/amount into
- * the form, and later create a brand-new upi://pay URI. Merchant QR parameters
- * such as mc, tr, mode, orgid, url or signature-related fields could therefore
- * be lost. This controller keeps the original scanned UPI URI intact and uses
- * it for the payment intent while leaving the Activity's existing result
- * parser, save logic and database flow unchanged.
+ * Keeps scanned merchant QR parameters intact, but prepares the external UPI
+ * intent like a scanner would: a missing transaction reference is generated
+ * and INR is supplied only when the QR omitted it. Amount is never injected or
+ * replaced, so a static QR can still let the chosen UPI app ask for the amount.
  */
 final class InAppExpenseUpiCompatibility {
 
@@ -223,24 +222,8 @@ final class InAppExpenseUpiCompatibility {
         }
     }
 
-    /**
-     * Return the scanned UPI URI unchanged. Do not rebuild or append fields:
-     * merchant/static/dynamic/signed QR parameters must remain exactly as they
-     * were encoded by the QR issuer. If the QR has no amount, the chosen UPI
-     * app can ask the user for the amount itself.
-     */
     static Uri preservedQrUri(String rawUri) {
-        try {
-            String value = rawUri == null ? "" : rawUri.trim();
-            Uri original = Uri.parse(value);
-            if (!"upi".equalsIgnoreCase(original.getScheme())
-                    || !"pay".equalsIgnoreCase(original.getAuthority())) {
-                return null;
-            }
-            return original;
-        } catch (Exception ignored) {
-            return null;
-        }
+        return UpiScannedIntentBuilder.prepare(rawUri);
     }
 
     private static String text(TextInputEditText field) {
