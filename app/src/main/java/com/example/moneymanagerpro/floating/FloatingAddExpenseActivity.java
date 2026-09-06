@@ -16,5 +16,6 @@ public class FloatingAddExpenseActivity extends AddExpenseActivity {
         setTheme(R.style.Theme_MoneyManagerPro_FloatingEntry);
         super.onCreate(savedInstanceState);
         FloatingEntryWindow.apply(this);
+        FloatingExpenseCompactPolish.apply(this);
     }
 }
