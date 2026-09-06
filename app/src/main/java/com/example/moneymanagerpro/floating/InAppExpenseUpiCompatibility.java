@@ -192,10 +192,7 @@ final class InAppExpenseUpiCompatibility {
 
         @SuppressWarnings("unchecked")
         private void launchPreservedQrPayment() {
-            Uri paymentUri = preserveQrAndFillMissingAmount(
-                    scannedUpiUri,
-                    text(amountField)
-            );
+            Uri paymentUri = preservedQrUri(scannedUpiUri);
             if (paymentUri == null) {
                 scannedUpiUri = "";
                 invokeNoArg(activity, "launchUpiPayment");
@@ -227,30 +224,20 @@ final class InAppExpenseUpiCompatibility {
     }
 
     /**
-     * Preserve every parameter that came from the scanned QR. For a static QR
-     * that contains no amount, add only the user-entered amount and INR currency.
-     * Never replace merchant code/reference/mode/signature-related parameters.
+     * Return the scanned UPI URI unchanged. Do not rebuild or append fields:
+     * merchant/static/dynamic/signed QR parameters must remain exactly as they
+     * were encoded by the QR issuer. If the QR has no amount, the chosen UPI
+     * app can ask the user for the amount itself.
      */
-    static Uri preserveQrAndFillMissingAmount(String rawUri, String amountText) {
+    static Uri preservedQrUri(String rawUri) {
         try {
-            Uri original = Uri.parse(rawUri == null ? "" : rawUri.trim());
+            String value = rawUri == null ? "" : rawUri.trim();
+            Uri original = Uri.parse(value);
             if (!"upi".equalsIgnoreCase(original.getScheme())
                     || !"pay".equalsIgnoreCase(original.getAuthority())) {
                 return null;
             }
-
-            Uri.Builder builder = original.buildUpon();
-            String existingAmount = original.getQueryParameter("am");
-            String currency = original.getQueryParameter("cu");
-
-            if ((existingAmount == null || existingAmount.trim().isEmpty())
-                    && positive(amountText) != null) {
-                builder.appendQueryParameter("am", amountText.trim());
-            }
-            if (currency == null || currency.trim().isEmpty()) {
-                builder.appendQueryParameter("cu", "INR");
-            }
-            return builder.build();
+            return original;
         } catch (Exception ignored) {
             return null;
         }
