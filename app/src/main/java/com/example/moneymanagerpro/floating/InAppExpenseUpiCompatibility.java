@@ -3,38 +3,27 @@ package com.example.moneymanagerpro.floating;
 import android.app.Activity;
 import android.app.Application;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
-import android.widget.Toast;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 
-import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.activities.AddExpenseActivity;
-import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
-import com.example.moneymanagerpro.utils.UpiScannedIntentBuilder;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
-import com.google.android.material.textfield.TextInputEditText;
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.math.BigDecimal;
 import java.util.Map;
 import java.util.WeakHashMap;
 
 /**
- * Compatibility layer for the normal in-app Add Expense screen.
+ * Keeps the normal in-app Add Expense form visually consistent while replacing
+ * its old third-party UPI-ID / Money-Manager QR payment flow with one compact
+ * native Scan & Pay action.
  *
- * Keeps scanned merchant QR parameters intact, but prepares the external UPI
- * intent like a scanner would: a missing transaction reference is generated
- * and INR is supplied only when the QR omitted it. Amount is never injected or
- * replaced, so a static QR can still let the chosen UPI app ask for the amount.
+ * The original AddExpenseActivity save, item, category, account, date, note,
+ * receipt and database logic is not changed here.
  */
 final class InAppExpenseUpiCompatibility {
 
@@ -58,6 +47,7 @@ final class InAppExpenseUpiCompatibility {
                         if (!(activity instanceof AddExpenseActivity)) {
                             return;
                         }
+
                         Controller controller = CONTROLLERS.get(activity);
                         if (controller == null) {
                             controller = new Controller((AddExpenseActivity) activity);
@@ -82,12 +72,6 @@ final class InAppExpenseUpiCompatibility {
 
     private static final class Controller {
         private final AddExpenseActivity activity;
-        private MaterialAutoCompleteTextView modeDropdown;
-        private TextInputEditText amountField;
-        private TextInputEditText upiIdField;
-        private TextInputEditText upiNameField;
-        private android.view.View payButton;
-        private String scannedUpiUri = "";
         private boolean attached;
 
         Controller(AddExpenseActivity activity) {
@@ -99,174 +83,102 @@ final class InAppExpenseUpiCompatibility {
                 return;
             }
 
-            modeDropdown = activity.findViewById(R.id.dropdownUpiEntryMode);
-            amountField = activity.findViewById(R.id.etAmount);
-            upiIdField = activity.findViewById(R.id.etUpiPayeeId);
-            upiNameField = activity.findViewById(R.id.etUpiPayeeName);
-            payButton = activity.findViewById(R.id.btnPayWithUpi);
-
-            if (modeDropdown == null
-                    || amountField == null
-                    || upiIdField == null
-                    || upiNameField == null
-                    || payButton == null) {
+            View payButton = activity.findViewById(R.id.btnPayWithUpi);
+            if (payButton == null) {
                 return;
             }
-
             attached = true;
 
-            modeDropdown.setOnItemClickListener((parent, view, position, id) -> {
-                if (position == 1) {
-                    startQrScan();
-                } else {
-                    scannedUpiUri = "";
-                }
-            });
+            // Old fields are not needed when the selected UPI app owns QR scan
+            // and payment. Hiding the containers removes their vertical space.
+            hideFieldWithContainer(activity.findViewById(R.id.dropdownUpiEntryMode));
+            hide(activity.findViewById(R.id.inputUpiPayeeId));
+            hide(activity.findViewById(R.id.inputUpiPayeeName));
+            hide(activity.findViewById(R.id.upiPaymentResultCard));
 
-            payButton.setOnClickListener(view -> {
-                if (!scannedUpiUri.isEmpty()) {
-                    launchPreservedQrPayment();
-                } else {
-                    invokeNoArg(activity, "launchUpiPayment");
-                }
-            });
-        }
-
-        private void startQrScan() {
-            GmsBarcodeScannerOptions options =
-                    new GmsBarcodeScannerOptions.Builder()
-                            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                            .enableAutoZoom()
-                            .build();
-            GmsBarcodeScanner scanner = GmsBarcodeScanning.getClient(activity, options);
-
-            scanner.startScan()
-                    .addOnSuccessListener(barcode -> {
-                        String raw = barcode.getRawValue() == null
-                                ? ""
-                                : barcode.getRawValue().trim();
-                        UpiQrPayloadParser.Result parsed = UpiQrPayloadParser.parse(raw);
-
-                        if (!parsed.isValid()) {
-                            scannedUpiUri = "";
-                            modeDropdown.setText("Enter UPI ID", false);
-                            Toast.makeText(
-                                    activity,
-                                    "This QR code does not contain a valid UPI payment ID",
-                                    Toast.LENGTH_LONG
-                            ).show();
-                            return;
-                        }
-
-                        scannedUpiUri = raw;
-                        upiIdField.setText(parsed.getPayeeId());
-                        upiNameField.setText(parsed.getPayeeName());
-
-                        if (text(amountField).isEmpty()
-                                && positive(parsed.getAmount()) != null) {
-                            amountField.setText(parsed.getAmount());
-                        }
-
-                        modeDropdown.setText("UPI QR Scanned", false);
-                        Toast.makeText(
-                                activity,
-                                "UPI details filled from QR code",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                    })
-                    .addOnCanceledListener(() -> {
-                        scannedUpiUri = "";
-                        modeDropdown.setText("Enter UPI ID", false);
-                    })
-                    .addOnFailureListener(exception -> {
-                        scannedUpiUri = "";
-                        modeDropdown.setText("Enter UPI ID", false);
-                        Toast.makeText(
-                                activity,
-                                "QR scanner could not start. Check Google Play services and try again.",
-                                Toast.LENGTH_LONG
-                        ).show();
-                    });
-        }
-
-        @SuppressWarnings("unchecked")
-        private void launchPreservedQrPayment() {
-            Uri paymentUri = preservedQrUri(scannedUpiUri);
-            if (paymentUri == null) {
-                scannedUpiUri = "";
-                invokeNoArg(activity, "launchUpiPayment");
-                return;
+            View root = activity.findViewById(android.R.id.content);
+            TextView title = findTextView(root, "Pay with UPI App");
+            if (title != null) {
+                title.setText("Scan & Pay with UPI App");
             }
 
-            try {
-                Object launcherObject = readField(activity, "upiPaymentLauncher");
-                if (!(launcherObject instanceof ActivityResultLauncher)) {
-                    scannedUpiUri = "";
-                    invokeNoArg(activity, "launchUpiPayment");
-                    return;
-                }
-
-                Intent paymentIntent = new Intent(Intent.ACTION_VIEW, paymentUri);
-                Intent chooser = Intent.createChooser(
-                        paymentIntent,
-                        "Choose UPI / Payment App"
+            TextView subtitle = findTextView(
+                    root,
+                    "Enter a UPI ID manually or scan a payment QR code to fill the receiver details automatically."
+            );
+            if (subtitle != null) {
+                subtitle.setText(
+                        "Choose your UPI app, then use that app's own Scan & Pay scanner."
                 );
-                ((ActivityResultLauncher<Intent>) launcherObject).launch(chooser);
-            } catch (Exception exception) {
-                Toast.makeText(
-                        activity,
-                        "Unable to open a UPI payment app",
-                        Toast.LENGTH_LONG
-                ).show();
+            }
+
+            if (payButton instanceof TextView) {
+                TextView button = (TextView) payButton;
+                button.setText("Scan & Pay");
+                button.setContentDescription(
+                        "Choose a UPI app and use its native QR scanner"
+                );
+            }
+
+            payButton.setOnClickListener(view -> launchNativeUpiFlow());
+        }
+
+        private void launchNativeUpiFlow() {
+            Intent intent = new Intent(
+                    activity,
+                    FloatingExpenseExternalActionActivity.class
+            );
+            intent.setAction(FloatingExpenseExternalActionActivity.ACTION_QR);
+            intent.addFlags(
+                    Intent.FLAG_ACTIVITY_NO_ANIMATION
+                            | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+            );
+            try {
+                activity.startActivity(intent);
+                activity.overridePendingTransition(0, 0);
+            } catch (Exception ignored) {
             }
         }
     }
 
-    static Uri preservedQrUri(String rawUri) {
-        return UpiScannedIntentBuilder.prepare(rawUri);
-    }
-
-    private static String text(TextInputEditText field) {
-        return field == null || field.getText() == null
-                ? ""
-                : field.getText().toString().trim();
-    }
-
-    private static BigDecimal positive(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return null;
-        }
-        try {
-            BigDecimal amount = new BigDecimal(value.trim());
-            return amount.compareTo(BigDecimal.ZERO) > 0 ? amount : null;
-        } catch (Exception ignored) {
-            return null;
+    private static void hide(@Nullable View view) {
+        if (view != null) {
+            view.setVisibility(View.GONE);
         }
     }
 
-    private static Object readField(Object target, String name) {
-        Class<?> type = target == null ? null : target.getClass();
-        while (type != null) {
-            try {
-                Field field = type.getDeclaredField(name);
-                field.setAccessible(true);
-                return field.get(target);
-            } catch (Exception ignored) {
-                type = type.getSuperclass();
+    private static void hideFieldWithContainer(@Nullable View field) {
+        if (field == null) {
+            return;
+        }
+        if (field.getParent() instanceof View) {
+            ((View) field.getParent()).setVisibility(View.GONE);
+        } else {
+            field.setVisibility(View.GONE);
+        }
+    }
+
+    private static TextView findTextView(
+            @Nullable View view,
+            String expectedText
+    ) {
+        if (view instanceof TextView) {
+            CharSequence value = ((TextView) view).getText();
+            if (value != null && expectedText.contentEquals(value)) {
+                return (TextView) view;
             }
         }
-        return null;
-    }
 
-    private static Object invokeNoArg(Object target, String name) {
-        Class<?> type = target == null ? null : target.getClass();
-        while (type != null) {
-            try {
-                Method method = type.getDeclaredMethod(name);
-                method.setAccessible(true);
-                return method.invoke(target);
-            } catch (Exception ignored) {
-                type = type.getSuperclass();
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                TextView match = findTextView(
+                        group.getChildAt(index),
+                        expectedText
+                );
+                if (match != null) {
+                    return match;
+                }
             }
         }
         return null;
