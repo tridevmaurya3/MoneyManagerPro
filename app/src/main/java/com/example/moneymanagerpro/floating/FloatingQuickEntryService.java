@@ -32,14 +32,21 @@ import com.example.moneymanagerpro.activities.DashboardActivity;
 
 public final class FloatingQuickEntryService extends Service {
 
+    static final String ACTION_EXTERNAL_UPI_RESULT =
+            "com.example.moneymanagerpro.floating.result.UPI";
+    static final String ACTION_EXTERNAL_QR_RESULT =
+            "com.example.moneymanagerpro.floating.result.QR";
+    static final String ACTION_EXTERNAL_RECEIPT_RESULT =
+            "com.example.moneymanagerpro.floating.result.RECEIPT";
+    static final String EXTRA_EXTERNAL_PAYLOAD = "external_payload";
+
     private static final String CHANNEL_ID =
             "money_manager_floating_quick_entry";
     private static final int NOTIFICATION_ID = 7402;
     private static final float MIN_BUBBLE_ALPHA = 0.28f;
     private static final int BUBBLE_SIZE_DP = 50;
 
-    private final Handler uiHandler =
-            new Handler(Looper.getMainLooper());
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     private WindowManager windowManager;
     private View bubbleView;
@@ -48,6 +55,7 @@ public final class FloatingQuickEntryService extends Service {
     private WindowManager.LayoutParams actionStripParams;
     private int actionStripWidthPx;
     private FloatingQuickEntryFormOverlay entryForm;
+    private FloatingExpenseQuickEntryOverlay expenseForm;
 
     @Override
     public void onCreate() {
@@ -60,22 +68,13 @@ public final class FloatingQuickEntryService extends Service {
         }
 
         createNotificationChannel();
-        startForeground(
-                NOTIFICATION_ID,
-                buildNotification()
-        );
-
-        windowManager = (WindowManager)
-                getSystemService(WINDOW_SERVICE);
+        startForeground(NOTIFICATION_ID, buildNotification());
+        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         showBubble();
     }
 
     @Override
-    public int onStartCommand(
-            Intent intent,
-            int flags,
-            int startId
-    ) {
+    public int onStartCommand(Intent intent, int flags, int startId) {
         if (!FloatingQuickEntrySettings.isEnabled(this)
                 || !Settings.canDrawOverlays(this)) {
             stopSelf();
@@ -84,6 +83,21 @@ public final class FloatingQuickEntryService extends Service {
 
         if (bubbleView == null && windowManager != null) {
             showBubble();
+        }
+
+        if (intent != null && intent.getAction() != null) {
+            String payload = intent.getStringExtra(EXTRA_EXTERNAL_PAYLOAD);
+            String action = intent.getAction();
+
+            if (expenseForm != null) {
+                if (ACTION_EXTERNAL_UPI_RESULT.equals(action)) {
+                    expenseForm.handleExternalUpiResult(payload);
+                } else if (ACTION_EXTERNAL_QR_RESULT.equals(action)) {
+                    expenseForm.handleExternalQrResult(payload);
+                } else if (ACTION_EXTERNAL_RECEIPT_RESULT.equals(action)) {
+                    expenseForm.handleExternalReceiptResult(payload);
+                }
+            }
         }
 
         return START_STICKY;
@@ -97,6 +111,10 @@ public final class FloatingQuickEntryService extends Service {
         if (entryForm != null) {
             entryForm.dismiss();
             entryForm = null;
+        }
+        if (expenseForm != null) {
+            expenseForm.dismiss();
+            expenseForm = null;
         }
 
         if (windowManager != null && bubbleView != null) {
@@ -122,16 +140,9 @@ public final class FloatingQuickEntryService extends Service {
         }
 
         FrameLayout bubble = new FrameLayout(this);
-        bubble.setContentDescription(
-                "Money Manager quick entry"
-        );
+        bubble.setContentDescription("Money Manager quick entry");
         bubble.setElevation(dp(8));
-        bubble.setPadding(
-                dp(4),
-                dp(4),
-                dp(4),
-                dp(4)
-        );
+        bubble.setPadding(dp(4), dp(4), dp(4), dp(4));
 
         GradientDrawable halo = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
@@ -142,10 +153,7 @@ public final class FloatingQuickEntryService extends Service {
                 }
         );
         halo.setShape(GradientDrawable.OVAL);
-        halo.setStroke(
-                dp(1),
-                Color.parseColor("#9ACAE8FA")
-        );
+        halo.setStroke(dp(1), Color.parseColor("#9ACAE8FA"));
         bubble.setBackground(halo);
 
         TextView appIcon = new TextView(this);
@@ -167,18 +175,14 @@ public final class FloatingQuickEntryService extends Service {
                 Color.parseColor("#7A4A00")
         );
 
-        FrameLayout.LayoutParams iconParams =
-                new FrameLayout.LayoutParams(
-                        dp(36),
-                        dp(36),
-                        Gravity.CENTER
-                );
+        FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(
+                dp(36),
+                dp(36),
+                Gravity.CENTER
+        );
         bubble.addView(appIcon, iconParams);
 
-        bubble.setAlpha(
-                FloatingQuickEntrySettings
-                        .getBubbleAlpha(this)
-        );
+        bubble.setAlpha(FloatingQuickEntrySettings.getBubbleAlpha(this));
 
         int size = dp(BUBBLE_SIZE_DP);
         bubbleParams = new WindowManager.LayoutParams(
@@ -190,12 +194,9 @@ public final class FloatingQuickEntryService extends Service {
                 PixelFormat.TRANSLUCENT
         );
         bubbleParams.gravity = Gravity.TOP | Gravity.START;
-        bubbleParams.x = getResources()
-                .getDisplayMetrics().widthPixels - dp(66);
+        bubbleParams.x = getResources().getDisplayMetrics().widthPixels - dp(66);
         bubbleParams.y = Math.round(
-                getResources()
-                        .getDisplayMetrics()
-                        .heightPixels * 0.56f
+                getResources().getDisplayMetrics().heightPixels * 0.56f
         );
 
         bubble.setOnTouchListener(new View.OnTouchListener() {
@@ -220,10 +221,7 @@ public final class FloatingQuickEntryService extends Service {
                     bubbleParams.y = startY
                             + Math.round(event.getRawY() - downY);
                     clampBubblePosition();
-                    windowManager.updateViewLayout(
-                            bubbleView,
-                            bubbleParams
-                    );
+                    windowManager.updateViewLayout(bubbleView, bubbleParams);
                     updateActionStripPosition();
                     return true;
                 }
@@ -231,22 +229,17 @@ public final class FloatingQuickEntryService extends Service {
                 if (event.getActionMasked() == MotionEvent.ACTION_UP) {
                     float dx = Math.abs(event.getRawX() - downX);
                     float dy = Math.abs(event.getRawY() - downY);
-
                     if (dx < dp(8) && dy < dp(8)) {
                         toggleActionStrip();
                     }
                     return true;
                 }
-
                 return false;
             }
         });
 
         bubbleView = bubble;
-        windowManager.addView(
-                bubbleView,
-                bubbleParams
-        );
+        windowManager.addView(bubbleView, bubbleParams);
     }
 
     private void toggleActionStrip() {
@@ -256,36 +249,26 @@ public final class FloatingQuickEntryService extends Service {
         }
 
         LinearLayout strip = createOverlayPanel();
-
-        strip.addView(
-                createAction(
-                        "+  Add Income",
-                        Color.parseColor("#107C10"),
-                        view -> openEntry(false)
-                )
-        );
-        strip.addView(
-                createAction(
-                        "−  Add Expense",
-                        Color.parseColor("#C42B1C"),
-                        view -> openEntry(true)
-                )
-        );
-        strip.addView(
-                createAction(
-                        "◐  Transparency",
-                        Color.parseColor("#315F92"),
-                        view -> showBubbleTransparencyPanel()
-                )
-        );
-        strip.addView(
-                createAction(
-                        "×  Close",
-                        Color.parseColor("#53645C"),
-                        view -> hideActionStrip()
-                )
-        );
-
+        strip.addView(createAction(
+                "+  Add Income",
+                Color.parseColor("#107C10"),
+                view -> openEntry(false)
+        ));
+        strip.addView(createAction(
+                "−  Add Expense",
+                Color.parseColor("#C42B1C"),
+                view -> openEntry(true)
+        ));
+        strip.addView(createAction(
+                "◐  Transparency",
+                Color.parseColor("#315F92"),
+                view -> showBubbleTransparencyPanel()
+        ));
+        strip.addView(createAction(
+                "×  Close",
+                Color.parseColor("#53645C"),
+                view -> hideActionStrip()
+        ));
         attachActionStrip(strip, dp(184));
     }
 
@@ -293,43 +276,28 @@ public final class FloatingQuickEntryService extends Service {
         hideActionStrip();
 
         LinearLayout panel = createOverlayPanel();
-        panel.setPadding(
-                dp(12),
-                dp(10),
-                dp(12),
-                dp(10)
-        );
+        panel.setPadding(dp(12), dp(10), dp(12), dp(10));
 
         TextView title = new TextView(this);
         title.setText("Floating button transparency");
         title.setTextColor(Color.parseColor("#28443A"));
         title.setTextSize(12);
-        title.setTypeface(
-                title.getTypeface(),
-                android.graphics.Typeface.BOLD
-        );
+        title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
         panel.addView(title);
 
         SeekBar seekBar = new SeekBar(this);
         seekBar.setMax(100);
-
-        float currentAlpha =
-                FloatingQuickEntrySettings
-                        .getBubbleAlpha(this);
+        float currentAlpha = FloatingQuickEntrySettings.getBubbleAlpha(this);
         int progress = Math.round(
                 ((currentAlpha - MIN_BUBBLE_ALPHA)
-                        / (1.0f - MIN_BUBBLE_ALPHA))
-                        * 100f
+                        / (1.0f - MIN_BUBBLE_ALPHA)) * 100f
         );
-        seekBar.setProgress(
-                Math.max(0, Math.min(100, progress))
-        );
+        seekBar.setProgress(Math.max(0, Math.min(100, progress)));
 
-        LinearLayout.LayoutParams seekParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
+        LinearLayout.LayoutParams seekParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
         seekParams.topMargin = dp(3);
         panel.addView(seekBar, seekParams);
 
@@ -340,51 +308,37 @@ public final class FloatingQuickEntryService extends Service {
         panel.addView(hint);
 
         attachActionStrip(panel, dp(224));
-
         Runnable autoHide = this::hideActionStrip;
 
-        seekBar.setOnSeekBarChangeListener(
-                new SeekBar.OnSeekBarChangeListener() {
-                    @Override
-                    public void onProgressChanged(
-                            SeekBar bar,
-                            int value,
-                            boolean fromUser
-                    ) {
-                        if (!fromUser) {
-                            return;
-                        }
-
-                        float alpha = MIN_BUBBLE_ALPHA
-                                + (1.0f - MIN_BUBBLE_ALPHA)
-                                * (value / 100f);
-
-                        if (bubbleView != null) {
-                            bubbleView.setAlpha(alpha);
-                        }
-                        FloatingQuickEntrySettings
-                                .setBubbleAlpha(
-                                        FloatingQuickEntryService.this,
-                                        alpha
-                                );
-                        uiHandler.removeCallbacks(autoHide);
-                    }
-
-                    @Override
-                    public void onStartTrackingTouch(SeekBar bar) {
-                        uiHandler.removeCallbacks(autoHide);
-                    }
-
-                    @Override
-                    public void onStopTrackingTouch(SeekBar bar) {
-                        uiHandler.removeCallbacks(autoHide);
-                        uiHandler.postDelayed(
-                                autoHide,
-                                1000L
-                        );
-                    }
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar bar, int value, boolean fromUser) {
+                if (!fromUser) {
+                    return;
                 }
-        );
+                float alpha = MIN_BUBBLE_ALPHA
+                        + (1.0f - MIN_BUBBLE_ALPHA) * (value / 100f);
+                if (bubbleView != null) {
+                    bubbleView.setAlpha(alpha);
+                }
+                FloatingQuickEntrySettings.setBubbleAlpha(
+                        FloatingQuickEntryService.this,
+                        alpha
+                );
+                uiHandler.removeCallbacks(autoHide);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar bar) {
+                uiHandler.removeCallbacks(autoHide);
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar bar) {
+                uiHandler.removeCallbacks(autoHide);
+                uiHandler.postDelayed(autoHide, 1000L);
+            }
+        });
     }
 
     private LinearLayout createOverlayPanel() {
@@ -396,18 +350,12 @@ public final class FloatingQuickEntryService extends Service {
         GradientDrawable background = new GradientDrawable();
         background.setColor(Color.parseColor("#F3F8F5"));
         background.setCornerRadius(dp(18));
-        background.setStroke(
-                dp(1),
-                Color.parseColor("#BCD4C7")
-        );
+        background.setStroke(dp(1), Color.parseColor("#BCD4C7"));
         panel.setBackground(background);
         return panel;
     }
 
-    private void attachActionStrip(
-            View panel,
-            int width
-    ) {
+    private void attachActionStrip(View panel, int width) {
         actionStripWidthPx = width;
         actionStripParams = new WindowManager.LayoutParams(
                 width,
@@ -420,10 +368,7 @@ public final class FloatingQuickEntryService extends Service {
         actionStripParams.gravity = Gravity.TOP | Gravity.START;
         actionStripView = panel;
         updateActionStripPosition();
-        windowManager.addView(
-                actionStripView,
-                actionStripParams
-        );
+        windowManager.addView(actionStripView, actionStripParams);
     }
 
     private TextView createAction(
@@ -435,28 +380,19 @@ public final class FloatingQuickEntryService extends Service {
         action.setText(text);
         action.setTextColor(textColor);
         action.setTextSize(13);
-        action.setTypeface(
-                action.getTypeface(),
-                android.graphics.Typeface.BOLD
-        );
+        action.setTypeface(action.getTypeface(), android.graphics.Typeface.BOLD);
         action.setGravity(Gravity.CENTER_VERTICAL);
-        action.setPadding(
-                dp(13),
-                dp(9),
-                dp(11),
-                dp(9)
-        );
+        action.setPadding(dp(13), dp(9), dp(11), dp(9));
 
         GradientDrawable background = new GradientDrawable();
         background.setColor(Color.parseColor("#F7FBF8"));
         background.setCornerRadius(dp(12));
         action.setBackground(background);
 
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
         params.bottomMargin = dp(4);
         action.setLayoutParams(params);
         action.setOnClickListener(listener);
@@ -470,32 +406,46 @@ public final class FloatingQuickEntryService extends Service {
             entryForm.dismiss();
             entryForm = null;
         }
+        if (expenseForm != null) {
+            expenseForm.dismiss();
+            expenseForm = null;
+        }
 
         if (expense) {
-            Intent intent = new Intent(
+            expenseForm = new FloatingExpenseQuickEntryOverlay(
                     this,
-                    FloatingAddExpenseActivity.class
-            );
-            intent.addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK
-                            | Intent.FLAG_ACTIVITY_NO_ANIMATION
-                            | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-            );
-            try {
-                startActivity(intent);
-            } catch (Exception ignored) {
-                entryForm = new FloatingQuickEntryFormOverlay(
-                        this,
-                        true,
-                        overlay -> {
-                            if (entryForm == overlay) {
-                                entryForm = null;
-                            }
+                    overlay -> {
+                        if (expenseForm == overlay) {
+                            expenseForm = null;
                         }
-                );
-                entryForm.show();
-                FloatingQuickEntryLayoutPolish.apply(entryForm);
-            }
+                    },
+                    new FloatingExpenseQuickEntryOverlay.ExternalHost() {
+                        @Override
+                        public void launchQrScanner() {
+                            launchExpenseExternalAction(
+                                    FloatingExpenseExternalActionActivity.ACTION_QR,
+                                    null
+                            );
+                        }
+
+                        @Override
+                        public void launchUpiChooser(String paymentUri) {
+                            launchExpenseExternalAction(
+                                    FloatingExpenseExternalActionActivity.ACTION_UPI,
+                                    paymentUri
+                            );
+                        }
+
+                        @Override
+                        public void launchReceiptPicker() {
+                            launchExpenseExternalAction(
+                                    FloatingExpenseExternalActionActivity.ACTION_RECEIPT,
+                                    null
+                            );
+                        }
+                    }
+            );
+            expenseForm.show();
             return;
         }
 
@@ -511,16 +461,40 @@ public final class FloatingQuickEntryService extends Service {
         entryForm.show();
     }
 
+    private void launchExpenseExternalAction(
+            String action,
+            @Nullable String paymentUri
+    ) {
+        Intent intent = new Intent(
+                this,
+                FloatingExpenseExternalActionActivity.class
+        );
+        intent.setAction(action);
+        intent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
+                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+        );
+        if (paymentUri != null) {
+            intent.putExtra(
+                    FloatingExpenseExternalActionActivity.EXTRA_PAYMENT_URI,
+                    paymentUri
+            );
+        }
+        try {
+            startActivity(intent);
+        } catch (Exception ignored) {
+        }
+    }
+
     private void hideActionStrip() {
         uiHandler.removeCallbacksAndMessages(null);
-
         if (windowManager != null && actionStripView != null) {
             try {
                 windowManager.removeView(actionStripView);
             } catch (Exception ignored) {
             }
         }
-
         actionStripView = null;
         actionStripParams = null;
         actionStripWidthPx = 0;
@@ -531,12 +505,8 @@ public final class FloatingQuickEntryService extends Service {
             return;
         }
 
-        int screenWidth = getResources()
-                .getDisplayMetrics().widthPixels;
-        int stripWidth = actionStripWidthPx > 0
-                ? actionStripWidthPx
-                : dp(184);
-
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int stripWidth = actionStripWidthPx > 0 ? actionStripWidthPx : dp(184);
         if (bubbleParams.x > screenWidth / 2) {
             actionStripParams.x = Math.max(
                     dp(6),
@@ -545,26 +515,18 @@ public final class FloatingQuickEntryService extends Service {
         } else {
             actionStripParams.x = bubbleParams.x + dp(58);
         }
+        actionStripParams.y = Math.max(dp(8), bubbleParams.y - dp(18));
 
-        actionStripParams.y = Math.max(
-                dp(8),
-                bubbleParams.y - dp(18)
-        );
-
-        if (windowManager != null && actionStripView != null
+        if (windowManager != null
+                && actionStripView != null
                 && actionStripView.isAttachedToWindow()) {
-            windowManager.updateViewLayout(
-                    actionStripView,
-                    actionStripParams
-            );
+            windowManager.updateViewLayout(actionStripView, actionStripParams);
         }
     }
 
     private void clampBubblePosition() {
-        int screenWidth = getResources()
-                .getDisplayMetrics().widthPixels;
-        int screenHeight = getResources()
-                .getDisplayMetrics().heightPixels;
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int screenHeight = getResources().getDisplayMetrics().heightPixels;
         int size = dp(BUBBLE_SIZE_DP);
 
         bubbleParams.x = Math.max(
@@ -584,26 +546,17 @@ public final class FloatingQuickEntryService extends Service {
     }
 
     private Notification buildNotification() {
-        Intent dashboardIntent = new Intent(
-                this,
-                DashboardActivity.class
-        );
-        dashboardIntent.addFlags(
-                Intent.FLAG_ACTIVITY_SINGLE_TOP
-        );
+        Intent dashboardIntent = new Intent(this, DashboardActivity.class);
+        dashboardIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
         PendingIntent contentIntent = PendingIntent.getActivity(
                 this,
                 1,
                 dashboardIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT
-                        | PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        return new NotificationCompat.Builder(
-                this,
-                CHANNEL_ID
-        )
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_add)
                 .setContentTitle("Money Manager floating entry")
                 .setContentText("Quick Add Income / Expense is active")
@@ -618,11 +571,8 @@ public final class FloatingQuickEntryService extends Service {
             return;
         }
 
-        NotificationManager manager =
-                (NotificationManager) getSystemService(
-                        Context.NOTIFICATION_SERVICE
-                );
-
+        NotificationManager manager = (NotificationManager)
+                getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) {
             return;
         }
@@ -640,10 +590,7 @@ public final class FloatingQuickEntryService extends Service {
 
     private int dp(int value) {
         return Math.round(
-                value
-                        * getResources()
-                        .getDisplayMetrics()
-                        .density
+                value * getResources().getDisplayMetrics().density
         );
     }
 }
