@@ -13,6 +13,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
+import com.example.moneymanagerpro.utils.UpiScannedIntentBuilder;
 import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
@@ -135,9 +136,6 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
 
         List<Integer> availableIndexes = detectAvailableUpiApps();
         if (availableIndexes.isEmpty()) {
-            // Package visibility can be restrictive on some Android builds.
-            // Keep the known UPI apps visible; explicit launch below remains the
-            // final installed-app check and fails safely if one is unavailable.
             for (int index = 0; index < QR_UPI_APP_PACKAGES.length; index++) {
                 availableIndexes.add(index);
             }
@@ -227,8 +225,6 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                         return;
                     }
 
-                    // Fill the same Receiver UPI ID / Name / Amount fields in
-                    // the floating form before handing payment to the chosen app.
                     sendResultToService(
                             FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
                             rawValue
@@ -254,11 +250,26 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                 });
     }
 
+    /**
+     * Preserve merchant/static/dynamic QR data and only fill the fields that a
+     * scanner is expected to supply when absent. In particular, do not inject
+     * the Money Manager amount into a static QR; let the selected UPI app ask
+     * for the amount when the QR itself did not contain one.
+     */
     private void launchScannedPaymentInSelectedApp(String scannedUpiUri) {
-        Intent paymentIntent = new Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse(scannedUpiUri)
-        );
+        Uri preparedUri = UpiScannedIntentBuilder.prepare(scannedUpiUri);
+        if (preparedUri == null) {
+            Toast.makeText(
+                    this,
+                    "Unable to prepare this UPI QR for payment",
+                    Toast.LENGTH_LONG
+            ).show();
+            restoreExpenseOverlay();
+            finishWithoutAnimation();
+            return;
+        }
+
+        Intent paymentIntent = new Intent(Intent.ACTION_VIEW, preparedUri);
         paymentIntent.setPackage(selectedQrUpiPackage);
 
         try {
