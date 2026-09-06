@@ -168,6 +168,8 @@
             android:name=".floating.FloatingAddExpenseActivity"
             android:excludeFromRecents="true"
             android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
             android:theme="@style/Theme.MoneyManagerPro.FloatingEntry" />
 
         <activity android:name=".activities.FinanceIntelligenceHubActivity" android:exported="false" />
