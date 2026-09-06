@@ -1,5 +1,6 @@
 package com.example.moneymanagerpro.floating;
 
+import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences;
 
@@ -16,6 +17,7 @@ final class FloatingQuickEntrySettings {
 
     private static final float DEFAULT_BUBBLE_ALPHA = 1.0f;
     private static final float MIN_BUBBLE_ALPHA = 0.28f;
+    private static boolean compatibilityRegistered;
 
     private FloatingQuickEntrySettings() {
     }
@@ -79,9 +81,21 @@ final class FloatingQuickEntrySettings {
     private static SharedPreferences preferences(
             Context context
     ) {
+        registerCompatibility(context);
         return context.getSharedPreferences(
                 PREFS,
                 Context.MODE_PRIVATE
         );
+    }
+
+    private static synchronized void registerCompatibility(Context context) {
+        if (compatibilityRegistered || context == null) {
+            return;
+        }
+        Context appContext = context.getApplicationContext();
+        if (appContext instanceof Application) {
+            InAppExpenseUpiCompatibility.register((Application) appContext);
+            compatibilityRegistered = true;
+        }
     }
 }
