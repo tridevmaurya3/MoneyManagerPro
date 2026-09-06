@@ -61,9 +61,12 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
     private void openUpiChooser() {
         String uriText = getIntent().getStringExtra(EXTRA_PAYMENT_URI);
         if (uriText == null || uriText.trim().isEmpty()) {
+            restoreExpenseOverlay();
             finishWithoutAnimation();
             return;
         }
+
+        FloatingOverlayUiState.hideExpenseForExternalAction();
 
         Intent paymentIntent = new Intent(
                 Intent.ACTION_VIEW,
@@ -86,11 +89,14 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                     FloatingQuickEntryService.ACTION_EXTERNAL_UPI_RESULT,
                     ""
             );
+            restoreExpenseOverlay();
             finishWithoutAnimation();
         }
     }
 
     private void openQrScanner() {
+        FloatingOverlayUiState.hideExpenseForExternalAction();
+
         GmsBarcodeScannerOptions options =
                 new GmsBarcodeScannerOptions.Builder()
                         .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
@@ -107,6 +113,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                                     ? ""
                                     : barcode.getRawValue()
                     );
+                    restoreExpenseOverlay();
                     finishWithoutAnimation();
                 })
                 .addOnCanceledListener(() -> {
@@ -114,6 +121,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                             FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
                             ""
                     );
+                    restoreExpenseOverlay();
                     finishWithoutAnimation();
                 })
                 .addOnFailureListener(exception -> {
@@ -126,11 +134,14 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                             FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
                             ""
                     );
+                    restoreExpenseOverlay();
                     finishWithoutAnimation();
                 });
     }
 
     private void openReceiptPicker() {
+        FloatingOverlayUiState.hideExpenseForExternalAction();
+
         Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         picker.addCategory(Intent.CATEGORY_OPENABLE);
         picker.setType("image/*");
@@ -147,6 +158,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                     "No image picker is available",
                     Toast.LENGTH_SHORT
             ).show();
+            restoreExpenseOverlay();
             finishWithoutAnimation();
         }
     }
@@ -164,6 +176,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                     FloatingQuickEntryService.ACTION_EXTERNAL_UPI_RESULT,
                     collectUpiResponse(data)
             );
+            restoreExpenseOverlay();
             finishWithoutAnimation();
             return;
         }
@@ -186,6 +199,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                     FloatingQuickEntryService.ACTION_EXTERNAL_RECEIPT_RESULT,
                     uriText
             );
+            restoreExpenseOverlay();
             finishWithoutAnimation();
         }
     }
@@ -223,6 +237,12 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                 payload == null ? "" : payload
         );
         ContextCompat.startForegroundService(this, intent);
+    }
+
+    private void restoreExpenseOverlay() {
+        getWindow().getDecorView().post(
+                FloatingOverlayUiState::restoreExpenseAfterExternalAction
+        );
     }
 
     private void finishWithoutAnimation() {
