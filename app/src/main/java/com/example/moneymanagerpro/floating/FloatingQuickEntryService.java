@@ -446,6 +446,7 @@ public final class FloatingQuickEntryService extends Service {
                     }
             );
             expenseForm.show();
+            FloatingOverlayUiState.apply(this, expenseForm, true);
             return;
         }
 
@@ -459,6 +460,7 @@ public final class FloatingQuickEntryService extends Service {
                 }
         );
         entryForm.show();
+        FloatingOverlayUiState.apply(this, entryForm, false);
     }
 
     private void launchExpenseExternalAction(
