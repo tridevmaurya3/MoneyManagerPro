@@ -17,5 +17,6 @@ public class FloatingAddExpenseActivity extends AddExpenseActivity {
         super.onCreate(savedInstanceState);
         FloatingEntryWindow.apply(this);
         FloatingExpenseCompactPolish.apply(this);
+        FloatingExpenseReceiptPolish.apply(this);
     }
 }
