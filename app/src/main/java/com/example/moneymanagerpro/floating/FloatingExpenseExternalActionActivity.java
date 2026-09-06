@@ -10,16 +10,9 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
-
 /**
  * Invisible bridge used only when the true WindowManager expense overlay needs
- * an Android Activity result (UPI chooser, QR scanner or bill image picker).
- * It never opens the Money Manager dashboard and immediately finishes after
- * delivering the external result back to FloatingQuickEntryService.
+ * an Android Activity result. It never opens the Money Manager dashboard.
  */
 public final class FloatingExpenseExternalActionActivity extends Activity {
 
@@ -34,6 +27,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
 
     private static final int REQUEST_UPI = 7411;
     private static final int REQUEST_RECEIPT = 7412;
+    private static final int REQUEST_QR_UPI_APP = 7413;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -50,7 +44,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         if (ACTION_UPI.equals(action)) {
             openUpiChooser();
         } else if (ACTION_QR.equals(action)) {
-            openQrScanner();
+            openQrModeUpiAppChooser();
         } else if (ACTION_RECEIPT.equals(action)) {
             openReceiptPicker();
         } else {
@@ -58,6 +52,10 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         }
     }
 
+    /**
+     * Manual UPI-ID mode. The fully populated upi://pay URI is routed to the
+     * Android chooser so the user explicitly selects the payment app.
+     */
     private void openUpiChooser() {
         String uriText = getIntent().getStringExtra(EXTRA_PAYMENT_URI);
         if (uriText == null || uriText.trim().isEmpty()) {
@@ -94,49 +92,35 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         }
     }
 
-    private void openQrScanner() {
+    /**
+     * QR mode deliberately does NOT launch a scanner when the dropdown option
+     * is selected. This method is reached only after the user presses the
+     * existing Choose UPI App button. Android then shows the installed UPI-app
+     * chooser; the selected app owns the next step (including its QR action).
+     */
+    private void openQrModeUpiAppChooser() {
         FloatingOverlayUiState.hideExpenseForExternalAction();
 
-        GmsBarcodeScannerOptions options =
-                new GmsBarcodeScannerOptions.Builder()
-                        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                        .enableAutoZoom()
-                        .build();
-        GmsBarcodeScanner scanner =
-                GmsBarcodeScanning.getClient(this, options);
+        Intent upiAppIntent = new Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("upi://pay")
+        );
+        Intent chooser = Intent.createChooser(
+                upiAppIntent,
+                "Choose UPI App"
+        );
 
-        scanner.startScan()
-                .addOnSuccessListener(barcode -> {
-                    sendResultToService(
-                            FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
-                            barcode.getRawValue() == null
-                                    ? ""
-                                    : barcode.getRawValue()
-                    );
-                    restoreExpenseOverlay();
-                    finishWithoutAnimation();
-                })
-                .addOnCanceledListener(() -> {
-                    sendResultToService(
-                            FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
-                            ""
-                    );
-                    restoreExpenseOverlay();
-                    finishWithoutAnimation();
-                })
-                .addOnFailureListener(exception -> {
-                    Toast.makeText(
-                            this,
-                            "QR scanner could not start. Check Google Play services and try again.",
-                            Toast.LENGTH_LONG
-                    ).show();
-                    sendResultToService(
-                            FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
-                            ""
-                    );
-                    restoreExpenseOverlay();
-                    finishWithoutAnimation();
-                });
+        try {
+            startActivityForResult(chooser, REQUEST_QR_UPI_APP);
+        } catch (ActivityNotFoundException exception) {
+            Toast.makeText(
+                    this,
+                    "No UPI payment app is available",
+                    Toast.LENGTH_LONG
+            ).show();
+            restoreExpenseOverlay();
+            finishWithoutAnimation();
+        }
     }
 
     private void openReceiptPicker() {
@@ -176,6 +160,14 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                     FloatingQuickEntryService.ACTION_EXTERNAL_UPI_RESULT,
                     collectUpiResponse(data)
             );
+            restoreExpenseOverlay();
+            finishWithoutAnimation();
+            return;
+        }
+
+        if (requestCode == REQUEST_QR_UPI_APP) {
+            // QR mode has no automatic scanner/result parsing here. Returning
+            // from the selected UPI app simply restores the same overlay state.
             restoreExpenseOverlay();
             finishWithoutAnimation();
             return;
