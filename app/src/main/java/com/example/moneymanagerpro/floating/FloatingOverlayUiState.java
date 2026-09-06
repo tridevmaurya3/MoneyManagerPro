@@ -5,19 +5,19 @@ import android.content.SharedPreferences;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 /**
  * Floating-only UI state helper.
  *
  * Keeps Income and Expense overlay geometry independent and restores the last
- * user-resized size/position on the next open. It also applies floating-only
- * compact UPI presentation/interaction corrections without touching DB logic.
+ * user-resized size/position on the next open. Expense UPI presentation is
+ * reduced to one native Scan & Pay action; Money Manager no longer needs its
+ * own UPI-ID, receiver or QR-mode controls in the floating form.
  */
 final class FloatingOverlayUiState {
 
@@ -60,8 +60,7 @@ final class FloatingOverlayUiState {
         );
 
         if (expense) {
-            fixExpenseUpiSecondRow(context, overlay);
-            configureExpenseUpiInteraction(overlay);
+            simplifyExpenseNativeUpi(context, overlay);
         }
     }
 
@@ -129,7 +128,7 @@ final class FloatingOverlayUiState {
                 .getDisplayMetrics().heightPixels;
         int minWidth = Math.min(dp(context, 290), screenWidth - dp(context, 12));
         int minHeight = Math.min(
-                dp(context, expense ? 360 : 330),
+                dp(context, expense ? 330 : 330),
                 screenHeight - dp(context, 70)
         );
         int maxWidth = Math.max(minWidth, screenWidth - dp(context, 8));
@@ -196,90 +195,121 @@ final class FloatingOverlayUiState {
         );
     }
 
-    private static void fixExpenseUpiSecondRow(
+    private static void simplifyExpenseNativeUpi(
             Context context,
             Object overlay
     ) {
-        View receiver = asView(readField(overlay, "upiNameField"));
-        View chooseUpi = asView(readField(overlay, "payUpiButton"));
-        if (receiver == null || chooseUpi == null) {
+        View mode = asView(readField(overlay, "upiModeDropdown"));
+        View receiverId = asView(readField(overlay, "upiIdField"));
+        View receiverName = asView(readField(overlay, "upiNameField"));
+        View payButton = asView(readField(overlay, "payUpiButton"));
+        View resultPanel = asView(readField(overlay, "upiResultPanel"));
+
+        if (payButton == null) {
             return;
         }
 
-        ViewGroup parent = receiver.getParent() instanceof ViewGroup
-                ? (ViewGroup) receiver.getParent()
+        ViewGroup firstRow = commonParent(mode, receiverId);
+        ViewGroup secondRow = commonParent(receiverName, payButton);
+        ViewGroup body = firstRow != null && firstRow.getParent() instanceof ViewGroup
+                ? (ViewGroup) firstRow.getParent()
                 : null;
-        if (parent == null || chooseUpi.getParent() != parent) {
-            return;
+
+        if (body != null && firstRow != null) {
+            int firstIndex = body.indexOfChild(firstRow);
+            if (firstIndex > 0) {
+                View possibleSection = body.getChildAt(firstIndex - 1);
+                if (possibleSection instanceof TextView) {
+                    TextView section = (TextView) possibleSection;
+                    section.setText("UPI Payment");
+                }
+            }
+            body.removeView(firstRow);
+        } else {
+            hide(mode);
+            hide(receiverId);
         }
 
-        parent.setClipChildren(false);
-        parent.setClipToPadding(false);
-        parent.setMinimumHeight(dp(context, 42));
-
-        ViewGroup.LayoutParams parentParams = parent.getLayoutParams();
-        if (parentParams != null) {
-            parentParams.height = dp(context, 42);
-            parent.setLayoutParams(parentParams);
-        }
-
-        makeSecondRowControlSafe(context, receiver);
-        makeSecondRowControlSafe(context, chooseUpi);
-    }
-
-    /**
-     * Selecting "Scan UPI QR Code" must only select the mode. No external
-     * screen is opened at selection time. The external action is gated behind
-     * the existing Choose UPI App button.
-     */
-    private static void configureExpenseUpiInteraction(Object overlay) {
-        Object dropdown = readField(overlay, "upiModeDropdown");
-        View chooseUpi = asView(readField(overlay, "payUpiButton"));
-        if (dropdown == null || chooseUpi == null) {
-            return;
-        }
-
-        // Disable the original dropdown selection callback that immediately
-        // launched the Google QR scanner.
-        writeField(dropdown, "selectionListener", null);
-
-        chooseUpi.setOnClickListener(view -> {
-            String mode = invokeString(dropdown, "selected");
-            if ("Scan UPI QR Code".equals(mode)) {
-                Object host = readField(overlay, "externalHost");
-                invokeNoArg(host, "launchQrScanner");
-                return;
+        if (secondRow != null) {
+            if (receiverName != null && receiverName.getParent() == secondRow) {
+                secondRow.removeView(receiverName);
+            } else {
+                hide(receiverName);
             }
 
-            // Manual UPI ID mode keeps the original validation/payment URI flow.
-            invokeNoArg(overlay, "launchUpiPayment");
+            secondRow.setClipChildren(false);
+            secondRow.setClipToPadding(false);
+            secondRow.setMinimumHeight(0);
+
+            ViewGroup.LayoutParams rowParams = secondRow.getLayoutParams();
+            if (rowParams != null) {
+                rowParams.height = dp(context, 42);
+                secondRow.setLayoutParams(rowParams);
+            }
+
+            ViewGroup.LayoutParams raw = payButton.getLayoutParams();
+            if (raw instanceof LinearLayout.LayoutParams) {
+                LinearLayout.LayoutParams params =
+                        (LinearLayout.LayoutParams) raw;
+                params.width = 0;
+                params.height = dp(context, 38);
+                params.weight = 1f;
+                params.leftMargin = 0;
+                params.topMargin = dp(context, 2);
+                params.bottomMargin = dp(context, 2);
+                payButton.setLayoutParams(params);
+            } else if (raw != null) {
+                raw.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                raw.height = dp(context, 38);
+                payButton.setLayoutParams(raw);
+            }
+        }
+
+        if (payButton instanceof TextView) {
+            TextView button = (TextView) payButton;
+            button.setText("Scan & Pay");
+            button.setTextSize(11f);
+            button.setContentDescription(
+                    "Choose a UPI app and use its native QR scanner"
+            );
+        }
+
+        hide(resultPanel);
+
+        payButton.setOnClickListener(view -> {
+            Object host = readField(overlay, "externalHost");
+            invokeLaunchNativeUpi(host);
         });
     }
 
-    private static void makeSecondRowControlSafe(
-            Context context,
-            View view
-    ) {
-        view.setMinimumHeight(0);
-        if (view instanceof EditText) {
-            ((EditText) view).setMinHeight(0);
-        }
-        if (view instanceof TextView) {
-            ((TextView) view).setIncludeFontPadding(false);
-        }
-
-        ViewGroup.LayoutParams raw = view.getLayoutParams();
-        if (raw == null) {
+    private static void invokeLaunchNativeUpi(Object host) {
+        if (host == null) {
             return;
         }
-        raw.height = dp(context, 38);
-        if (raw instanceof ViewGroup.MarginLayoutParams) {
-            ViewGroup.MarginLayoutParams margins =
-                    (ViewGroup.MarginLayoutParams) raw;
-            margins.topMargin = dp(context, 2);
-            margins.bottomMargin = dp(context, 2);
+        try {
+            java.lang.reflect.Method method =
+                    host.getClass().getMethod("launchQrScanner");
+            method.setAccessible(true);
+            method.invoke(host);
+        } catch (Exception ignored) {
         }
-        view.setLayoutParams(raw);
+    }
+
+    private static ViewGroup commonParent(View first, View second) {
+        if (first == null || second == null) {
+            return null;
+        }
+        if (first.getParent() instanceof ViewGroup
+                && first.getParent() == second.getParent()) {
+            return (ViewGroup) first.getParent();
+        }
+        return null;
+    }
+
+    private static void hide(View view) {
+        if (view != null) {
+            view.setVisibility(View.GONE);
+        }
     }
 
     private static Object readField(Object target, String name) {
@@ -292,46 +322,6 @@ final class FloatingOverlayUiState {
                 Field field = type.getDeclaredField(name);
                 field.setAccessible(true);
                 return field.get(target);
-            } catch (Exception ignored) {
-                type = type.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    private static boolean writeField(Object target, String name, Object value) {
-        if (target == null) {
-            return false;
-        }
-        Class<?> type = target.getClass();
-        while (type != null) {
-            try {
-                Field field = type.getDeclaredField(name);
-                field.setAccessible(true);
-                field.set(target, value);
-                return true;
-            } catch (Exception ignored) {
-                type = type.getSuperclass();
-            }
-        }
-        return false;
-    }
-
-    private static String invokeString(Object target, String methodName) {
-        Object value = invokeNoArg(target, methodName);
-        return value == null ? "" : value.toString().trim();
-    }
-
-    private static Object invokeNoArg(Object target, String methodName) {
-        if (target == null) {
-            return null;
-        }
-        Class<?> type = target.getClass();
-        while (type != null) {
-            try {
-                Method method = type.getDeclaredMethod(methodName);
-                method.setAccessible(true);
-                return method.invoke(target);
             } catch (Exception ignored) {
                 type = type.getSuperclass();
             }
