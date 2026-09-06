@@ -2,9 +2,9 @@ package com.example.moneymanagerpro.floating;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Toast;
@@ -12,19 +12,20 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
-import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
-import com.example.moneymanagerpro.utils.UpiScannedIntentBuilder;
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanner;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions;
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning;
-
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
- * Invisible bridge used only when the true WindowManager expense overlay needs
- * an Android Activity result. It never opens the Money Manager dashboard.
+ * Transparent bridge for floating Expense external actions.
+ *
+ * UPI payment is intentionally delegated to the selected UPI app's own native
+ * screen. Money Manager does not scan the QR and does not construct a third-
+ * party payment intent in this flow. The user opens the UPI app here and uses
+ * that app's own Scan & Pay experience.
  */
 public final class FloatingExpenseExternalActionActivity extends Activity {
 
@@ -35,21 +36,12 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
     static final String ACTION_RECEIPT =
             "com.example.moneymanagerpro.floating.action.RECEIPT";
 
+    // Kept for binary/source compatibility with the existing service routing.
     static final String EXTRA_PAYMENT_URI = "payment_uri";
 
-    private static final int REQUEST_UPI = 7411;
     private static final int REQUEST_RECEIPT = 7412;
 
-    private static final String[] QR_UPI_APP_LABELS = {
-            "Google Pay",
-            "PhonePe",
-            "Paytm",
-            "BHIM",
-            "Amazon Pay",
-            "CRED"
-    };
-
-    private static final String[] QR_UPI_APP_PACKAGES = {
+    private static final String[] FALLBACK_UPI_PACKAGES = {
             "com.google.android.apps.nbu.paisa.user",
             "com.phonepe.app",
             "net.one97.paytm",
@@ -58,14 +50,22 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
             "com.dreamplug.androidapp"
     };
 
-    private String selectedQrUpiPackage = "";
-    private String selectedQrUpiLabel = "";
+    private boolean nativeUpiLaunched;
+    private boolean pausedAfterNativeLaunch;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         if (savedInstanceState != null) {
+            nativeUpiLaunched = savedInstanceState.getBoolean(
+                    "native_upi_launched",
+                    false
+            );
+            pausedAfterNativeLaunch = savedInstanceState.getBoolean(
+                    "native_upi_paused",
+                    false
+            );
             return;
         }
 
@@ -73,10 +73,8 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                 ? null
                 : getIntent().getAction();
 
-        if (ACTION_UPI.equals(action)) {
-            openUpiChooser();
-        } else if (ACTION_QR.equals(action)) {
-            openQrModeUpiAppChooser();
+        if (ACTION_QR.equals(action) || ACTION_UPI.equals(action)) {
+            openNativeUpiAppChooser();
         } else if (ACTION_RECEIPT.equals(action)) {
             openReceiptPicker();
         } else {
@@ -84,77 +82,58 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         }
     }
 
-    /**
-     * Manual UPI-ID mode: exactly the normal upi://pay chooser flow.
-     */
-    private void openUpiChooser() {
-        String uriText = getIntent().getStringExtra(EXTRA_PAYMENT_URI);
-        if (uriText == null || uriText.trim().isEmpty()) {
-            restoreExpenseOverlay();
-            finishWithoutAnimation();
-            return;
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean("native_upi_launched", nativeUpiLaunched);
+        outState.putBoolean("native_upi_paused", pausedAfterNativeLaunch);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onPause() {
+        if (nativeUpiLaunched) {
+            pausedAfterNativeLaunch = true;
         }
+        super.onPause();
+    }
 
-        FloatingOverlayUiState.hideExpenseForExternalAction();
-
-        Intent paymentIntent = new Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse(uriText)
-        );
-        Intent chooser = Intent.createChooser(
-                paymentIntent,
-                "Choose UPI / Payment App"
-        );
-
-        try {
-            startActivityForResult(chooser, REQUEST_UPI);
-        } catch (ActivityNotFoundException exception) {
-            Toast.makeText(
-                    this,
-                    "No UPI payment app is available",
-                    Toast.LENGTH_LONG
-            ).show();
-            sendResultToService(
-                    FloatingQuickEntryService.ACTION_EXTERNAL_UPI_RESULT,
-                    ""
-            );
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (nativeUpiLaunched && pausedAfterNativeLaunch) {
+            // The user has returned from the selected UPI app. We deliberately
+            // do not assume payment success because launcher activities do not
+            // provide a trustworthy payment result.
             restoreExpenseOverlay();
             finishWithoutAnimation();
         }
     }
 
-    /**
-     * QR mode is intentionally two-step:
-     * 1) choose the UPI app,
-     * 2) open the scanner, then send the scanned UPI URI to that exact app.
-     *
-     * Merely choosing "Scan UPI QR Code" in the floating dropdown never starts
-     * an external screen. This method runs only after Choose UPI App is tapped.
-     */
-    private void openQrModeUpiAppChooser() {
+    private void openNativeUpiAppChooser() {
         FloatingOverlayUiState.hideExpenseForExternalAction();
 
-        List<Integer> availableIndexes = detectAvailableUpiApps();
-        if (availableIndexes.isEmpty()) {
-            for (int index = 0; index < QR_UPI_APP_PACKAGES.length; index++) {
-                availableIndexes.add(index);
-            }
+        List<UpiApp> apps = detectNativeUpiApps();
+        if (apps.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "No compatible UPI app is available",
+                    Toast.LENGTH_LONG
+            ).show();
+            restoreExpenseOverlay();
+            finishWithoutAnimation();
+            return;
         }
 
-        CharSequence[] labels = new CharSequence[availableIndexes.size()];
-        for (int index = 0; index < availableIndexes.size(); index++) {
-            labels[index] = QR_UPI_APP_LABELS[availableIndexes.get(index)];
+        CharSequence[] labels = new CharSequence[apps.size()];
+        for (int index = 0; index < apps.size(); index++) {
+            labels[index] = apps.get(index).label;
         }
 
-        final List<Integer> choices = availableIndexes;
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Choose UPI / Payment App")
-                .setItems(labels, (whichDialog, which) -> {
-                    int appIndex = choices.get(which);
-                    selectedQrUpiPackage = QR_UPI_APP_PACKAGES[appIndex];
-                    selectedQrUpiLabel = QR_UPI_APP_LABELS[appIndex];
-                    startQrScannerForSelectedApp();
-                })
+                .setTitle("Scan & Pay with UPI App")
+                .setMessage("Choose an app, then use that app's own QR scanner.")
+                .setItems(labels, (whichDialog, which) ->
+                        launchNativeUpiApp(apps.get(which)))
                 .setNegativeButton("Cancel", (whichDialog, which) -> {
                     restoreExpenseOverlay();
                     finishWithoutAnimation();
@@ -168,100 +147,114 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         dialog.show();
     }
 
-    private List<Integer> detectAvailableUpiApps() {
-        List<Integer> result = new ArrayList<>();
+    private List<UpiApp> detectNativeUpiApps() {
         PackageManager packageManager = getPackageManager();
-        Uri probeUri = Uri.parse(
-                "upi://pay?pa=merchant@upi&pn=Merchant&cu=INR"
+        Map<String, UpiApp> discovered = new LinkedHashMap<>();
+
+        Intent probe = new Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("upi://pay?pa=merchant@upi&pn=Merchant&cu=INR")
         );
 
-        for (int index = 0; index < QR_UPI_APP_PACKAGES.length; index++) {
-            Intent probe = new Intent(Intent.ACTION_VIEW, probeUri);
-            probe.setPackage(QR_UPI_APP_PACKAGES[index]);
-            try {
-                if (probe.resolveActivity(packageManager) != null) {
-                    result.add(index);
+        try {
+            List<ResolveInfo> resolved = packageManager.queryIntentActivities(
+                    probe,
+                    PackageManager.MATCH_DEFAULT_ONLY
+            );
+            for (ResolveInfo info : resolved) {
+                if (info == null || info.activityInfo == null) {
+                    continue;
                 }
-            } catch (Exception ignored) {
+                String packageName = info.activityInfo.packageName;
+                addLaunchablePackage(
+                        packageManager,
+                        discovered,
+                        packageName,
+                        info.loadLabel(packageManager)
+                );
             }
+        } catch (Exception ignored) {
         }
+
+        for (String packageName : FALLBACK_UPI_PACKAGES) {
+            addLaunchablePackage(
+                    packageManager,
+                    discovered,
+                    packageName,
+                    null
+            );
+        }
+
+        List<UpiApp> result = new ArrayList<>(discovered.values());
+        Collections.sort(
+                result,
+                (left, right) -> left.label.toLowerCase(Locale.US)
+                        .compareTo(right.label.toLowerCase(Locale.US))
+        );
         return result;
     }
 
-    private void startQrScannerForSelectedApp() {
-        if (selectedQrUpiPackage.isEmpty()) {
-            restoreExpenseOverlay();
-            finishWithoutAnimation();
+    private void addLaunchablePackage(
+            PackageManager packageManager,
+            Map<String, UpiApp> discovered,
+            String packageName,
+            @Nullable CharSequence knownLabel
+    ) {
+        if (packageName == null
+                || packageName.trim().isEmpty()
+                || packageName.equals(getPackageName())
+                || discovered.containsKey(packageName)) {
             return;
         }
 
-        GmsBarcodeScannerOptions options =
-                new GmsBarcodeScannerOptions.Builder()
-                        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                        .enableAutoZoom()
-                        .build();
-        GmsBarcodeScanner scanner = GmsBarcodeScanning.getClient(this, options);
+        Intent launchIntent;
+        try {
+            launchIntent = packageManager.getLaunchIntentForPackage(packageName);
+        } catch (Exception exception) {
+            launchIntent = null;
+        }
+        if (launchIntent == null) {
+            return;
+        }
 
-        scanner.startScan()
-                .addOnSuccessListener(barcode -> {
-                    String rawValue = barcode.getRawValue() == null
-                            ? ""
-                            : barcode.getRawValue().trim();
+        String label = knownLabel == null
+                ? ""
+                : knownLabel.toString().trim();
+        if (label.isEmpty()) {
+            try {
+                label = packageManager
+                        .getApplicationLabel(
+                                packageManager.getApplicationInfo(packageName, 0)
+                        )
+                        .toString()
+                        .trim();
+            } catch (Exception ignored) {
+                label = packageName;
+            }
+        }
 
-                    UpiQrPayloadParser.Result parsed =
-                            UpiQrPayloadParser.parse(rawValue);
-                    if (!parsed.isValid()) {
-                        Toast.makeText(
-                                this,
-                                "This QR code does not contain a valid UPI payment ID",
-                                Toast.LENGTH_LONG
-                        ).show();
-                        sendResultToService(
-                                FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
-                                rawValue
-                        );
-                        restoreExpenseOverlay();
-                        finishWithoutAnimation();
-                        return;
-                    }
-
-                    sendResultToService(
-                            FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
-                            rawValue
-                    );
-                    launchScannedPaymentInSelectedApp(rawValue);
-                })
-                .addOnCanceledListener(() -> {
-                    sendResultToService(
-                            FloatingQuickEntryService.ACTION_EXTERNAL_QR_RESULT,
-                            ""
-                    );
-                    restoreExpenseOverlay();
-                    finishWithoutAnimation();
-                })
-                .addOnFailureListener(exception -> {
-                    Toast.makeText(
-                            this,
-                            "QR scanner could not start. Check Google Play services and try again.",
-                            Toast.LENGTH_LONG
-                    ).show();
-                    restoreExpenseOverlay();
-                    finishWithoutAnimation();
-                });
+        discovered.put(packageName, new UpiApp(packageName, label));
     }
 
-    /**
-     * Preserve merchant/static/dynamic QR data and only fill the fields that a
-     * scanner is expected to supply when absent. In particular, do not inject
-     * the Money Manager amount into a static QR; let the selected UPI app ask
-     * for the amount when the QR itself did not contain one.
-     */
-    private void launchScannedPaymentInSelectedApp(String scannedUpiUri) {
-        Uri preparedUri = UpiScannedIntentBuilder.prepare(scannedUpiUri);
-        if (preparedUri == null) {
+    private void launchNativeUpiApp(UpiApp app) {
+        if (app == null) {
+            restoreExpenseOverlay();
+            finishWithoutAnimation();
+            return;
+        }
+
+        Intent launchIntent;
+        try {
+            launchIntent = getPackageManager()
+                    .getLaunchIntentForPackage(app.packageName);
+        } catch (Exception exception) {
+            launchIntent = null;
+        }
+
+        if (launchIntent == null) {
             Toast.makeText(
                     this,
-                    "Unable to prepare this UPI QR for payment",
+                    app.label + " cannot be opened",
                     Toast.LENGTH_LONG
             ).show();
             restoreExpenseOverlay();
@@ -269,23 +262,17 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
             return;
         }
 
-        Intent paymentIntent = new Intent(Intent.ACTION_VIEW, preparedUri);
-        paymentIntent.setPackage(selectedQrUpiPackage);
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        nativeUpiLaunched = true;
+        pausedAfterNativeLaunch = false;
 
         try {
-            startActivityForResult(paymentIntent, REQUEST_UPI);
-        } catch (ActivityNotFoundException exception) {
-            Toast.makeText(
-                    this,
-                    selectedQrUpiLabel + " is not installed or cannot handle this UPI QR",
-                    Toast.LENGTH_LONG
-            ).show();
-            restoreExpenseOverlay();
-            finishWithoutAnimation();
+            startActivity(launchIntent);
         } catch (Exception exception) {
+            nativeUpiLaunched = false;
             Toast.makeText(
                     this,
-                    "Unable to open " + selectedQrUpiLabel,
+                    "Unable to open " + app.label,
                     Toast.LENGTH_LONG
             ).show();
             restoreExpenseOverlay();
@@ -306,7 +293,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
 
         try {
             startActivityForResult(picker, REQUEST_RECEIPT);
-        } catch (ActivityNotFoundException exception) {
+        } catch (Exception exception) {
             Toast.makeText(
                     this,
                     "No image picker is available",
@@ -325,62 +312,29 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
     ) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == REQUEST_UPI) {
-            sendResultToService(
-                    FloatingQuickEntryService.ACTION_EXTERNAL_UPI_RESULT,
-                    collectUpiResponse(data)
-            );
-            restoreExpenseOverlay();
-            finishWithoutAnimation();
+        if (requestCode != REQUEST_RECEIPT) {
             return;
         }
 
-        if (requestCode == REQUEST_RECEIPT) {
-            String uriText = "";
-            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
-                Uri uri = data.getData();
-                try {
-                    getContentResolver().takePersistableUriPermission(
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    );
-                } catch (Exception ignored) {
-                }
-                uriText = uri.toString();
+        String uriText = "";
+        if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri uri = data.getData();
+            try {
+                getContentResolver().takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                );
+            } catch (Exception ignored) {
             }
-
-            sendResultToService(
-                    FloatingQuickEntryService.ACTION_EXTERNAL_RECEIPT_RESULT,
-                    uriText
-            );
-            restoreExpenseOverlay();
-            finishWithoutAnimation();
-        }
-    }
-
-    private String collectUpiResponse(@Nullable Intent data) {
-        if (data == null) {
-            return "";
+            uriText = uri.toString();
         }
 
-        StringBuilder response = new StringBuilder();
-        if (data.getDataString() != null) {
-            response.append(data.getDataString());
-        }
-
-        if (data.getExtras() != null) {
-            for (String key : data.getExtras().keySet()) {
-                Object value = data.getExtras().get(key);
-                if (value == null) {
-                    continue;
-                }
-                if (response.length() > 0) {
-                    response.append('&');
-                }
-                response.append(key).append('=').append(value);
-            }
-        }
-        return response.toString();
+        sendResultToService(
+                FloatingQuickEntryService.ACTION_EXTERNAL_RECEIPT_RESULT,
+                uriText
+        );
+        restoreExpenseOverlay();
+        finishWithoutAnimation();
     }
 
     private void sendResultToService(String action, String payload) {
@@ -402,5 +356,15 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
     private void finishWithoutAnimation() {
         finish();
         overridePendingTransition(0, 0);
+    }
+
+    private static final class UpiApp {
+        final String packageName;
+        final String label;
+
+        UpiApp(String packageName, String label) {
+            this.packageName = packageName;
+            this.label = label;
+        }
     }
 }
