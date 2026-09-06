@@ -8,6 +8,7 @@ import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 
 /**
@@ -20,6 +21,8 @@ import java.lang.reflect.Field;
 final class FloatingOverlayUiState {
 
     private static final String PREFS = "floating_overlay_geometry";
+    private static WeakReference<Object> currentExpenseOverlay =
+            new WeakReference<>(null);
 
     private FloatingOverlayUiState() {
     }
@@ -43,6 +46,10 @@ final class FloatingOverlayUiState {
             return;
         }
 
+        if (expense) {
+            currentExpenseOverlay = new WeakReference<>(overlay);
+        }
+
         restoreGeometry(
                 context.getApplicationContext(),
                 root,
@@ -53,6 +60,51 @@ final class FloatingOverlayUiState {
 
         if (expense) {
             fixExpenseUpiSecondRow(context, overlay);
+        }
+    }
+
+    static void hideExpenseForExternalAction() {
+        Object overlay = currentExpenseOverlay.get();
+        if (overlay == null) {
+            return;
+        }
+
+        View root = asView(readField(overlay, "rootView"));
+        WindowManager windowManager =
+                asWindowManager(readField(overlay, "windowManager"));
+        if (root == null || windowManager == null || !root.isAttachedToWindow()) {
+            return;
+        }
+
+        try {
+            windowManager.removeViewImmediate(root);
+        } catch (Exception ignored) {
+        }
+    }
+
+    static void restoreExpenseAfterExternalAction() {
+        Object overlay = currentExpenseOverlay.get();
+        if (overlay == null) {
+            return;
+        }
+
+        View root = asView(readField(overlay, "rootView"));
+        WindowManager.LayoutParams params =
+                asLayoutParams(readField(overlay, "params"));
+        WindowManager windowManager =
+                asWindowManager(readField(overlay, "windowManager"));
+
+        if (root == null
+                || params == null
+                || windowManager == null
+                || root.isAttachedToWindow()) {
+            return;
+        }
+
+        try {
+            windowManager.addView(root, params);
+            root.requestFocus();
+        } catch (Exception ignored) {
         }
     }
 
