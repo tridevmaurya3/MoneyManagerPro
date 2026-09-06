@@ -10,13 +10,14 @@ import android.widget.TextView;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 /**
  * Floating-only UI state helper.
  *
  * Keeps Income and Expense overlay geometry independent and restores the last
- * user-resized size/position on the next open. It also fixes the compact
- * Receiver Name / Choose UPI App row without touching expense/payment logic.
+ * user-resized size/position on the next open. It also applies floating-only
+ * compact UPI presentation/interaction corrections without touching DB logic.
  */
 final class FloatingOverlayUiState {
 
@@ -60,6 +61,7 @@ final class FloatingOverlayUiState {
 
         if (expense) {
             fixExpenseUpiSecondRow(context, overlay);
+            configureExpenseUpiInteraction(overlay);
         }
     }
 
@@ -225,6 +227,35 @@ final class FloatingOverlayUiState {
         makeSecondRowControlSafe(context, chooseUpi);
     }
 
+    /**
+     * Selecting "Scan UPI QR Code" must only select the mode. No external
+     * screen is opened at selection time. The external action is gated behind
+     * the existing Choose UPI App button.
+     */
+    private static void configureExpenseUpiInteraction(Object overlay) {
+        Object dropdown = readField(overlay, "upiModeDropdown");
+        View chooseUpi = asView(readField(overlay, "payUpiButton"));
+        if (dropdown == null || chooseUpi == null) {
+            return;
+        }
+
+        // Disable the original dropdown selection callback that immediately
+        // launched the Google QR scanner.
+        writeField(dropdown, "selectionListener", null);
+
+        chooseUpi.setOnClickListener(view -> {
+            String mode = invokeString(dropdown, "selected");
+            if ("Scan UPI QR Code".equals(mode)) {
+                Object host = readField(overlay, "externalHost");
+                invokeNoArg(host, "launchQrScanner");
+                return;
+            }
+
+            // Manual UPI ID mode keeps the original validation/payment URI flow.
+            invokeNoArg(overlay, "launchUpiPayment");
+        });
+    }
+
     private static void makeSecondRowControlSafe(
             Context context,
             View view
@@ -252,12 +283,55 @@ final class FloatingOverlayUiState {
     }
 
     private static Object readField(Object target, String name) {
+        if (target == null) {
+            return null;
+        }
         Class<?> type = target.getClass();
         while (type != null) {
             try {
                 Field field = type.getDeclaredField(name);
                 field.setAccessible(true);
                 return field.get(target);
+            } catch (Exception ignored) {
+                type = type.getSuperclass();
+            }
+        }
+        return null;
+    }
+
+    private static boolean writeField(Object target, String name, Object value) {
+        if (target == null) {
+            return false;
+        }
+        Class<?> type = target.getClass();
+        while (type != null) {
+            try {
+                Field field = type.getDeclaredField(name);
+                field.setAccessible(true);
+                field.set(target, value);
+                return true;
+            } catch (Exception ignored) {
+                type = type.getSuperclass();
+            }
+        }
+        return false;
+    }
+
+    private static String invokeString(Object target, String methodName) {
+        Object value = invokeNoArg(target, methodName);
+        return value == null ? "" : value.toString().trim();
+    }
+
+    private static Object invokeNoArg(Object target, String methodName) {
+        if (target == null) {
+            return null;
+        }
+        Class<?> type = target.getClass();
+        while (type != null) {
+            try {
+                Method method = type.getDeclaredMethod(methodName);
+                method.setAccessible(true);
+                return method.invoke(target);
             } catch (Exception ignored) {
                 type = type.getSuperclass();
             }
