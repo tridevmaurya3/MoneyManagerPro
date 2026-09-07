@@ -41,6 +41,7 @@ import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.Category;
 import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
+import com.example.moneymanagerpro.utils.ExpenseItemPriceCalculator;
 import com.example.moneymanagerpro.utils.ReceiptStore;
 import com.example.moneymanagerpro.utils.UpiPaymentResultParser;
 import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
@@ -123,6 +124,8 @@ final class FloatingExpenseQuickEntryOverlay {
     private String lastUpiNoteBlock = "";
     private UpiPaymentResultParser.Result lastUpiPaymentResult;
     private boolean dismissed;
+    private boolean updatingAmountFromItems;
+    private boolean amountManuallyOverridden;
 
     FloatingExpenseQuickEntryOverlay(
             Context context,
@@ -337,6 +340,7 @@ final class FloatingExpenseQuickEntryOverlay {
         );
         amountField.setTextSize(15.5f);
         amountField.setTypeface(amountField.getTypeface(), Typeface.BOLD);
+        setupAmountAutoSync();
         addLabeledField(body, "Amount", amountField, dp(1), dp(38));
 
         buildItemsSection(body);
@@ -370,6 +374,40 @@ final class FloatingExpenseQuickEntryOverlay {
         body.addView(saveButton, saveParams);
         saveButton.setOnClickListener(view -> save());
         return root;
+    }
+
+    private void setupAmountAutoSync() {
+        amountField.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void afterTextChanged(Editable s) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (updatingAmountFromItems) {
+                    return;
+                }
+                amountManuallyOverridden = s != null
+                        && !s.toString().trim().isEmpty();
+            }
+        });
+    }
+
+    private void syncAmountFromItems(BigDecimal total) {
+        if (amountField == null || amountManuallyOverridden) {
+            return;
+        }
+
+        updatingAmountFromItems = true;
+        try {
+            if (total != null && total.compareTo(BigDecimal.ZERO) > 0) {
+                amountField.setText(money(total));
+                amountField.setError(null);
+            } else {
+                amountField.setText("");
+            }
+        } finally {
+            updatingAmountFromItems = false;
+        }
     }
 
     private GradientDrawable formGradient() {
@@ -728,8 +766,18 @@ final class FloatingExpenseQuickEntryOverlay {
                 InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL
         );
         quantity.setTextSize(11f);
-        OverlayDropdown unit = new OverlayDropdown("Unit", null);
+
+        final ItemRow[] rowHolder = new ItemRow[1];
+        OverlayDropdown unit = new OverlayDropdown(
+                "Unit",
+                value -> {
+                    if (rowHolder[0] != null) {
+                        updateItemTotal(rowHolder[0]);
+                    }
+                }
+        );
         unit.setOptions(Arrays.asList(UNITS));
+
         EditText price = createEditField(
                 "Price",
                 InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL
@@ -766,6 +814,7 @@ final class FloatingExpenseQuickEntryOverlay {
         );
 
         ItemRow row = new ItemRow(card, name, quantity, unit, price, total);
+        rowHolder[0] = row;
         itemRows.add(row);
 
         TextWatcher watcher = new TextWatcher() {
@@ -804,13 +853,15 @@ final class FloatingExpenseQuickEntryOverlay {
         addItemButton.setAlpha(enabled ? 1f : 0.5f);
     }
 
-    private void updateItemTotal(ItemRow row) {
+    private BigDecimal calculateItemTotal(ItemRow row) {
         BigDecimal quantity = parsePositive(clean(row.quantity));
         BigDecimal price = parsePositive(clean(row.price));
-        BigDecimal total = BigDecimal.ZERO;
-        if (quantity != null && price != null) {
-            total = quantity.multiply(price).setScale(2, RoundingMode.HALF_UP);
-        }
+        String unit = row.unit == null ? "" : row.unit.selected();
+        return ExpenseItemPriceCalculator.calculate(quantity, unit, price);
+    }
+
+    private void updateItemTotal(ItemRow row) {
+        BigDecimal total = calculateItemTotal(row);
         row.total.setText("₹" + money(total));
         updateItemsTotal();
     }
@@ -819,17 +870,15 @@ final class FloatingExpenseQuickEntryOverlay {
         if (itemsTotalView == null) {
             return;
         }
+
         BigDecimal sum = BigDecimal.ZERO;
         for (ItemRow row : itemRows) {
-            BigDecimal quantity = parsePositive(clean(row.quantity));
-            BigDecimal price = parsePositive(clean(row.price));
-            if (quantity != null && price != null) {
-                sum = sum.add(quantity.multiply(price));
-            }
+            sum = sum.add(calculateItemTotal(row));
         }
-        itemsTotalView.setText(
-                "Items total: ₹" + money(sum.setScale(2, RoundingMode.HALF_UP))
-        );
+        sum = sum.setScale(2, RoundingMode.HALF_UP);
+
+        itemsTotalView.setText("Items total: ₹" + money(sum));
+        syncAmountFromItems(sum);
     }
 
     private void loadOptions() {
@@ -1029,7 +1078,9 @@ final class FloatingExpenseQuickEntryOverlay {
                 total = total.add(BigDecimal.valueOf(item.getTotal()));
             }
             amountText = money(total);
+            updatingAmountFromItems = true;
             amountField.setText(amountText);
+            updatingAmountFromItems = false;
         }
 
         BigDecimal amount = parsePositive(amountText);
@@ -1152,8 +1203,11 @@ final class FloatingExpenseQuickEntryOverlay {
                 unit = "Unit";
             }
 
-            BigDecimal total = quantity.multiply(price)
-                    .setScale(2, RoundingMode.HALF_UP);
+            BigDecimal total = ExpenseItemPriceCalculator.calculate(
+                    quantity,
+                    unit,
+                    price
+            );
             ExpenseItem item = new ExpenseItem();
             item.setItemName(name);
             item.setQuantity(quantity.doubleValue());
