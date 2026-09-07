@@ -2,6 +2,11 @@ package com.example.moneymanagerpro.floating;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -199,11 +204,23 @@ final class FloatingOverlayUiState {
             Context context,
             Object overlay
     ) {
+        View amount = asView(readField(overlay, "amountField"));
         View mode = asView(readField(overlay, "upiModeDropdown"));
         View receiverId = asView(readField(overlay, "upiIdField"));
         View receiverName = asView(readField(overlay, "upiNameField"));
         View payButton = asView(readField(overlay, "payUpiButton"));
         View resultPanel = asView(readField(overlay, "upiResultPanel"));
+
+        if (amount instanceof TextView) {
+            TextView amountField = (TextView) amount;
+            amountField.setCompoundDrawables(
+                    new RupeePrefixDrawable(context),
+                    null,
+                    null,
+                    null
+            );
+            amountField.setCompoundDrawablePadding(dp(context, 4));
+        }
 
         if (payButton == null) {
             return;
@@ -353,5 +370,54 @@ final class FloatingOverlayUiState {
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private static final class RupeePrefixDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final int width;
+        private final int height;
+
+        RupeePrefixDrawable(Context context) {
+            width = dp(context, 16);
+            height = dp(context, 22);
+            paint.setColor(Color.parseColor("#26332D"));
+            paint.setTextSize(
+                    15f * context.getResources().getDisplayMetrics().scaledDensity
+            );
+            paint.setFakeBoldText(true);
+            setBounds(0, 0, width, height);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            Paint.FontMetrics metrics = paint.getFontMetrics();
+            float baseline = (height - metrics.bottom - metrics.top) / 2f;
+            canvas.drawText("₹", 0f, baseline, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(android.graphics.ColorFilter colorFilter) {
+            paint.setColorFilter(colorFilter);
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+
+        @Override
+        public int getIntrinsicWidth() {
+            return width;
+        }
+
+        @Override
+        public int getIntrinsicHeight() {
+            return height;
+        }
     }
 }
