@@ -2,7 +2,6 @@ package com.example.moneymanagerpro.floating;
 
 import android.app.Activity;
 import android.app.Application;
-import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -120,24 +119,9 @@ final class InAppExpenseUpiCompatibility {
                 );
             }
 
-            payButton.setOnClickListener(view -> launchNativeUpiFlow());
-        }
-
-        private void launchNativeUpiFlow() {
-            Intent intent = new Intent(
-                    activity,
-                    FloatingExpenseExternalActionActivity.class
+            payButton.setOnClickListener(
+                    view -> NativeUpiAppPopup.show(activity, payButton)
             );
-            intent.setAction(FloatingExpenseExternalActionActivity.ACTION_QR);
-            intent.addFlags(
-                    Intent.FLAG_ACTIVITY_NO_ANIMATION
-                            | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-            );
-            try {
-                activity.startActivity(intent);
-                activity.overridePendingTransition(0, 0);
-            } catch (Exception ignored) {
-            }
         }
     }
 
