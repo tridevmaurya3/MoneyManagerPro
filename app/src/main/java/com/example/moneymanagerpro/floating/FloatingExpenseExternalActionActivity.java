@@ -137,8 +137,8 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
     }
 
     private void openNativeUpiAppChooser() {
-        FloatingOverlayUiState.hideExpenseForExternalAction();
-
+        // Keep the floating Expense form visible while the user is choosing an
+        // app. It is hidden only after an app has actually been selected.
         List<UpiApp> apps = detectNativeUpiApps();
         if (apps.isEmpty()) {
             Toast.makeText(
@@ -170,31 +170,24 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(18), dp(16), dp(18), dp(14));
+        card.setPadding(dp(10), dp(9), dp(10), dp(9));
         card.setBackground(roundedBackground(
-                Color.parseColor("#FFFDFB"),
-                Color.parseColor("#D8E2DC"),
-                20
+                Color.parseColor("#FBFFFC"),
+                Color.parseColor("#BFD4C8"),
+                14
         ));
 
         TextView title = new TextView(this);
-        title.setText("Scan & Pay with UPI App");
+        title.setText("Choose UPI App");
         title.setTextColor(Color.parseColor("#18352B"));
-        title.setTextSize(19f);
+        title.setTextSize(14f);
         title.setTypeface(
                 title.getTypeface(),
                 android.graphics.Typeface.BOLD
         );
         title.setIncludeFontPadding(false);
+        title.setPadding(dp(4), dp(1), dp(4), dp(7));
         card.addView(title);
-
-        TextView subtitle = new TextView(this);
-        subtitle.setText("Choose an app, then use that app's own QR scanner.");
-        subtitle.setTextColor(Color.parseColor("#64746D"));
-        subtitle.setTextSize(12f);
-        subtitle.setPadding(0, dp(5), 0, dp(10));
-        subtitle.setIncludeFontPadding(false);
-        card.addView(subtitle);
 
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(false);
@@ -211,7 +204,7 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                 )
         );
 
-        int maxVisibleHeight = dp(Math.min(330, 66 * Math.max(1, apps.size())));
+        int maxVisibleHeight = dp(Math.min(224, 44 * Math.max(1, apps.size())));
         LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 maxVisibleHeight
@@ -239,23 +232,23 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         TextView cancel = new TextView(this);
         cancel.setText("Cancel");
         cancel.setTextColor(Color.parseColor("#8A2F25"));
-        cancel.setTextSize(14f);
+        cancel.setTextSize(11.5f);
         cancel.setTypeface(
                 cancel.getTypeface(),
                 android.graphics.Typeface.BOLD
         );
         cancel.setGravity(Gravity.CENTER);
-        cancel.setPadding(dp(12), dp(11), dp(12), dp(11));
+        cancel.setPadding(dp(8), dp(7), dp(8), dp(7));
         cancel.setBackground(roundedBackground(
-                Color.parseColor("#FFF4F1"),
-                Color.parseColor("#E6BBB3"),
-                14
+                Color.parseColor("#FFF7F4"),
+                Color.parseColor("#E6C5BE"),
+                10
         ));
         LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        cancelParams.topMargin = dp(12);
+        cancelParams.topMargin = dp(7);
         card.addView(cancel, cancelParams);
 
         dialog.setContentView(card);
@@ -275,19 +268,29 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
                 chooserDialog = null;
             }
         });
-        dialog.show();
 
         Window window = dialog.getWindow();
+        if (window != null && android.provider.Settings.canDrawOverlays(this)) {
+            window.setType(
+                    android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O
+                            ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                            : WindowManager.LayoutParams.TYPE_PHONE
+            );
+        }
+
+        dialog.show();
+
+        window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             WindowManager.LayoutParams attributes = window.getAttributes();
             attributes.width = Math.min(
-                    getResources().getDisplayMetrics().widthPixels - dp(28),
-                    dp(430)
+                    getResources().getDisplayMetrics().widthPixels - dp(42),
+                    dp(304)
             );
             attributes.height = WindowManager.LayoutParams.WRAP_CONTENT;
-            attributes.dimAmount = 0.28f;
+            attributes.dimAmount = 0f;
             window.setAttributes(attributes);
             window.setGravity(Gravity.CENTER);
         }
@@ -300,63 +303,51 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(10), dp(8), dp(10), dp(8));
-        row.setMinimumHeight(dp(60));
+        row.setPadding(dp(7), dp(4), dp(7), dp(4));
+        row.setMinimumHeight(dp(42));
         row.setBackground(roundedBackground(
-                Color.parseColor("#FFFDFB"),
+                Color.parseColor("#FBFFFC"),
                 Color.TRANSPARENT,
-                12
+                9
         ));
         row.setContentDescription("Open " + app.label + " for Scan and Pay");
 
         FrameLayout iconHolder = new FrameLayout(this);
         GradientDrawable iconBackground = new GradientDrawable();
         iconBackground.setColor(Color.parseColor("#F0F7F3"));
-        iconBackground.setCornerRadius(dp(12));
+        iconBackground.setCornerRadius(dp(9));
         iconHolder.setBackground(iconBackground);
 
         ImageView icon = new ImageView(this);
         icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        icon.setPadding(dp(5), dp(5), dp(5), dp(5));
+        icon.setPadding(dp(3), dp(3), dp(3), dp(3));
         Drawable drawable = loadAppIcon(packageManager, app.packageName);
         if (drawable != null) {
             icon.setImageDrawable(drawable);
         }
         FrameLayout.LayoutParams imageParams = new FrameLayout.LayoutParams(
-                dp(40),
-                dp(40),
+                dp(28),
+                dp(28),
                 Gravity.CENTER
         );
         iconHolder.addView(icon, imageParams);
 
         LinearLayout.LayoutParams holderParams = new LinearLayout.LayoutParams(
-                dp(46),
-                dp(46)
+                dp(32),
+                dp(32)
         );
         row.addView(iconHolder, holderParams);
-
-        LinearLayout labels = new LinearLayout(this);
-        labels.setOrientation(LinearLayout.VERTICAL);
-        labels.setPadding(dp(12), 0, 0, 0);
 
         TextView name = new TextView(this);
         name.setText(app.label);
         name.setTextColor(Color.parseColor("#1E2D27"));
-        name.setTextSize(15f);
+        name.setTextSize(12.5f);
         name.setTypeface(name.getTypeface(), android.graphics.Typeface.BOLD);
         name.setIncludeFontPadding(false);
-        labels.addView(name);
-
-        TextView hint = new TextView(this);
-        hint.setText("Open app • use native Scan & Pay");
-        hint.setTextColor(Color.parseColor("#718078"));
-        hint.setTextSize(10.5f);
-        hint.setPadding(0, dp(3), 0, 0);
-        hint.setIncludeFontPadding(false);
-        labels.addView(hint);
-
+        name.setSingleLine(true);
+        name.setPadding(dp(9), 0, dp(4), 0);
         row.addView(
-                labels,
+                name,
                 new LinearLayout.LayoutParams(
                         0,
                         ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -367,11 +358,11 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         TextView arrow = new TextView(this);
         arrow.setText("›");
         arrow.setTextColor(Color.parseColor("#4D6A5D"));
-        arrow.setTextSize(28f);
+        arrow.setTextSize(20f);
         arrow.setGravity(Gravity.CENTER);
         row.addView(
                 arrow,
-                new LinearLayout.LayoutParams(dp(28), dp(46))
+                new LinearLayout.LayoutParams(dp(20), dp(32))
         );
 
         row.setOnClickListener(view -> {
@@ -530,6 +521,10 @@ public final class FloatingExpenseExternalActionActivity extends Activity {
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         nativeUpiLaunched = true;
         pausedAfterNativeLaunch = false;
+
+        // The compact chooser is already finished. Hide the floating form only
+        // now so the selected UPI app can own the foreground screen.
+        FloatingOverlayUiState.hideExpenseForExternalAction();
 
         try {
             startActivity(launchIntent);
