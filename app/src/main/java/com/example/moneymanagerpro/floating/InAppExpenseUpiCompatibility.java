@@ -42,17 +42,25 @@ final class InAppExpenseUpiCompatibility {
         application.registerActivityLifecycleCallbacks(
                 new Application.ActivityLifecycleCallbacks() {
                     @Override
-                    public void onActivityResumed(@NonNull Activity activity) {
-                        if (!(activity instanceof AddExpenseActivity)) {
-                            return;
-                        }
+                    public void onActivityCreated(
+                            @NonNull Activity activity,
+                            @Nullable Bundle state
+                    ) {
+                        attachExpenseController(activity);
+                    }
 
-                        Controller controller = CONTROLLERS.get(activity);
-                        if (controller == null) {
-                            controller = new Controller((AddExpenseActivity) activity);
-                            CONTROLLERS.put(activity, controller);
-                        }
-                        controller.attach();
+                    @Override
+                    public void onActivityStarted(@NonNull Activity activity) {
+                        attachExpenseController(activity);
+                    }
+
+                    @Override
+                    public void onActivityResumed(@NonNull Activity activity) {
+                        // Re-bind on every resume as well. This intentionally
+                        // wins over the legacy AddExpenseActivity UPI click
+                        // listener, so OEM/activity timing can never fall back
+                        // to the old full-screen Android chooser flow.
+                        attachExpenseController(activity);
                     }
 
                     @Override
@@ -60,8 +68,6 @@ final class InAppExpenseUpiCompatibility {
                         CONTROLLERS.remove(activity);
                     }
 
-                    @Override public void onActivityCreated(@NonNull Activity a, @Nullable Bundle b) {}
-                    @Override public void onActivityStarted(@NonNull Activity a) {}
                     @Override public void onActivityPaused(@NonNull Activity a) {}
                     @Override public void onActivityStopped(@NonNull Activity a) {}
                     @Override public void onActivitySaveInstanceState(@NonNull Activity a, @NonNull Bundle b) {}
@@ -69,16 +75,29 @@ final class InAppExpenseUpiCompatibility {
         );
     }
 
+    private static void attachExpenseController(Activity activity) {
+        if (!(activity instanceof AddExpenseActivity)) {
+            return;
+        }
+
+        Controller controller = CONTROLLERS.get(activity);
+        if (controller == null) {
+            controller = new Controller((AddExpenseActivity) activity);
+            CONTROLLERS.put(activity, controller);
+        }
+        controller.attach();
+    }
+
     private static final class Controller {
         private final AddExpenseActivity activity;
-        private boolean attached;
+        private boolean presentationApplied;
 
         Controller(AddExpenseActivity activity) {
             this.activity = activity;
         }
 
         void attach() {
-            if (attached || activity.isFinishing()) {
+            if (activity.isFinishing()) {
                 return;
             }
 
@@ -86,39 +105,47 @@ final class InAppExpenseUpiCompatibility {
             if (payButton == null) {
                 return;
             }
-            attached = true;
 
-            // Old fields are not needed when the selected UPI app owns QR scan
-            // and payment. Hiding the containers removes their vertical space.
-            hideFieldWithContainer(activity.findViewById(R.id.dropdownUpiEntryMode));
-            hide(activity.findViewById(R.id.inputUpiPayeeId));
-            hide(activity.findViewById(R.id.inputUpiPayeeName));
-            hide(activity.findViewById(R.id.upiPaymentResultCard));
+            if (!presentationApplied) {
+                presentationApplied = true;
 
-            View root = activity.findViewById(android.R.id.content);
-            TextView title = findTextView(root, "Pay with UPI App");
-            if (title != null) {
-                title.setText("Scan & Pay with UPI App");
-            }
-
-            TextView subtitle = findTextView(
-                    root,
-                    "Enter a UPI ID manually or scan a payment QR code to fill the receiver details automatically."
-            );
-            if (subtitle != null) {
-                subtitle.setText(
-                        "Choose your UPI app, then use that app's own Scan & Pay scanner."
+                // Old fields are not needed when the selected UPI app owns QR
+                // scan and payment. Hiding the containers removes their space.
+                hideFieldWithContainer(
+                        activity.findViewById(R.id.dropdownUpiEntryMode)
                 );
-            }
+                hide(activity.findViewById(R.id.inputUpiPayeeId));
+                hide(activity.findViewById(R.id.inputUpiPayeeName));
+                hide(activity.findViewById(R.id.upiPaymentResultCard));
 
-            if (payButton instanceof TextView) {
-                TextView button = (TextView) payButton;
-                button.setText("Scan & Pay");
-                button.setContentDescription(
-                        "Choose a UPI app and use its native QR scanner"
+                View root = activity.findViewById(android.R.id.content);
+                TextView title = findTextView(root, "Pay with UPI App");
+                if (title != null) {
+                    title.setText("Scan & Pay with UPI App");
+                }
+
+                TextView subtitle = findTextView(
+                        root,
+                        "Enter a UPI ID manually or scan a payment QR code to fill the receiver details automatically."
                 );
+                if (subtitle != null) {
+                    subtitle.setText(
+                            "Choose your UPI app, then use that app's own Scan & Pay scanner."
+                    );
+                }
+
+                if (payButton instanceof TextView) {
+                    TextView button = (TextView) payButton;
+                    button.setText("Scan & Pay");
+                    button.setContentDescription(
+                            "Choose a UPI app and use its native QR scanner"
+                    );
+                }
             }
 
+            // Always bind the compact in-place PopupWindow. The Add Expense
+            // screen stays visible behind it. Only after the user taps an app
+            // does Android switch to that selected UPI application.
             payButton.setOnClickListener(
                     view -> NativeUpiAppPopup.show(activity, payButton)
             );
