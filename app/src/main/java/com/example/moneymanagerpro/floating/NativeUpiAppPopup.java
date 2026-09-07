@@ -1,7 +1,6 @@
 package com.example.moneymanagerpro.floating;
 
 import android.app.Activity;
-import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -29,7 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Compact in-place UPI app picker used by both expense forms. */
+/** Compact in-place UPI app picker used by the normal Add Expense form. */
 final class NativeUpiAppPopup {
 
     private static final String[] FALLBACK_UPI_PACKAGES = {
@@ -146,35 +145,6 @@ final class NativeUpiAppPopup {
     }
 
     private static void launchApp(Context context, UpiApp app) {
-        if (context instanceof Service) {
-            Intent bridge = new Intent(
-                    context,
-                    FloatingExpenseExternalActionActivity.class
-            );
-            bridge.setAction(
-                    FloatingExpenseExternalActionActivity.ACTION_NATIVE_APP
-            );
-            bridge.putExtra(
-                    FloatingExpenseExternalActionActivity.EXTRA_NATIVE_PACKAGE,
-                    app.packageName
-            );
-            bridge.addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK
-                            | Intent.FLAG_ACTIVITY_NO_ANIMATION
-                            | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-            );
-            try {
-                context.startActivity(bridge);
-            } catch (Exception exception) {
-                Toast.makeText(
-                        context,
-                        "Unable to open " + app.label,
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-            return;
-        }
-
         Intent launchIntent;
         try {
             launchIntent = context.getPackageManager().getLaunchIntentForPackage(app.packageName);
