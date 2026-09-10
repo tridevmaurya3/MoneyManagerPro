@@ -71,18 +71,24 @@ public final class UnifiedPageHeader {
                            @ColorRes int surface, @ColorRes int outline, @ColorRes int accent) {
         LinearLayout page = findPage(activity.findViewById(android.R.id.content));
         if (page == null) return;
+        boolean completeHeaderHidden = false;
         for (int i = 0; i < Math.min(3, page.getChildCount()); i++) {
             View candidate = page.getChildAt(i);
             if (containsBack(candidate)) {
                 candidate.setVisibility(View.GONE);
+                completeHeaderHidden = candidate instanceof ViewGroup;
                 break;
             }
         }
-        int hidden = 0;
-        for (int i = 0; i < Math.min(4, page.getChildCount()) && hidden < 3; i++) {
-            if (page.getChildAt(i) instanceof TextView) {
-                page.getChildAt(i).setVisibility(View.GONE);
-                hidden++;
+        // A grouped legacy header already contains its title and subtitle. Only
+        // search for separate heading labels when the old back control stood alone.
+        if (!completeHeaderHidden) {
+            int hidden = 0;
+            for (int i = 0; i < Math.min(4, page.getChildCount()) && hidden < 3; i++) {
+                if (page.getChildAt(i) instanceof TextView) {
+                    page.getChildAt(i).setVisibility(View.GONE);
+                    hidden++;
+                }
             }
         }
         MaterialCardView card = new MaterialCardView(activity);
