@@ -7,6 +7,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -31,7 +32,6 @@ import com.example.moneymanagerpro.model.RecurringTransaction;
 import com.example.moneymanagerpro.model.Subscription;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
-import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
 import java.text.NumberFormat;
@@ -55,8 +55,8 @@ public class CalendarActivity extends AppCompatActivity {
     private TextView emptyAlerts;
     private GridLayout calendarGrid;
     private LinearLayout alertContainer;
-    private MaterialButton previousButton;
-    private MaterialButton nextButton;
+    private View previousButton;
+    private View nextButton;
     private int loadVersion;
     private List<FinanceEvent> allEvents = new ArrayList<>();
 
@@ -100,10 +100,8 @@ public class CalendarActivity extends AppCompatActivity {
         MaterialCardView selector = card(R.color.info_surface, R.color.info_outline);
         LinearLayout selectorRow = row();
         selectorRow.setPadding(dp(10), dp(9), dp(10), dp(9));
-        previousButton = button("←");
-        nextButton = button("→");
-        centerCalendarArrow(previousButton, false);
-        centerCalendarArrow(nextButton, true);
+        previousButton = calendarArrowButton(false);
+        nextButton = calendarArrowButton(true);
         monthTitle = text("", 17, R.color.secondary, true);
         monthTitle.setGravity(Gravity.CENTER);
         selectorRow.addView(previousButton, new LinearLayout.LayoutParams(dp(44), dp(44)));
@@ -368,19 +366,16 @@ public class CalendarActivity extends AppCompatActivity {
         return details.toString();
     }
 
-    private void centerCalendarArrow(MaterialButton button, boolean forward) {
-        button.setText("");
-        android.graphics.drawable.Drawable arrow = ContextCompat.getDrawable(
-                this, forward ? R.drawable.ic_chevron_right_24 : R.drawable.ic_chevron_left_24);
-        if (arrow != null) {
-            int size = dp(22);
-            arrow.setBounds(0, 0, size, size);
-            arrow.setTint(android.graphics.Color.WHITE);
-            button.setCompoundDrawables(arrow, null, null, null);
-        }
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(0, 0, 0, 0);
-        button.setIncludeFontPadding(false);
+    private MaterialCardView calendarArrowButton(boolean forward) {
+        MaterialCardView card = card(R.color.secondary, R.color.secondary);
+        card.setRadius(dp(13));
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(forward ? R.drawable.ic_chevron_right_24 : R.drawable.ic_chevron_left_24);
+        icon.setColorFilter(android.graphics.Color.WHITE);
+        icon.setScaleType(ImageView.ScaleType.CENTER);
+        card.addView(icon, new ViewGroup.LayoutParams(-1, -1));
+        BubbleTouchAnimator.apply(card);
+        return card;
     }
 
     private void addRecurringEvents(List<FinanceEvent> out, List<RecurringTransaction> items) {
@@ -519,24 +514,6 @@ public class CalendarActivity extends AppCompatActivity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         return row;
-    }
-
-    private MaterialButton button(String label) {
-        MaterialButton button = new MaterialButton(this);
-        button.setText(label);
-        button.setTextSize(24);
-        button.setTextColor(android.graphics.Color.WHITE);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
-        button.setGravity(Gravity.CENTER);
-        button.setAllCaps(false);
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-        button.setPadding(0, 0, 0, 0);
-        button.setCornerRadius(dp(13));
-        button.setInsetTop(0);
-        button.setInsetBottom(0);
-        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color(R.color.secondary)));
-        return button;
     }
 
     private MaterialCardView actionButton(String label) {

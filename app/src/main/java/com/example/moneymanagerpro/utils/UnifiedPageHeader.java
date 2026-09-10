@@ -136,9 +136,9 @@ public final class UnifiedPageHeader {
         back.setMinimumWidth(0);
         back.setPadding(0, 0, 0, 0);
         back.setTextColor(ContextCompat.getColor(activity, R.color.secondary));
-        int arrowSize = dp(activity, 22);
+        int arrowSize = dp(activity, 18);
         Drawable arrow = new CenteredBackArrowDrawable(
-                ContextCompat.getColor(activity, R.color.app_text_primary), dp(activity, 3));
+                ContextCompat.getColor(activity, R.color.app_text_primary), dp(activity, 2));
         arrow.setBounds(0, 0, arrowSize, arrowSize);
         back.setCompoundDrawables(arrow, null, null, null);
         GradientDrawable background = new GradientDrawable();
@@ -163,10 +163,10 @@ public final class UnifiedPageHeader {
             float width = getBounds().width();
             float height = getBounds().height();
             float centerY = height / 2f;
-            float left = width * 0.16f;
-            canvas.drawLine(left, centerY, width * 0.86f, centerY, paint);
-            canvas.drawLine(left, centerY, width * 0.48f, height * 0.17f, paint);
-            canvas.drawLine(left, centerY, width * 0.48f, height * 0.83f, paint);
+            float left = width * 0.26f;
+            canvas.drawLine(left, centerY, width * 0.92f, centerY, paint);
+            canvas.drawLine(left, centerY, width * 0.56f, height * 0.20f, paint);
+            canvas.drawLine(left, centerY, width * 0.56f, height * 0.80f, paint);
         }
 
         @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
