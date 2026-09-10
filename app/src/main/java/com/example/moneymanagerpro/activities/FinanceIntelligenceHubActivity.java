@@ -156,7 +156,8 @@ public class FinanceIntelligenceHubActivity extends AppCompatActivity {
         root.addView(txtPeriod);
 
         addHeading(root, "Smart Financial Dashboard 2.0",
-                "Income, expense, saving, accounts, credit and loans at a glance");
+                "Income, expense, saving, accounts, credit and loans at a glance",
+                22, 12);
 
         MaterialCardView hero = card("#EEF7FF", "#BED9EF", 20);
         LinearLayout heroContent = verticalPadding(14);
@@ -693,10 +694,15 @@ public class FinanceIntelligenceHubActivity extends AppCompatActivity {
     }
 
     private void addHeading(LinearLayout root, String title, String subtitle) {
-        TextView heading = text(title, 18, "#17351F", true);
+        addHeading(root, title, subtitle, 18, 10);
+    }
+
+    private void addHeading(LinearLayout root, String title, String subtitle,
+                            int titleSize, int subtitleSize) {
+        TextView heading = text(title, titleSize, "#17351F", true);
         setTopMargin(heading, 20);
         root.addView(heading);
-        TextView sub = text(subtitle, 10, "#6A766E", false);
+        TextView sub = text(subtitle, subtitleSize, "#6A766E", false);
         setTopMargin(sub, 2);
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) sub.getLayoutParams();
         params.bottomMargin = dp(9);
@@ -705,7 +711,7 @@ public class FinanceIntelligenceHubActivity extends AppCompatActivity {
     }
 
     private TextView metric(String label, String value, String accent) {
-        TextView view = text(label + "\n" + value, 13, accent, true);
+        TextView view = text(label + "\n" + value, 16, accent, true);
         view.setGravity(Gravity.CENTER);
         view.setMinHeight(dp(72));
         view.setPadding(dp(6), dp(10), dp(6), dp(10));
