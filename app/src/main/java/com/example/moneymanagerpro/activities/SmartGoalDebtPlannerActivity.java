@@ -67,6 +67,7 @@ public final class SmartGoalDebtPlannerActivity extends AppCompatActivity {
         header.setGravity(Gravity.CENTER_VERTICAL);
         TextView back = text("‹", 32, R.color.app_text_primary, false);
         back.setGravity(Gravity.CENTER);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.styleBack(this, back);
         back.setOnClickListener(view -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(42), dp(42)));
 

@@ -23,6 +23,7 @@ import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.CreditCard;
 import com.example.moneymanagerpro.model.Goal;
+import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Loan;
 import com.example.moneymanagerpro.model.LoanPayment;
 import com.example.moneymanagerpro.model.CreditCardPayment;
@@ -141,9 +142,9 @@ public class CalendarActivity extends AppCompatActivity {
         root.addView(alertSummary);
 
         LinearLayout quickRow = row();
-        TextView bills = actionButton("Manage Bills");
+        MaterialCardView bills = actionButton("Manage Bills");
         bills.setOnClickListener(v -> startActivity(new Intent(this, RecurringActivity.class)));
-        TextView cards = actionButton("Credit Cards");
+        MaterialCardView cards = actionButton("Credit Cards");
         cards.setOnClickListener(v -> startActivity(new Intent(this, CreditCardActivity.class)));
         quickRow.addView(bills, weightedButtonParams(true));
         quickRow.addView(cards, weightedButtonParams(false));
@@ -173,7 +174,8 @@ public class CalendarActivity extends AppCompatActivity {
             try {
                 AppDatabase db = DatabaseClient.getInstance(getApplicationContext()).getAppDatabase();
                 List<FinanceEvent> events = new ArrayList<>();
-                addTransactionEvents(events, db.transactionDao().getAllTransactions());
+                addTransactionEvents(events, db.transactionDao().getAllTransactions(),
+                        db.expenseItemDao().getAllExpenseItems());
                 addRecurringEvents(events, db.recurringTransactionDao().getAllRecurringTransactions());
                 addSubscriptionEvents(events, db.subscriptionDao().getActiveSubscriptions());
                 addLoanEvents(events, db.loanDao().getActiveLoans(), db.loanPaymentDao().getAllLoanPayments());
@@ -315,8 +317,14 @@ public class CalendarActivity extends AppCompatActivity {
         return card;
     }
 
-    private void addTransactionEvents(List<FinanceEvent> out, List<Transaction> items) {
+    private void addTransactionEvents(List<FinanceEvent> out, List<Transaction> items,
+                                      List<ExpenseItem> expenseItems) {
         if (items == null) return;
+        Map<Integer, List<ExpenseItem>> itemsByTransaction = new HashMap<>();
+        if (expenseItems != null) for (ExpenseItem expenseItem : expenseItems) {
+            itemsByTransaction.computeIfAbsent(expenseItem.getTransactionId(), ignored -> new ArrayList<>())
+                    .add(expenseItem);
+        }
         for (Transaction item : items) {
             Date date = parseDate(item.getDate());
             if (date == null) continue;
@@ -327,18 +335,35 @@ public class CalendarActivity extends AppCompatActivity {
                     "INCOME".equalsIgnoreCase(type) ? "Income" : "Expense",
                     title,
                     item.getAmount(),
-                    visibleTransactionDetail(item.getNote())
+                    visibleTransactionDetail(item.getNote(), itemsByTransaction.get(item.getId()))
             ));
         }
     }
 
-    private String visibleTransactionDetail(String note) {
+    private String visibleTransactionDetail(String note, List<ExpenseItem> expenseItems) {
         String value = safe(note, "");
         String marker = "Synced from Family Hub";
         int markerIndex = value.indexOf(marker);
         value = markerIndex >= 0 ? value.substring(markerIndex).trim() : value;
-        return value.replaceAll("(?i)(Purchased\\s+by|By)\\s+(?:T|Tridev|Tridev\\s+Ma)(?=\\s*•)",
+        value = value.replaceAll("(?i)(Purchased\\s+by|By)\\s+(?:T|Tridev|Tridev\\s+Ma)(?=\\s*•)",
                 "Purchased by Tridev Maurya");
+        if (expenseItems == null || expenseItems.isEmpty()) return value;
+        StringBuilder details = new StringBuilder(value);
+        for (ExpenseItem expenseItem : expenseItems) {
+            String name = safe(expenseItem.getItemName(), "Item");
+            String quantity = expenseItem.getQuantity() == Math.rint(expenseItem.getQuantity())
+                    ? String.valueOf((long) expenseItem.getQuantity())
+                    : String.format(Locale.US, "%.2f", expenseItem.getQuantity())
+                            .replaceAll("0+$", "").replaceAll("\\.$", "");
+            String unit = safe(expenseItem.getUnit(), "");
+            String itemDetail = name + (expenseItem.getQuantity() > 0
+                    ? " × " + quantity + (unit.isEmpty() ? "" : " " + unit) : "");
+            if (details.indexOf(itemDetail) < 0) {
+                if (details.length() > 0) details.append(" • ");
+                details.append(itemDetail);
+            }
+        }
+        return details.toString();
     }
 
     private void addRecurringEvents(List<FinanceEvent> out, List<RecurringTransaction> items) {
@@ -497,27 +522,23 @@ public class CalendarActivity extends AppCompatActivity {
         return button;
     }
 
-    private TextView actionButton(String label) {
-        TextView button = new TextView(this);
-        button.setText(label);
-        button.setTextSize(11);
-        button.setGravity(Gravity.CENTER);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
-        button.setTextColor(color(R.color.secondary));
-        button.setIncludeFontPadding(false);
-        button.setPadding(dp(8), dp(5), dp(8), dp(5));
-        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
-        background.setColor(color(R.color.info_surface));
-        background.setStroke(dp(1), color(R.color.info_outline));
-        background.setCornerRadius(dp(13));
-        button.setBackground(background);
-        BubbleTouchAnimator.apply(button);
-        return button;
+    private MaterialCardView actionButton(String label) {
+        MaterialCardView action = card(R.color.info_surface, R.color.info_outline);
+        action.setRadius(dp(14));
+        action.setClipToPadding(false);
+        action.setClipChildren(false);
+        TextView labelView = text(label, 11, R.color.secondary, true);
+        labelView.setGravity(Gravity.CENTER);
+        labelView.setIncludeFontPadding(false);
+        labelView.setPadding(dp(8), dp(10), dp(8), dp(10));
+        action.addView(labelView, new ViewGroup.LayoutParams(-1, -1));
+        BubbleTouchAnimator.apply(action);
+        return action;
     }
 
     private LinearLayout.LayoutParams weightedButtonParams(boolean left) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(52), 1f);
-        params.setMargins(left ? 0 : dp(5), 0, left ? dp(5) : 0, dp(7));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(58), 1f);
+        params.setMargins(left ? 0 : dp(5), dp(4), left ? dp(5) : 0, dp(8));
         return params;
     }
 

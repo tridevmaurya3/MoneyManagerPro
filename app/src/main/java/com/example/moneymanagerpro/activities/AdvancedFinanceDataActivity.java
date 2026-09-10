@@ -130,6 +130,7 @@ public class AdvancedFinanceDataActivity extends AppCompatActivity {
         back.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#EEF5FF")));
         back.setStrokeColor(ColorStateList.valueOf(Color.parseColor("#BDD5EE")));
         back.setStrokeWidth(dp(1));
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.styleBack(this, back);
         back.setLayoutParams(new LinearLayout.LayoutParams(dp(42), dp(42)));
         back.setOnClickListener(view -> finish());
         BubbleTouchAnimator.apply(back);

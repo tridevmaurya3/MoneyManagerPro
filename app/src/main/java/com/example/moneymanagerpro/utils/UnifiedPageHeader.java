@@ -2,6 +2,11 @@ package com.example.moneymanagerpro.utils;
 
 import android.app.Activity;
 import android.graphics.Typeface;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
@@ -111,21 +116,51 @@ public final class UnifiedPageHeader {
         page.addView(card, 0, cardParams);
     }
 
-    private static void styleBack(Activity activity, View view) {
+    public static void styleBack(Activity activity, View view) {
         if (!(view instanceof TextView)) return;
         TextView back = (TextView) view;
-        back.setText("←");
-        back.setTextSize(22);
+        back.setText("");
         back.setGravity(Gravity.CENTER);
         back.setMinWidth(0);
         back.setMinimumWidth(0);
         back.setPadding(0, 0, 0, 0);
         back.setTextColor(ContextCompat.getColor(activity, R.color.secondary));
+        int arrowSize = dp(activity, 28);
+        Drawable arrow = new CenteredBackArrowDrawable(
+                ContextCompat.getColor(activity, R.color.app_text_primary), dp(activity, 4));
+        arrow.setBounds(0, 0, arrowSize, arrowSize);
+        back.setCompoundDrawables(arrow, null, null, null);
         GradientDrawable background = new GradientDrawable();
         background.setShape(GradientDrawable.OVAL);
         background.setColor(ContextCompat.getColor(activity, R.color.info_surface));
         background.setStroke(dp(activity, 1), ContextCompat.getColor(activity, R.color.info_outline));
         back.setBackground(background);
+    }
+
+    private static final class CenteredBackArrowDrawable extends Drawable {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        CenteredBackArrowDrawable(int color, int strokeWidth) {
+            paint.setColor(color);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(strokeWidth);
+            paint.setStrokeCap(Paint.Cap.SQUARE);
+            paint.setStrokeJoin(Paint.Join.MITER);
+        }
+
+        @Override public void draw(Canvas canvas) {
+            float width = getBounds().width();
+            float height = getBounds().height();
+            float centerY = height / 2f;
+            float left = width * 0.16f;
+            canvas.drawLine(left, centerY, width * 0.86f, centerY, paint);
+            canvas.drawLine(left, centerY, width * 0.48f, height * 0.17f, paint);
+            canvas.drawLine(left, centerY, width * 0.48f, height * 0.83f, paint);
+        }
+
+        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+        @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 
     private static LinearLayout findPage(View view) {

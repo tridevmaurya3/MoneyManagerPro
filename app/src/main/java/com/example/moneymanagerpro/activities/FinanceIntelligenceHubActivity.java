@@ -118,6 +118,7 @@ public class FinanceIntelligenceHubActivity extends AppCompatActivity {
         MaterialButton back = button("‹", false);
         back.setTextSize(25);
         back.setContentDescription("Back");
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.styleBack(this, back);
         back.setLayoutParams(new LinearLayout.LayoutParams(dp(46), dp(46)));
         back.setOnClickListener(view -> finish());
         BubbleTouchAnimator.apply(back);
