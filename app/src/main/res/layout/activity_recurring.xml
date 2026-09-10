@@ -128,7 +128,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="23dp"
+            android:layout_marginTop="16dp"
             android:text="Create Recurring Entry"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -459,7 +459,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Secondary"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
-                    android:layout_marginTop="20dp"
+                    android:layout_marginTop="12dp"
                     android:text="Save Recurring Entry"
                     android:textColor="@color/white"
                     app:backgroundTint="@color/warning"
@@ -474,7 +474,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="23dp"
+            android:layout_marginTop="16dp"
             android:text="Process Due Entries"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -550,7 +550,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="25dp"
+            android:layout_marginTop="16dp"
             android:text="Your Recurring Schedules"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 

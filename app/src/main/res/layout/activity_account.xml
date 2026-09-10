@@ -126,7 +126,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:text="Add New Account"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -271,7 +271,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
+                    android:layout_marginTop="12dp"
                     android:text="Opening Balance"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
@@ -313,7 +313,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
+                    android:layout_marginTop="12dp"
                     android:text="Account Color"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
@@ -357,7 +357,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Secondary"
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
-                    android:layout_marginTop="22dp"
+                    android:layout_marginTop="14dp"
                     android:text="Save Account" />
 
             </LinearLayout>
@@ -389,7 +389,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="26dp"
+            android:layout_marginTop="16dp"
             android:text="Your Accounts"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 

@@ -107,7 +107,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:text="Transaction Details"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -182,7 +182,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="12dp"
                     android:text="Transaction Amount"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
@@ -227,7 +227,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="18dp"
+                        android:layout_marginTop="12dp"
                         android:text="Expense Item Details"
                         android:textColor="@color/app_text_primary"
                         android:textSize="14sp"
@@ -277,7 +277,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="12dp"
                     android:text="Category"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
@@ -330,7 +330,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="12dp"
                     android:text="Account"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
@@ -383,7 +383,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="12dp"
                     android:text="Transaction Date"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
@@ -464,7 +464,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="12dp"
                     android:text="Note"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"

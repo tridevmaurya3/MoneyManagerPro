@@ -2828,7 +2828,7 @@ public class TransactionsActivity extends AppCompatActivity {
         TextView noteView =
                 createText(
                         displayNote,
-                        10,
+                        11,
                         getColorValue(
                                 R.color.app_text_secondary
                         ),

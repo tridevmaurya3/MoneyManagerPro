@@ -288,7 +288,7 @@ public class CalendarActivity extends AppCompatActivity {
         content.setPadding(dp(13), dp(11), dp(13), dp(11));
         LinearLayout header = row();
         int eventColor = event.paid ? R.color.success : colorForType(event.type);
-        TextView title = text(event.title, 13, eventColor, true);
+        TextView title = text(event.title, 15, eventColor, true);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
         header.addView(text(event.paid ? "PAID" : event.type, 10, eventColor, true));
         content.addView(header);
@@ -296,11 +296,11 @@ public class CalendarActivity extends AppCompatActivity {
         if (event.amount > 0) detail += "  •  " + signedMoney(event);
         if (showCountdown) detail += "  •  " + countdown(event.date);
         if (event.paid && !event.paidDate.isEmpty()) detail += "  •  Paid early on " + visibleDate(event.paidDate);
-        TextView detailView = text(detail, 10, eventColor, true);
+        TextView detailView = text(detail, 12, eventColor, true);
         detailView.setPadding(0, dp(4), 0, 0);
         content.addView(detailView);
         if (!event.detail.isEmpty()) {
-            TextView note = text(event.detail, 10, R.color.app_text_secondary, false);
+            TextView note = text(event.detail, 11, R.color.app_text_secondary, false);
             note.setPadding(0, dp(3), 0, 0);
             content.addView(note);
         }
@@ -320,9 +320,16 @@ public class CalendarActivity extends AppCompatActivity {
                     "INCOME".equalsIgnoreCase(type) ? "Income" : "Expense",
                     title,
                     item.getAmount(),
-                    safe(item.getNote(), "")
+                    visibleTransactionDetail(item.getNote())
             ));
         }
+    }
+
+    private String visibleTransactionDetail(String note) {
+        String value = safe(note, "");
+        String marker = "Synced from Family Hub";
+        int markerIndex = value.indexOf(marker);
+        return markerIndex >= 0 ? value.substring(markerIndex).trim() : value;
     }
 
     private void addRecurringEvents(List<FinanceEvent> out, List<RecurringTransaction> items) {
@@ -486,6 +493,11 @@ public class CalendarActivity extends AppCompatActivity {
         button.setText(label);
         button.setTextSize(11);
         button.setAllCaps(false);
+        button.setGravity(Gravity.CENTER);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
         button.setCornerRadius(dp(13));
         BubbleTouchAnimator.apply(button);
         return button;

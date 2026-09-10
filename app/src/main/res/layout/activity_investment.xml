@@ -128,7 +128,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="23dp"
+            android:layout_marginTop="16dp"
             android:text="Portfolio Summary"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -346,7 +346,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="25dp"
+            android:layout_marginTop="16dp"
             android:text="Add Investment"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -674,7 +674,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Secondary"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
-                    android:layout_marginTop="20dp"
+                    android:layout_marginTop="12dp"
                     android:text="Save Investment"
                     android:textColor="@color/white"
                     app:backgroundTint="@color/purple"
@@ -731,7 +731,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="25dp"
+            android:layout_marginTop="16dp"
             android:text="Your Investments"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
