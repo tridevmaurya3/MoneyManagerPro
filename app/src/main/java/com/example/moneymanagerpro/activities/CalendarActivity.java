@@ -341,10 +341,7 @@ public class CalendarActivity extends AppCompatActivity {
     }
 
     private String visibleTransactionDetail(String note, List<ExpenseItem> expenseItems) {
-        String value = safe(note, "");
-        String marker = "Synced from Family Hub";
-        int markerIndex = value.indexOf(marker);
-        value = markerIndex >= 0 ? value.substring(markerIndex).trim() : value;
+        String value = withoutTechnicalEventId(safe(note, ""));
         value = value.replaceAll("(?i)(Purchased\\s+by|By)\\s+(?:T|Tridev|Tridev\\s+Ma)(?=\\s*•)",
                 "Purchased by Tridev Maurya");
         if (expenseItems == null || expenseItems.isEmpty()) return value;
@@ -364,6 +361,26 @@ public class CalendarActivity extends AppCompatActivity {
                     .append(" • Total ").append(money(expenseItem.getTotal()));
         }
         return details.toString();
+    }
+
+    /**
+     * Event ids are internal sync identities and must never be rendered in the
+     * calendar. Keep every user-facing detail for Family Hub, LoanManagerPro,
+     * SmartSMSPro and future trusted sources unchanged.
+     */
+    private String withoutTechnicalEventId(String note) {
+        String[] parts = safe(note, "").split("\\s*•\\s*");
+        StringBuilder visible = new StringBuilder();
+        for (String part : parts) {
+            String item = part == null ? "" : part.trim();
+            if (item.isEmpty() || item.regionMatches(true, 0,
+                    "TRIDEV_EVENT:", 0, "TRIDEV_EVENT:".length())) {
+                continue;
+            }
+            if (visible.length() > 0) visible.append(" • ");
+            visible.append(item);
+        }
+        return visible.toString();
     }
 
     private MaterialCardView calendarArrowButton(boolean forward) {
