@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.FileProvider;
 
 import com.example.moneymanagerpro.R;
+import com.example.moneymanagerpro.utils.UnifiedPageHeader;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -100,6 +101,10 @@ public final class VisibleDataToolsController {
         ViewGroup contentGroup = (ViewGroup) content;
         if (contentGroup.getChildCount() == 0) return;
         View original = contentGroup.getChildAt(0);
+        if (attachActionsToHeader(original)) {
+            selectRange(Range.THIS_MONTH);
+            return;
+        }
         contentGroup.removeView(original);
         hideOriginalBack(original);
 
@@ -108,7 +113,7 @@ public final class VisibleDataToolsController {
         wrapper.setLayoutParams(new ViewGroup.LayoutParams(-1, -1));
         toolbar = buildToolbar();
         toolbar.setTag(TAG);
-        wrapper.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(52)));
+        wrapper.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(48)));
         wrapper.addView(original, new LinearLayout.LayoutParams(-1, 0, 1f));
         contentGroup.addView(wrapper);
         View floatingDataCenter = contentGroup.findViewWithTag("credit_card_data_center_fab");
@@ -123,13 +128,53 @@ public final class VisibleDataToolsController {
         outer.setPadding(dp(8), dp(6), dp(8), dp(4));
         outer.setBackgroundColor(activity.getColor(R.color.app_surface));
 
-        MaterialButton back = button("‹", true, v -> activity.finish());
+        MaterialButton back = button("", true, v -> activity.finish());
+        back.setContentDescription("Back");
+        UnifiedPageHeader.styleBack(activity, back);
         outer.addView(back);
         View spacer = new View(activity);
         outer.addView(spacer, new LinearLayout.LayoutParams(0, dp(1), 1f));
-        outer.addView(button("⌄  Filter", false, v -> showFilterMenu()));
-        outer.addView(button("↗  Share", true, v -> showExportMenu()));
+        outer.addView(iconButton(R.drawable.ic_filter_alt_24, "Filter and sort", false,
+                v -> showFilterMenu()));
+        outer.addView(iconButton(R.drawable.ic_share_24, "Share or export", true,
+                v -> showExportMenu()));
         return outer;
+    }
+
+    private boolean attachActionsToHeader(View original) {
+        View header = original.findViewWithTag(UnifiedPageHeader.HEADER_TAG);
+        if (!(header instanceof MaterialCardView)) return false;
+        MaterialCardView card = (MaterialCardView) header;
+        if (card.getChildCount() == 0 || !(card.getChildAt(0) instanceof LinearLayout)) return false;
+        LinearLayout headerRow = (LinearLayout) card.getChildAt(0);
+        if (headerRow.getOrientation() != LinearLayout.HORIZONTAL) return false;
+        LinearLayout actions = new LinearLayout(activity);
+        actions.setTag(TAG);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.addView(iconButton(R.drawable.ic_filter_alt_24, "Filter and sort", false,
+                v -> showFilterMenu()));
+        actions.addView(iconButton(R.drawable.ic_share_24, "Share or export", true,
+                v -> showExportMenu()));
+        headerRow.addView(actions, new LinearLayout.LayoutParams(-2, -2));
+        toolbar = actions;
+        return true;
+    }
+
+    private MaterialButton iconButton(int iconRes, String description, boolean action,
+                                      View.OnClickListener listener) {
+        MaterialButton button = button("", action, listener);
+        button.setContentDescription(description);
+        button.setIconResource(iconRes);
+        button.setIconTint(ColorStateList.valueOf(activity.getColor(
+                action ? R.color.secondary : R.color.primary)));
+        button.setIconPadding(0);
+        button.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
+        button.setPadding(0, 0, 0, 0);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(38), dp(38));
+        params.setMargins(dp(4), 0, 0, 0);
+        button.setLayoutParams(params);
+        return button;
     }
 
     private void showFilterMenu() {

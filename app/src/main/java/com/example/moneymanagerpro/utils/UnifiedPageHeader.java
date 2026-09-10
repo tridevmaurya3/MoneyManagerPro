@@ -22,6 +22,7 @@ import com.google.android.material.card.MaterialCardView;
 
 /** UI-only header normalization. Existing back views and click listeners stay intact. */
 public final class UnifiedPageHeader {
+    public static final String HEADER_TAG = "unified_page_header";
     private UnifiedPageHeader() { }
 
     public static void mergeExisting(Activity activity, int backId) {
@@ -58,6 +59,7 @@ public final class UnifiedPageHeader {
         params.setMarginEnd(dp(activity, 10));
         back.setLayoutParams(params);
         headerContent.addView(back, 0);
+        headerCard.setTag(HEADER_TAG);
         ViewGroup.LayoutParams rawCardParams = headerCard.getLayoutParams();
         if (rawCardParams instanceof LinearLayout.LayoutParams) {
             ((LinearLayout.LayoutParams) rawCardParams).topMargin = 0;
@@ -69,6 +71,13 @@ public final class UnifiedPageHeader {
                            @ColorRes int surface, @ColorRes int outline, @ColorRes int accent) {
         LinearLayout page = findPage(activity.findViewById(android.R.id.content));
         if (page == null) return;
+        for (int i = 0; i < Math.min(3, page.getChildCount()); i++) {
+            View candidate = page.getChildAt(i);
+            if (containsBack(candidate)) {
+                candidate.setVisibility(View.GONE);
+                break;
+            }
+        }
         int hidden = 0;
         for (int i = 0; i < Math.min(4, page.getChildCount()) && hidden < 3; i++) {
             if (page.getChildAt(i) instanceof TextView) {
@@ -82,6 +91,7 @@ public final class UnifiedPageHeader {
         card.setStrokeWidth(dp(activity, 1));
         card.setRadius(dp(activity, 18));
         card.setCardElevation(dp(activity, 1));
+        card.setTag(HEADER_TAG);
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -175,6 +185,23 @@ public final class UnifiedPageHeader {
             }
         }
         return null;
+    }
+
+    private static boolean containsBack(View view) {
+        if (view instanceof TextView) {
+            CharSequence description = view.getContentDescription();
+            CharSequence text = ((TextView) view).getText();
+            String value = ((description == null ? "" : description.toString()) + " "
+                    + (text == null ? "" : text.toString())).toLowerCase();
+            if (value.contains("back") || value.contains("←") || value.contains("‹")) return true;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                if (containsBack(group.getChildAt(i))) return true;
+            }
+        }
+        return false;
     }
 
     private static int dp(Activity activity, int value) {

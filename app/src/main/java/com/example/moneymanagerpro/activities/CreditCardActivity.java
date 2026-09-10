@@ -93,7 +93,9 @@ public class CreditCardActivity extends AppCompatActivity {
         ThemeManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_credit_card);
-        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnCreditCardBack);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "Credit Card Manager",
+                "Statements, billing cycles, due dates and payments", R.color.purple_surface,
+                R.color.purple_outline, R.color.purple);
 
         bindViews();
         setupStaticDropdowns();

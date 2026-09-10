@@ -86,7 +86,9 @@ public class LoanActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_loan);
-        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnBack);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "Smart Loan Tracker",
+                "Loans, EMI payments and outstanding balances", R.color.warning_surface,
+                R.color.warning_outline, R.color.warning);
 
         bindViews();
         prepareForm();
