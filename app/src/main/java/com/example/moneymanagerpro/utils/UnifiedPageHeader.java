@@ -7,7 +7,6 @@ import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -136,16 +135,15 @@ public final class UnifiedPageHeader {
         back.setMinimumWidth(0);
         back.setPadding(0, 0, 0, 0);
         back.setTextColor(ContextCompat.getColor(activity, R.color.secondary));
-        int arrowSize = dp(activity, 18);
+        int arrowSize = dp(activity, 24);
         Drawable arrow = new CenteredBackArrowDrawable(
-                ContextCompat.getColor(activity, R.color.app_text_primary), dp(activity, 2));
+                ContextCompat.getColor(activity, R.color.app_text_primary), dp(activity, 3));
         arrow.setBounds(0, 0, arrowSize, arrowSize);
         back.setCompoundDrawables(arrow, null, null, null);
-        GradientDrawable background = new GradientDrawable();
-        background.setShape(GradientDrawable.OVAL);
-        background.setColor(ContextCompat.getColor(activity, R.color.info_surface));
-        background.setStroke(dp(activity, 1), ContextCompat.getColor(activity, R.color.info_outline));
-        back.setBackground(background);
+        back.setCompoundDrawablePadding(0);
+        // Keep only the arrow. The old circular surface made the icon look off-centre
+        // on devices with different font/rendering metrics.
+        back.setBackground(null);
     }
 
     private static final class CenteredBackArrowDrawable extends Drawable {
