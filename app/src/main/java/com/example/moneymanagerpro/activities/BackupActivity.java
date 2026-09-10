@@ -158,6 +158,9 @@ public class BackupActivity
         setContentView(
                 R.layout.activity_backup
         );
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "Backup & Restore",
+                "Protect and restore your financial records", R.color.info_surface,
+                R.color.info_outline, R.color.secondary);
 
         txtBackupStatus =
                 findViewById(

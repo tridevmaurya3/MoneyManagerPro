@@ -31,6 +31,9 @@ public class MoreFeaturesActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_more_features);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "More Financial Tools",
+                "Explore planning, bills and advanced money tools", R.color.info_surface,
+                R.color.info_outline, R.color.secondary);
         featureContainer = findViewById(R.id.featureContainer);
         buildFeatureMenu();
     }

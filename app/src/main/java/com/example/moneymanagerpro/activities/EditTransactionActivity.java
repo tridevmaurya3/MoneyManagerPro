@@ -93,6 +93,8 @@ public class EditTransactionActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_transaction);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "Edit Transaction",
+                "Update transaction details", R.color.info_surface, R.color.info_outline, R.color.secondary);
 
         bindViews();
         initializeRepositories();

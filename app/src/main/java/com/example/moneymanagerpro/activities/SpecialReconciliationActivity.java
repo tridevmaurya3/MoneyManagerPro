@@ -45,6 +45,7 @@ public class SpecialReconciliationActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_special_reconciliation);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.reconcileBack);
 
         manager = new TridevAdvancedReconciliationManager(getApplicationContext());
         bindViews();

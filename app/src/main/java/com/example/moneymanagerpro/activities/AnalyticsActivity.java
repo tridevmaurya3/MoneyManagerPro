@@ -57,6 +57,9 @@ public class AnalyticsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_analytics);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "Analytics & Insights",
+                "Understand income, expenses and spending patterns", R.color.purple_surface,
+                R.color.purple_outline, R.color.purple);
 
         bindViews();
         setupPeriodSpinner();

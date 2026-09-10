@@ -49,6 +49,9 @@ public class ReportActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_report);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "Financial Reports",
+                "Review daily, weekly, monthly and yearly performance", R.color.success_surface,
+                R.color.success_outline, R.color.success);
 
         txtTodayReport = findViewById(R.id.txtTodayReport);
         txtWeekReport = findViewById(R.id.txtWeekReport);

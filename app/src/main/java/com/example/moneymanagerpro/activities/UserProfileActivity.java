@@ -49,6 +49,7 @@ public class UserProfileActivity extends AppCompatActivity {
         ThemeManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_profile);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnProfileBack);
 
         firebaseAuth = FirebaseAuth.getInstance();
         bindViews();

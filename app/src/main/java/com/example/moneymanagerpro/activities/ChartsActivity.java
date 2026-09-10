@@ -54,6 +54,9 @@ public class ChartsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_charts);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "Charts & Trends",
+                "Visual analysis of your financial activity", R.color.info_surface,
+                R.color.info_outline, R.color.secondary);
 
         bindViews();
         prepareScreen();

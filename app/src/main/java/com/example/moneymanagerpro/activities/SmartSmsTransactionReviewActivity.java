@@ -65,6 +65,7 @@ public class SmartSmsTransactionReviewActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_smart_sms_transaction_review);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.bridgeBack);
 
         healthManager = new TridevIntegrationHealthManager(getApplicationContext());
         reviewManager = new TridevIntegrationReviewManager(getApplicationContext());

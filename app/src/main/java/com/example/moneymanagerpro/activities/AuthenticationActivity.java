@@ -77,6 +77,7 @@ public class AuthenticationActivity extends AppCompatActivity {
         ThemeManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_authentication);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnAuthBack);
 
         firebaseAuth = FirebaseAuth.getInstance();
         mode = getIntent().getStringExtra(EXTRA_MODE);

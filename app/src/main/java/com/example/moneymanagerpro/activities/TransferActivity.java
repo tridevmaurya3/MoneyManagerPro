@@ -44,6 +44,7 @@ public class TransferActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_transfer);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnBack);
 
         inputAmount = findViewById(R.id.inputAmount);
         etAmount = findViewById(R.id.etAmount);

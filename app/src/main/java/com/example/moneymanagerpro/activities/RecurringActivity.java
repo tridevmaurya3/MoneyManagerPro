@@ -75,6 +75,7 @@ public class RecurringActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_recurring);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnBack);
 
         bindViews();
         prepareScreen();

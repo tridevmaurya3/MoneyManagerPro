@@ -35,6 +35,7 @@ public class HelpActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_help);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnBack);
 
         if (savedInstanceState != null) {
             isHindiSelected =

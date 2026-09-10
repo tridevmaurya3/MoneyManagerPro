@@ -40,6 +40,7 @@ public final class IntegrationCloudRecoveryActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_integration_cloud_recovery);
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.integrationCloudBack);
 
         cloudManager = new TridevIntegrationCloudManager(getApplicationContext());
         TridevIntegrationCloudScheduler.ensurePeriodic(getApplicationContext());

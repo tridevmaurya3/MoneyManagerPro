@@ -127,6 +127,7 @@ public class TransactionsActivity extends AppCompatActivity {
         setContentView(
                 R.layout.activity_transactions
         );
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnBack);
 
         initializeSelectedTransactionPeriod();
         bindViews();

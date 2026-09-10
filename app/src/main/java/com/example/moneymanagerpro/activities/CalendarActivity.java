@@ -65,6 +65,9 @@ public class CalendarActivity extends AppCompatActivity {
         selectedMonth.set(Calendar.DAY_OF_MONTH, 1);
         clearTime(selectedMonth);
         setContentView(buildScreen());
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(this, "Unified Finance Calendar",
+                "Transactions, bills, EMI, card dues and goals in one place", R.color.info_surface,
+                R.color.info_outline, R.color.secondary);
         bindActions();
     }
 
@@ -138,9 +141,9 @@ public class CalendarActivity extends AppCompatActivity {
         root.addView(alertSummary);
 
         LinearLayout quickRow = row();
-        MaterialButton bills = actionButton("Manage Bills");
+        TextView bills = actionButton("Manage Bills");
         bills.setOnClickListener(v -> startActivity(new Intent(this, RecurringActivity.class)));
-        MaterialButton cards = actionButton("Credit Cards");
+        TextView cards = actionButton("Credit Cards");
         cards.setOnClickListener(v -> startActivity(new Intent(this, CreditCardActivity.class)));
         quickRow.addView(bills, weightedButtonParams(true));
         quickRow.addView(cards, weightedButtonParams(false));
@@ -231,11 +234,11 @@ public class CalendarActivity extends AppCompatActivity {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setGravity(Gravity.CENTER);
-        TextView number = text(String.valueOf(day), 13, R.color.app_text_primary, true);
+        TextView number = text(String.valueOf(day), 15, R.color.app_text_primary, true);
         number.setGravity(Gravity.CENTER);
         content.addView(number);
         if (hasEvents) {
-            TextView count = text(events.size() + " item" + (events.size() == 1 ? "" : "s"), 8, colorForType(events.get(0).type), true);
+            TextView count = text(events.size() + " item" + (events.size() == 1 ? "" : "s"), 10, colorForType(events.get(0).type), true);
             count.setGravity(Gravity.CENTER);
             count.setPadding(0, dp(4), 0, 0);
             content.addView(count);
@@ -301,6 +304,10 @@ public class CalendarActivity extends AppCompatActivity {
         content.addView(detailView);
         if (!event.detail.isEmpty()) {
             TextView note = text(event.detail, 11, R.color.app_text_secondary, false);
+            note.setSingleLine(false);
+            note.setMaxLines(Integer.MAX_VALUE);
+            note.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_SIMPLE);
+            note.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);
             note.setPadding(0, dp(3), 0, 0);
             content.addView(note);
         }
@@ -329,7 +336,9 @@ public class CalendarActivity extends AppCompatActivity {
         String value = safe(note, "");
         String marker = "Synced from Family Hub";
         int markerIndex = value.indexOf(marker);
-        return markerIndex >= 0 ? value.substring(markerIndex).trim() : value;
+        value = markerIndex >= 0 ? value.substring(markerIndex).trim() : value;
+        return value.replaceAll("(?i)(Purchased\\s+by|By)\\s+(?:T|Tridev|Tridev\\s+Ma)(?=\\s*•)",
+                "Purchased by Tridev Maurya");
     }
 
     private void addRecurringEvents(List<FinanceEvent> out, List<RecurringTransaction> items) {
@@ -488,23 +497,26 @@ public class CalendarActivity extends AppCompatActivity {
         return button;
     }
 
-    private MaterialButton actionButton(String label) {
-        MaterialButton button = new MaterialButton(this);
+    private TextView actionButton(String label) {
+        TextView button = new TextView(this);
         button.setText(label);
         button.setTextSize(11);
-        button.setAllCaps(false);
         button.setGravity(Gravity.CENTER);
-        button.setMinHeight(0);
-        button.setMinimumHeight(0);
-        button.setInsetTop(0);
-        button.setInsetBottom(0);
-        button.setCornerRadius(dp(13));
+        button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setTextColor(color(R.color.secondary));
+        button.setIncludeFontPadding(false);
+        button.setPadding(dp(8), dp(5), dp(8), dp(5));
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(color(R.color.info_surface));
+        background.setStroke(dp(1), color(R.color.info_outline));
+        background.setCornerRadius(dp(13));
+        button.setBackground(background);
         BubbleTouchAnimator.apply(button);
         return button;
     }
 
     private LinearLayout.LayoutParams weightedButtonParams(boolean left) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(46), 1f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(52), 1f);
         params.setMargins(left ? 0 : dp(5), 0, left ? dp(5) : 0, dp(7));
         return params;
     }

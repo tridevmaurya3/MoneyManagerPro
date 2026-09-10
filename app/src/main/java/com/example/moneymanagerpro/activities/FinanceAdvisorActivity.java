@@ -87,6 +87,7 @@ public class FinanceAdvisorActivity
         setContentView(
                 R.layout.activity_finance_advisor
         );
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.mergeExisting(this, R.id.btnBack);
 
         bindViews();
         setupActions();
