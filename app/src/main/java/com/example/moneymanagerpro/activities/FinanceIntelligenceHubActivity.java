@@ -16,6 +16,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.AccountBalance;
