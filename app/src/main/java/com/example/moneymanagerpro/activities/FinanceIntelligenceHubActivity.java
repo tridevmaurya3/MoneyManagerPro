@@ -90,6 +90,14 @@ public class FinanceIntelligenceHubActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(buildScreen());
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(
+                this,
+                "Finance Pro Suite",
+                "Five advanced money tools in one live workspace",
+                R.color.info_surface,
+                R.color.info_outline,
+                R.color.secondary
+        );
     }
 
     @Override
@@ -696,10 +704,10 @@ public class FinanceIntelligenceHubActivity extends AppCompatActivity {
     }
 
     private TextView metric(String label, String value, String accent) {
-        TextView view = text(label + "\n" + value, 11, accent, true);
+        TextView view = text(label + "\n" + value, 13, accent, true);
         view.setGravity(Gravity.CENTER);
-        view.setMinHeight(dp(66));
-        view.setPadding(dp(6), dp(9), dp(6), dp(9));
+        view.setMinHeight(dp(72));
+        view.setPadding(dp(6), dp(10), dp(6), dp(10));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         params.setMargins(dp(3), 0, dp(3), 0);
         view.setLayoutParams(params);
