@@ -140,11 +140,15 @@
                     android:insetBottom="0dp"
                     android:minWidth="0dp"
                     android:padding="0dp"
-                    android:text="‹"
+                    android:text=""
                     android:textAllCaps="false"
                     android:textColor="@color/secondary"
                     android:textSize="20sp"
                     app:backgroundTint="@color/info_surface"
+                    app:icon="@drawable/ic_chevron_left_24"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconTint="@color/secondary"
                     app:cornerRadius="11dp" />
 
                 <LinearLayout
@@ -169,7 +173,7 @@
                         android:layout_height="wrap_content"
                         android:text="Showing transactions for"
                         android:textColor="@color/app_text_secondary"
-                        android:textSize="8sp" />
+                        android:textSize="11sp" />
 
                     <TextView
                         android:id="@+id/txtSelectedTransactionPeriod"
@@ -178,7 +182,7 @@
                         android:layout_marginTop="1dp"
                         android:text="August 2026"
                         android:textColor="@color/app_text_primary"
-                        android:textSize="14sp"
+                        android:textSize="17sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -187,7 +191,7 @@
                         android:layout_marginTop="1dp"
                         android:text="Tap to choose month and year"
                         android:textColor="@color/app_text_secondary"
-                        android:textSize="8sp" />
+                        android:textSize="11sp" />
 
                 </LinearLayout>
 
@@ -201,11 +205,15 @@
                     android:insetBottom="0dp"
                     android:minWidth="0dp"
                     android:padding="0dp"
-                    android:text="›"
+                    android:text=""
                     android:textAllCaps="false"
                     android:textColor="@color/secondary"
                     android:textSize="20sp"
                     app:backgroundTint="@color/info_surface"
+                    app:icon="@drawable/ic_chevron_right_24"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconTint="@color/secondary"
                     app:cornerRadius="11dp" />
 
             </LinearLayout>

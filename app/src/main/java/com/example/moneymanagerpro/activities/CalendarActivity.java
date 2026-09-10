@@ -102,6 +102,8 @@ public class CalendarActivity extends AppCompatActivity {
         selectorRow.setPadding(dp(10), dp(9), dp(10), dp(9));
         previousButton = button("←");
         nextButton = button("→");
+        centerCalendarArrow(previousButton, false);
+        centerCalendarArrow(nextButton, true);
         monthTitle = text("", 17, R.color.secondary, true);
         monthTitle.setGravity(Gravity.CENTER);
         selectorRow.addView(previousButton, new LinearLayout.LayoutParams(dp(44), dp(44)));
@@ -349,6 +351,8 @@ public class CalendarActivity extends AppCompatActivity {
                 "Purchased by Tridev Maurya");
         if (expenseItems == null || expenseItems.isEmpty()) return value;
         StringBuilder details = new StringBuilder(value);
+        if (details.length() > 0) details.append("\n");
+        details.append("Items");
         for (ExpenseItem expenseItem : expenseItems) {
             String name = safe(expenseItem.getItemName(), "Item");
             String quantity = expenseItem.getQuantity() == Math.rint(expenseItem.getQuantity())
@@ -356,14 +360,27 @@ public class CalendarActivity extends AppCompatActivity {
                     : String.format(Locale.US, "%.2f", expenseItem.getQuantity())
                             .replaceAll("0+$", "").replaceAll("\\.$", "");
             String unit = safe(expenseItem.getUnit(), "");
-            String itemDetail = name + (expenseItem.getQuantity() > 0
-                    ? " × " + quantity + (unit.isEmpty() ? "" : " " + unit) : "");
-            if (details.indexOf(itemDetail) < 0) {
-                if (details.length() > 0) details.append(" • ");
-                details.append(itemDetail);
-            }
+            details.append("\n• ").append(name).append(" — Qty ").append(quantity);
+            if (!unit.isEmpty()) details.append(' ').append(unit);
+            details.append(" • ").append(money(expenseItem.getPrice())).append(" each")
+                    .append(" • Total ").append(money(expenseItem.getTotal()));
         }
         return details.toString();
+    }
+
+    private void centerCalendarArrow(MaterialButton button, boolean forward) {
+        button.setText("");
+        android.graphics.drawable.Drawable arrow = ContextCompat.getDrawable(
+                this, forward ? R.drawable.ic_chevron_right_24 : R.drawable.ic_chevron_left_24);
+        if (arrow != null) {
+            int size = dp(22);
+            arrow.setBounds(0, 0, size, size);
+            arrow.setTint(android.graphics.Color.WHITE);
+            button.setCompoundDrawables(arrow, null, null, null);
+        }
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(0, 0, 0, 0);
+        button.setIncludeFontPadding(false);
     }
 
     private void addRecurringEvents(List<FinanceEvent> out, List<RecurringTransaction> items) {

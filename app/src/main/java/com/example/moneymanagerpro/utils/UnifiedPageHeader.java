@@ -59,6 +59,7 @@ public final class UnifiedPageHeader {
         params.setMarginEnd(dp(activity, 10));
         back.setLayoutParams(params);
         headerContent.addView(back, 0);
+        normalizeTypography(headerContent);
         headerCard.setTag(HEADER_TAG);
         ViewGroup.LayoutParams rawCardParams = headerCard.getLayoutParams();
         if (rawCardParams instanceof LinearLayout.LayoutParams) {
@@ -135,9 +136,9 @@ public final class UnifiedPageHeader {
         back.setMinimumWidth(0);
         back.setPadding(0, 0, 0, 0);
         back.setTextColor(ContextCompat.getColor(activity, R.color.secondary));
-        int arrowSize = dp(activity, 28);
+        int arrowSize = dp(activity, 22);
         Drawable arrow = new CenteredBackArrowDrawable(
-                ContextCompat.getColor(activity, R.color.app_text_primary), dp(activity, 4));
+                ContextCompat.getColor(activity, R.color.app_text_primary), dp(activity, 3));
         arrow.setBounds(0, 0, arrowSize, arrowSize);
         back.setCompoundDrawables(arrow, null, null, null);
         GradientDrawable background = new GradientDrawable();
@@ -202,6 +203,32 @@ public final class UnifiedPageHeader {
             }
         }
         return false;
+    }
+
+    private static void normalizeTypography(LinearLayout headerRow) {
+        for (int i = headerRow.getChildCount() - 1; i >= 0; i--) {
+            View child = headerRow.getChildAt(i);
+            if (!(child instanceof LinearLayout)) continue;
+            LinearLayout copy = (LinearLayout) child;
+            TextView title = null;
+            TextView subtitle = null;
+            for (int j = 0; j < copy.getChildCount(); j++) {
+                if (!(copy.getChildAt(j) instanceof TextView)) continue;
+                if (title == null) title = (TextView) copy.getChildAt(j);
+                else { subtitle = (TextView) copy.getChildAt(j); break; }
+            }
+            if (title != null) {
+                title.setTextSize(18);
+                title.setTypeface(Typeface.DEFAULT_BOLD);
+                title.setMaxLines(1);
+            }
+            if (subtitle != null) {
+                subtitle.setTextSize(11);
+                subtitle.setTypeface(Typeface.DEFAULT);
+                subtitle.setMaxLines(2);
+            }
+            if (title != null) return;
+        }
     }
 
     private static int dp(Activity activity, int value) {
