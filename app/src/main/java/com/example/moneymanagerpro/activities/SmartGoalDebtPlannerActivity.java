@@ -47,6 +47,14 @@ public final class SmartGoalDebtPlannerActivity extends AppCompatActivity {
         ThemeManager.applySavedTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(buildScreen());
+        com.example.moneymanagerpro.utils.UnifiedPageHeader.add(
+                this,
+                "Smart Goal & Debt Planner",
+                "Offline payoff strategy and savings forecast",
+                R.color.info_surface,
+                R.color.info_outline,
+                R.color.secondary
+        );
         generatePlan();
     }
 
@@ -67,6 +75,7 @@ public final class SmartGoalDebtPlannerActivity extends AppCompatActivity {
         header.setGravity(Gravity.CENTER_VERTICAL);
         TextView back = text("‹", 32, R.color.app_text_primary, false);
         back.setGravity(Gravity.CENTER);
+        back.setContentDescription("Back");
         com.example.moneymanagerpro.utils.UnifiedPageHeader.styleBack(this, back);
         back.setOnClickListener(view -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(42), dp(42)));
