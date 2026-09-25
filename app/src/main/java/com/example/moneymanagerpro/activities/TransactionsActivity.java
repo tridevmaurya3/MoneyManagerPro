@@ -2836,6 +2836,11 @@ public class TransactionsActivity extends AppCompatActivity {
                         false
                 );
 
+        // The note card must grow with the complete stored detail.
+        noteView.setSingleLine(false);
+        noteView.setMaxLines(Integer.MAX_VALUE);
+        noteView.setEllipsize(null);
+        noteView.setHorizontallyScrolling(false);
         noteView.setLineSpacing(
                 dp(2),
                 1f
@@ -2908,7 +2913,7 @@ public class TransactionsActivity extends AppCompatActivity {
                     && item.matches("(?i)Account:\\s*account:\\d+")) {
                 item = "Account: " + mappedAccount;
             }
-            if (visible.length() > 0) visible.append(" • ");
+            if (visible.length() > 0) visible.append('\n');
             visible.append(item);
         }
         return visible.length() == 0 ? "Transaction note" : visible.toString();
