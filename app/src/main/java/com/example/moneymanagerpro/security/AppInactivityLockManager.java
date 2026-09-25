@@ -32,6 +32,9 @@ import java.lang.ref.WeakReference;
  */
 public final class AppInactivityLockManager {
 
+    private static WeakReference<AppInactivityLockManager> registeredManager =
+            new WeakReference<>(null);
+
     public static final String SECURITY_PREFERENCES =
             "MoneyManagerSecurity";
 
@@ -69,15 +72,19 @@ public final class AppInactivityLockManager {
     private boolean lockNavigationInProgress =
             false;
 
+    private boolean activeActivityResumed =
+            false;
+
     private final Runnable timeoutRunnable =
             () -> {
                 Activity activity =
                         activeActivity.get();
 
-                if (activity != null) {
-                    lockNow(
-                            activity
-                    );
+                if (activity != null && activeActivityResumed && !lockNavigationInProgress) {
+                    long remaining = getTimeoutMillis(activity) -
+                            (SystemClock.elapsedRealtime() - lastInteractionElapsedRealtime);
+                    if (remaining > 0L) scheduleTimeout(remaining);
+                    else lockNow(activity);
                 }
             };
 
@@ -86,11 +93,31 @@ public final class AppInactivityLockManager {
     ) {
         applicationContext =
                 context.getApplicationContext();
+        registeredManager = new WeakReference<>(this);
+    }
+
+    /** A quick-entry Service window is outside Activity.dispatchTouchEvent(). */
+    public static void noteTrustedOverlayInteraction() {
+        AppInactivityLockManager manager = registeredManager.get();
+        Activity activity = manager == null ? null : manager.activeActivity.get();
+        if (manager == null || manager.lockNavigationInProgress
+                || (manager.activeActivityResumed && activity != null
+                && manager.isUnlockOrEntryActivity(activity))
+                || SystemClock.elapsedRealtime() - manager.lastInteractionElapsedRealtime < 1_000L
+                || !manager.isProtectionEnabled()) {
+            return;
+        }
+        manager.markInteractionNow();
+        if (manager.activeActivityResumed && activity != null
+                && !manager.isUnlockOrEntryActivity(activity)) {
+            manager.scheduleTimeout(manager.getTimeoutMillis(activity));
+        }
     }
 
     public void onActivityResumed(
             @NonNull Activity activity
     ) {
+        activeActivityResumed = true;
         activeActivity =
                 new WeakReference<>(
                         activity
@@ -149,6 +176,7 @@ public final class AppInactivityLockManager {
                 activeActivity.get();
 
         if (current == activity) {
+            activeActivityResumed = false;
             cancelTimeout();
         }
     }
@@ -161,6 +189,7 @@ public final class AppInactivityLockManager {
 
         if (current == activity) {
             activeActivity.clear();
+            activeActivityResumed = false;
             cancelTimeout();
         }
     }

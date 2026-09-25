@@ -29,6 +29,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import com.example.moneymanagerpro.activities.DashboardActivity;
+import com.example.moneymanagerpro.security.AppInactivityLockManager;
 
 public final class FloatingQuickEntryService extends Service {
 
@@ -207,6 +208,7 @@ public final class FloatingQuickEntryService extends Service {
 
             @Override
             public boolean onTouch(View view, MotionEvent event) {
+                AppInactivityLockManager.noteTrustedOverlayInteraction();
                 if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
                     startX = bubbleParams.x;
                     startY = bubbleParams.y;
@@ -395,7 +397,10 @@ public final class FloatingQuickEntryService extends Service {
         );
         params.bottomMargin = dp(4);
         action.setLayoutParams(params);
-        action.setOnClickListener(listener);
+        action.setOnClickListener(view -> {
+            AppInactivityLockManager.noteTrustedOverlayInteraction();
+            listener.onClick(view);
+        });
         return action;
     }
 

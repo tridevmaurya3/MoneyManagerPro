@@ -39,6 +39,7 @@ import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.Category;
 import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
+import com.example.moneymanagerpro.security.AppInactivityLockManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -1262,6 +1263,8 @@ final class FloatingQuickEntryFormOverlay {
             if (event == null) {
                 return super.dispatchTouchEvent(null);
             }
+
+            AppInactivityLockManager.noteTrustedOverlayInteraction();
 
             if (event.getActionMasked() == MotionEvent.ACTION_OUTSIDE) {
                 dismiss();
