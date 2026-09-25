@@ -406,17 +406,17 @@ public final class TridevTransactionPostingEngine {
                                  String mappedAccount) {
         String marker = marker(event.eventId);
         String source = sourceLabel(event.sourceApp);
-        String merchant = safeMetadata(event.merchantHint, 60);
+        String merchant = safeMetadata(event.merchantHint, 120);
         String category = safeMetadata(mappedCategory, 50);
         String account = safeMetadata(mappedAccount, 70);
         StringBuilder note = new StringBuilder(marker)
                 .append(" • Synced from ")
                 .append(source);
-        if (!category.isEmpty()) {
-            note.append(" • Category: ").append(category);
-        }
         if (!merchant.isEmpty()) {
             note.append(" • Merchant: ").append(merchant);
+        }
+        if (!category.isEmpty()) {
+            note.append(" • Category: ").append(category);
         }
         if (!account.isEmpty()) {
             note.append(" • Account: ").append(account);

@@ -333,7 +333,7 @@ public final class TridevFamilyHubEditManager {
 
     @NonNull
     private String buildSafeNote(@NonNull String marker, @Nullable String merchantHint) {
-        String merchant = safeMetadata(merchantHint, 60);
+        String merchant = safeMetadata(merchantHint, 120);
         StringBuilder note = new StringBuilder(marker).append(" • Synced from Family Hub");
         if (!merchant.isEmpty()) note.append(" • ").append(merchant);
         return note.length() <= 240 ? note.toString() : note.substring(0, 240);
