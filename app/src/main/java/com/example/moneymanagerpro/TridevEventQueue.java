@@ -440,7 +440,7 @@ public final class TridevEventQueue {
         values.put("occurred_at", effectiveOccurredAt);
         values.put("created_at", event.createdAt);
         values.put("account_hint", safeMetadata(event.accountHint));
-        values.put("merchant_hint", safeMetadata(event.merchantHint));
+        values.put("merchant_hint", TridevMerchantMetadata.clean(event.merchantHint));
         values.put("category_hint", safeMetadata(event.categoryHint));
         putNullable(values, "linked_event_id", event.linkedEventId, 120);
         values.put("dedupe_fingerprint", fingerprint);
@@ -695,7 +695,10 @@ public final class TridevEventQueue {
             throw new IllegalArgumentException("Unsupported event schema version");
         }
         rejectUnsafeMetadata(event.accountHint, "accountHint");
-        rejectUnsafeMetadata(event.merchantHint, "merchantHint");
+        if (event.merchantHint != null &&
+                (event.merchantHint.indexOf('\n') >= 0 || event.merchantHint.indexOf('\r') >= 0)) {
+            throw new IllegalArgumentException("merchantHint must contain structured metadata only");
+        }
         rejectUnsafeMetadata(event.categoryHint, "categoryHint");
     }
 

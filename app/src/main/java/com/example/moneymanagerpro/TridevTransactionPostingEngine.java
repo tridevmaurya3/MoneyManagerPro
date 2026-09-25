@@ -406,7 +406,7 @@ public final class TridevTransactionPostingEngine {
                                  String mappedAccount) {
         String marker = marker(event.eventId);
         String source = sourceLabel(event.sourceApp);
-        String merchant = safeMetadata(event.merchantHint, 120);
+        String merchant = TridevMerchantMetadata.clean(event.merchantHint);
         String category = safeMetadata(mappedCategory, 50);
         String account = safeMetadata(mappedAccount, 70);
         StringBuilder note = new StringBuilder(marker)
@@ -420,9 +420,6 @@ public final class TridevTransactionPostingEngine {
         }
         if (!account.isEmpty()) {
             note.append(" • Account: ").append(account);
-        }
-        if (note.length() > 240) {
-            return note.substring(0, 240);
         }
         return note.toString();
     }

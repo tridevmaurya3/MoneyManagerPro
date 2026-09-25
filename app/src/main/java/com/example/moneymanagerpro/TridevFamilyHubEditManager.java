@@ -302,7 +302,7 @@ public final class TridevFamilyHubEditManager {
             values.put("currency", TridevIntegrationContract.DEFAULT_CURRENCY);
             values.put("occurred_at", event.occurredAt);
             values.put("account_hint", safeMetadata(event.accountHint, 160));
-            values.put("merchant_hint", safeMetadata(event.merchantHint, 120));
+            values.put("merchant_hint", TridevMerchantMetadata.clean(event.merchantHint));
             values.put("category_hint", safeMetadata(event.categoryHint, 80));
             values.put("dedupe_fingerprint", TridevEventFingerprint.build(event));
             values.put("sync_state", TridevIntegrationContract.SyncState.SYNCED.name());
@@ -333,10 +333,10 @@ public final class TridevFamilyHubEditManager {
 
     @NonNull
     private String buildSafeNote(@NonNull String marker, @Nullable String merchantHint) {
-        String merchant = safeMetadata(merchantHint, 120);
+        String merchant = TridevMerchantMetadata.clean(merchantHint);
         StringBuilder note = new StringBuilder(marker).append(" • Synced from Family Hub");
         if (!merchant.isEmpty()) note.append(" • ").append(merchant);
-        return note.length() <= 240 ? note.toString() : note.substring(0, 240);
+        return note.toString();
     }
 
     @NonNull

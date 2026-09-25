@@ -208,7 +208,7 @@ public final class TridevCompanionFinanceProvider extends ContentProvider {
             String currency = structured(extras.getString("currency"), 8, false)
                     .toUpperCase(Locale.ROOT);
             String accountHint = metadata(extras.getString("account_hint"), 160);
-            String merchantHint = metadata(extras.getString("merchant_hint"), 120);
+            String merchantHint = TridevMerchantMetadata.clean(extras.getString("merchant_hint"));
             String categoryHint = metadata(extras.getString("category_hint"), 80);
             String fingerprint = structured(extras.getString("fingerprint"), 160, true);
             boolean forceReview = extras.getBoolean("force_review", false);

@@ -136,7 +136,7 @@ public final class TridevFinanceEventProvider extends ContentProvider {
                     .toUpperCase(Locale.ROOT);
             long occurredAt = extras.getLong(KEY_OCCURRED_AT, 0L);
             String accountHint = metadata(extras.getString(KEY_ACCOUNT_HINT), 160);
-            String merchantHint = metadata(extras.getString(KEY_MERCHANT_HINT), 120);
+            String merchantHint = TridevMerchantMetadata.clean(extras.getString(KEY_MERCHANT_HINT));
             String categoryHint = metadata(extras.getString(KEY_CATEGORY_HINT), 80);
             String fingerprint = structured(
                     extras.getString(KEY_FINGERPRINT), 160, true);
