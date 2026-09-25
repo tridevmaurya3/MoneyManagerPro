@@ -1,7 +1,6 @@
 package com.example.moneymanagerpro.ui;
 
 import android.app.Activity;
-import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -11,8 +10,9 @@ import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.HorizontalScrollView;
+import android.view.ViewTreeObserver;
 import android.widget.LinearLayout;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,31 +30,39 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
-/**
- * One visible-data contract: the chosen range controls visible date-bearing rows and the exact
- * remaining text is the source for PDF, Excel-compatible XML and Share-PDF.
- */
+/** Page-specific list actions; screen rows and exports use the same visible order. */
 public final class VisibleDataToolsController {
     private static final String TAG = "visible_data_tools_v3";
-    private static final String ORIGINAL_VISIBILITY = "visible_data_original_visibility";
-    private static final String[] SUPPORTED = {"Transactions", "Report", "Analytics", "Charts", "Calendar", "CreditCard", "Loan", "Budget", "Goal", "Investment", "Subscription", "Recurring", "Account", "AdvancedFinanceData", "FinanceAdvisor", "ReceiptGallery"};
-    private static final String[] DATE_PATTERNS = {"yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd", "dd-MM-yyyy HH:mm", "dd-MM-yyyy", "dd/MM/yyyy HH:mm", "dd/MM/yyyy", "dd MMM yyyy", "MMM dd, yyyy"};
+    // These screens expose a real list of rows. Other screens have charts or forms,
+    // where a generic filter icon cannot safely filter the underlying data.
+    private static final String[] LIST_PAGES = {
+            "AccountActivity", "LoanActivity", "BudgetActivity", "GoalActivity",
+            "InvestmentActivity", "SubscriptionActivity", "RecurringActivity",
+            "CreditCardActivity", "ReceiptGalleryActivity"
+    };
 
     private final Activity activity;
     private LinearLayout toolbar;
     private Calendar start;
     private Calendar end;
     private Sort sort = Sort.NEWEST;
+    private String query = "";
+    private final Map<View, Integer> originalOrder = new IdentityHashMap<>();
+    private ViewTreeObserver.OnGlobalLayoutListener rowObserver;
+    private View observedList;
+    private View firstObservedRow;
+    private int observedCount = -1;
+    private boolean applying;
 
     public VisibleDataToolsController(Activity activity) { this.activity = activity; }
 
@@ -62,15 +70,43 @@ public final class VisibleDataToolsController {
         if (!supported()) return;
         View decor = activity.getWindow().getDecorView();
         View existing = decor.findViewWithTag(TAG);
-        if (existing instanceof LinearLayout) { toolbar = (LinearLayout) existing; applyFilter(); return; }
+        if (existing instanceof LinearLayout) { toolbar = (LinearLayout) existing; observeRows(); applyFilter(); return; }
         decor.post(this::inject);
     }
 
-    public void detach() { toolbar = null; }
+    public void detach() {
+        if (rowObserver != null && observedList != null) {
+            observedList.getViewTreeObserver().removeOnGlobalLayoutListener(rowObserver);
+        }
+        rowObserver = null;
+        observedList = null;
+        originalOrder.clear();
+        toolbar = null;
+    }
+
+    private void observeRows() {
+        LinearLayout list = listContainer();
+        if (list == null || observedList == list) return;
+        observedList = list;
+        rowObserver = () -> {
+            if (applying) return;
+            int count = list.getChildCount();
+            View first = firstRow(list);
+            if (count != observedCount || first != firstObservedRow) applyFilter();
+        };
+        list.getViewTreeObserver().addOnGlobalLayoutListener(rowObserver);
+    }
+
+    private View firstRow(LinearLayout list) {
+        for (int i = 0; i < list.getChildCount(); i++) {
+            View child = list.getChildAt(i);
+            if (child instanceof MaterialCardView) return child;
+        }
+        return null;
+    }
 
     /** Shares the currently visible, currently filtered page in A4 PDF form. */
     public void shareCurrentPdf() {
-        if (start == null || end == null) selectRange(Range.THIS_MONTH);
         if (toolbar == null) attach();
         activity.getWindow().getDecorView().post(() -> export(false, true));
     }
@@ -90,9 +126,27 @@ public final class VisibleDataToolsController {
 
     private boolean supported() {
         String name = activity.getClass().getSimpleName();
-        if (name.equals("ExportActivity") || name.startsWith("Add") || name.startsWith("Edit") || name.contains("Settings") || name.contains("Backup") || name.contains("Authentication") || name.contains("Pin")) return false;
-        for (String value : SUPPORTED) if (name.contains(value)) return true;
+        // Transactions has its own working filter panel and sort controls.
+        for (String page : LIST_PAGES) if (name.equals(page)) return true;
         return false;
+    }
+
+    private LinearLayout listContainer() {
+        int id;
+        switch (activity.getClass().getSimpleName()) {
+            case "AccountActivity": id = R.id.accountContainer; break;
+            case "LoanActivity": id = R.id.loanContainer; break;
+            case "BudgetActivity": id = R.id.budgetContainer; break;
+            case "GoalActivity": id = R.id.goalContainer; break;
+            case "InvestmentActivity": id = R.id.investmentContainer; break;
+            case "SubscriptionActivity": id = R.id.subscriptionContainer; break;
+            case "RecurringActivity": id = R.id.recurringContainer; break;
+            case "CreditCardActivity": id = R.id.creditCardContainer; break;
+            case "ReceiptGalleryActivity": id = R.id.receiptContainer; break;
+            default: return null;
+        }
+        View view = activity.findViewById(id);
+        return view instanceof LinearLayout ? (LinearLayout) view : null;
     }
 
     private void inject() {
@@ -102,7 +156,7 @@ public final class VisibleDataToolsController {
         if (contentGroup.getChildCount() == 0) return;
         View original = contentGroup.getChildAt(0);
         if (attachActionsToHeader(original)) {
-            selectRange(Range.THIS_MONTH);
+            observeRows();
             return;
         }
         contentGroup.removeView(original);
@@ -116,9 +170,9 @@ public final class VisibleDataToolsController {
         wrapper.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(48)));
         wrapper.addView(original, new LinearLayout.LayoutParams(-1, 0, 1f));
         contentGroup.addView(wrapper);
+        observeRows();
         View floatingDataCenter = contentGroup.findViewWithTag("credit_card_data_center_fab");
         if (floatingDataCenter != null) floatingDataCenter.bringToFront();
-        selectRange(Range.THIS_MONTH);
     }
 
     private LinearLayout buildToolbar() {
@@ -134,8 +188,10 @@ public final class VisibleDataToolsController {
         outer.addView(back);
         View spacer = new View(activity);
         outer.addView(spacer, new LinearLayout.LayoutParams(0, dp(1), 1f));
-        outer.addView(iconButton(R.drawable.ic_filter_alt_24, "Filter and sort", false,
+        outer.addView(iconButton(R.drawable.ic_filter_alt_24, "Filter list", false,
                 v -> showFilterMenu()));
+        outer.addView(iconButton(R.drawable.ic_sort_24, "Sort list", false,
+                v -> showSortMenu()));
         outer.addView(iconButton(R.drawable.ic_share_24, "Share or export", true,
                 v -> showExportMenu()));
         return outer;
@@ -152,8 +208,10 @@ public final class VisibleDataToolsController {
         actions.setTag(TAG);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER_VERTICAL);
-        actions.addView(iconButton(R.drawable.ic_filter_alt_24, "Filter and sort", false,
+        actions.addView(iconButton(R.drawable.ic_filter_alt_24, "Filter list", false,
                 v -> showFilterMenu()));
+        actions.addView(iconButton(R.drawable.ic_sort_24, "Sort list", false,
+                v -> showSortMenu()));
         actions.addView(iconButton(R.drawable.ic_share_24, "Share or export", true,
                 v -> showExportMenu()));
         headerRow.addView(actions, new LinearLayout.LayoutParams(-2, -2));
@@ -178,19 +236,34 @@ public final class VisibleDataToolsController {
     }
 
     private void showFilterMenu() {
-        String[] choices = {
-                "●  Today", "▥  This Week", "▣  This Month", "‹  Last Month",
-                "«  Last Two Month", "≪  Last Three Month", "◫  Last Six Month",
-                "⌗  Custom", "⇅  Change Sort — " + sort.label
-        };
+        EditText search = new EditText(activity);
+        search.setSingleLine(true);
+        search.setHint("Search visible items");
+        search.setText(query);
+        search.setSelectAllOnFocus(true);
         new AlertDialog.Builder(activity)
-                .setTitle("Filter & Sort")
-                .setItems(choices, (dialog, which) -> {
-                    if (which < Range.values().length) selectRange(Range.values()[which]);
-                    else cycleSort();
+                .setTitle("Filter list")
+                .setView(search)
+                .setPositiveButton("Apply", (dialog, which) -> {
+                    query = search.getText().toString().trim().toLowerCase(Locale.ROOT);
+                    applyFilter();
                 })
-                .setNegativeButton("Close", null)
+                .setNeutralButton("Clear", (dialog, which) -> {
+                    query = "";
+                    applyFilter();
+                })
+                .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    private void showSortMenu() {
+        String[] choices = {"Original order", "Name A–Z", "Name Z–A", "Amount high to low", "Amount low to high"};
+        new AlertDialog.Builder(activity).setTitle("Sort list")
+                .setSingleChoiceItems(choices, sort.ordinal(), (dialog, which) -> {
+                    sort = Sort.values()[which];
+                    applyFilter();
+                    dialog.dismiss();
+                }).setNegativeButton("Cancel", null).show();
     }
 
     private void showExportMenu() {
@@ -228,21 +301,6 @@ public final class VisibleDataToolsController {
         return false;
     }
 
-    private HorizontalScrollView scroller(LinearLayout content) {
-        HorizontalScrollView scroll = new HorizontalScrollView(activity);
-        scroll.setHorizontalScrollBarEnabled(false);
-        scroll.setFillViewport(false);
-        scroll.addView(content);
-        return scroll;
-    }
-
-    private LinearLayout actionStrip() {
-        LinearLayout strip = new LinearLayout(activity);
-        strip.setOrientation(LinearLayout.HORIZONTAL);
-        strip.setGravity(Gravity.CENTER_VERTICAL);
-        return strip;
-    }
-
     private MaterialButton button(String label, boolean action, View.OnClickListener listener) {
         MaterialButton button = new MaterialButton(activity);
         button.setText(label);
@@ -265,59 +323,46 @@ public final class VisibleDataToolsController {
         return button;
     }
 
-    private void selectRange(Range range) {
-        Calendar now = Calendar.getInstance(); clearTime(now);
-        start = (Calendar) now.clone(); end = (Calendar) now.clone();
-        switch (range) {
-            case TODAY: break;
-            case THIS_WEEK: start.set(Calendar.DAY_OF_WEEK, start.getFirstDayOfWeek()); break;
-            case THIS_MONTH: start.set(Calendar.DAY_OF_MONTH, 1); end.set(Calendar.DAY_OF_MONTH, end.getActualMaximum(Calendar.DAY_OF_MONTH)); break;
-            case LAST_MONTH: start.add(Calendar.MONTH, -1); start.set(Calendar.DAY_OF_MONTH, 1); end = (Calendar) start.clone(); end.set(Calendar.DAY_OF_MONTH, end.getActualMaximum(Calendar.DAY_OF_MONTH)); break;
-            case LAST_TWO_MONTHS: start.add(Calendar.MONTH, -1); start.set(Calendar.DAY_OF_MONTH, 1); break;
-            case LAST_THREE_MONTHS: start.add(Calendar.MONTH, -2); start.set(Calendar.DAY_OF_MONTH, 1); break;
-            case LAST_SIX_MONTHS: start.add(Calendar.MONTH, -5); start.set(Calendar.DAY_OF_MONTH, 1); break;
-            case CUSTOM: pickCustomStart(); return;
-        }
-        end.set(Calendar.HOUR_OF_DAY, 23); end.set(Calendar.MINUTE, 59); end.set(Calendar.SECOND, 59);
-        applyFilter();
-        Toast.makeText(activity, range.label + " • " + sort.label, Toast.LENGTH_SHORT).show();
-    }
-
-    private void pickCustomStart() {
-        Calendar now = Calendar.getInstance();
-        new DatePickerDialog(activity, (v, y, m, d) -> {
-            start = Calendar.getInstance(); start.set(y, m, d, 0, 0, 0);
-            new DatePickerDialog(activity, (v2, y2, m2, d2) -> {
-                end = Calendar.getInstance(); end.set(y2, m2, d2, 23, 59, 59);
-                if (end.before(start)) { Calendar swap = start; start = end; end = swap; }
-                applyFilter();
-            }, y, m, d).show();
-        }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH)).show();
-    }
-
-    private void cycleSort() {
-        sort = Sort.values()[(sort.ordinal() + 1) % Sort.values().length];
-        applyFilter();
-        Toast.makeText(activity, "Sort: " + sort.label, Toast.LENGTH_SHORT).show();
-    }
-
     private void applyFilter() {
-        if (toolbar == null || start == null || end == null) return;
-        View root = activity.findViewById(android.R.id.content);
-        filterChildren(root);
-    }
-
-    private void filterChildren(View view) {
-        if (view == toolbar) return;
-        if (view instanceof MaterialCardView) {
-            Object original = view.getTag(R.id.visible_data_original_visibility);
-            if (original == null) view.setTag(R.id.visible_data_original_visibility, view.getVisibility());
-            Date date = findDate(visibleText(view));
-            if (date != null) view.setVisibility(!date.before(start.getTime()) && !date.after(end.getTime()) ? View.VISIBLE : View.GONE);
+        LinearLayout list = listContainer();
+        if (list == null || applying) return;
+        applying = true;
+        try {
+        List<View> rows = new ArrayList<>();
+        List<Integer> positions = new ArrayList<>();
+        Map<View, String> texts = new IdentityHashMap<>();
+        for (int i = 0; i < list.getChildCount(); i++) {
+            View row = list.getChildAt(i);
+            if (!(row instanceof MaterialCardView)) continue;
+            if (!originalOrder.containsKey(row)) originalOrder.put(row, i);
+            // Hidden rows must be made readable before applying a new query.
+            row.setVisibility(View.VISIBLE);
+            String text = visibleText(row);
+            texts.put(row, text);
+            row.setVisibility(text.toLowerCase(Locale.ROOT).contains(query)
+                    ? View.VISIBLE : View.GONE);
+            rows.add(row);
+            positions.add(i);
         }
-        if (view instanceof ViewGroup) {
-            ViewGroup group = (ViewGroup) view;
-            for (int i = 0; i < group.getChildCount(); i++) filterChildren(group.getChildAt(i));
+        originalOrder.keySet().retainAll(rows);
+        if (rows.size() < 2) return;
+        Comparator<View> comparator;
+        switch (sort) {
+            case NAME_ASC: comparator = Comparator.comparing(texts::get, String.CASE_INSENSITIVE_ORDER); break;
+            case NAME_DESC: comparator = (a, b) -> String.CASE_INSENSITIVE_ORDER.compare(texts.get(b), texts.get(a)); break;
+            case AMOUNT_HIGH: comparator = (a, b) -> Double.compare(firstAmount(texts.get(b)), firstAmount(texts.get(a))); break;
+            case AMOUNT_LOW: comparator = Comparator.comparingDouble(v -> firstAmount(texts.get(v))); break;
+            default: comparator = Comparator.comparingInt(v -> originalOrder.get(v));
+        }
+        rows.sort(comparator.thenComparingInt(v -> originalOrder.get(v)));
+        // Reorder the actual card views; changing an export snapshot alone does not sort the page.
+        for (View row : rows) list.removeView(row);
+        for (int i = 0; i < rows.size(); i++) list.addView(rows.get(i),
+                Math.min(positions.get(i), list.getChildCount()));
+        } finally {
+            observedCount = list.getChildCount();
+            firstObservedRow = firstRow(list);
+            applying = false;
         }
     }
 
@@ -340,9 +385,15 @@ public final class VisibleDataToolsController {
 
     private List<String> snapshot() {
         List<String> rows = new ArrayList<>();
-        collectCards(activity.findViewById(android.R.id.content), rows);
-        if (sort == Sort.OLDEST || sort == Sort.AMOUNT_LOW) Collections.reverse(rows);
-        if (sort == Sort.AMOUNT_HIGH || sort == Sort.AMOUNT_LOW) rows.sort(Comparator.comparingDouble(this::firstAmount).reversed());
+        LinearLayout list = listContainer();
+        if (list == null) collectCards(activity.findViewById(android.R.id.content), rows);
+        else for (int i = 0; i < list.getChildCount(); i++) {
+            View row = list.getChildAt(i);
+            if (row instanceof MaterialCardView && row.getVisibility() == View.VISIBLE) {
+                String value = visibleText(row).trim().replaceAll("\\s*\\n\\s*", " • ");
+                if (!value.isEmpty()) rows.add(value);
+            }
+        }
         return rows;
     }
 
@@ -369,24 +420,20 @@ public final class VisibleDataToolsController {
         if (view instanceof ViewGroup) { ViewGroup g = (ViewGroup) view; for (int i = 0; i < g.getChildCount(); i++) collectText(g.getChildAt(i), out); }
     }
 
-    private Date findDate(String text) {
-        for (String token : text.split("[\\n•|]")) for (String pattern : DATE_PATTERNS) {
-            SimpleDateFormat f = new SimpleDateFormat(pattern, Locale.ENGLISH); f.setLenient(false);
-            ParsePosition p = new ParsePosition(0); Date d = f.parse(token.trim(), p);
-            if (d != null && p.getIndex() == token.trim().length()) return d;
-        }
-        return null;
-    }
-
     private double firstAmount(String value) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[₹]?\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)").matcher(value);
-        if (!m.find()) return 0; try { return Double.parseDouble(m.group(1).replace(",", "")); } catch (Exception e) { return 0; }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:₹|Rs\\.?|INR)\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(value);
+        boolean found = m.find();
+        if (!found) {
+            m = java.util.regex.Pattern.compile("([0-9][0-9,]*(?:\\.[0-9]+)?)").matcher(value);
+            found = m.find();
+        }
+        if (!found) return 0; try { return Double.parseDouble(m.group(1).replace(",", "")); } catch (Exception e) { return 0; }
     }
 
     private void writeExcelXml(File file, List<String> rows) throws Exception {
         try (BufferedWriter w = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
             w.write("<?xml version=\"1.0\"?><Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\" xmlns:x=\"urn:schemas-microsoft-com:office:excel\"><Worksheet ss:Name=\"Visible Data\"><Table>");
-            w.write(cell("Period", format(start.getTime()) + " to " + format(end.getTime())));
+            w.write(cell("Period", periodLabel()));
             w.write(cell("Sort", sort.label));
             int i = 1; for (String row : rows) w.write(cell(String.valueOf(i++), row));
             w.write("</Table><WorksheetOptions xmlns=\"urn:schemas-microsoft-com:office:excel\"><PageSetup><Layout x:Orientation=\"Landscape\"/><PageMargins x:Bottom=\"0.5\" x:Left=\"0.5\" x:Right=\"0.5\" x:Top=\"0.5\"/></PageSetup></WorksheetOptions></Worksheet></Workbook>");
@@ -400,7 +447,7 @@ public final class VisibleDataToolsController {
         PdfDocument document = new PdfDocument(); Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG); int pageNo = 1; float y = 42;
         PdfDocument.Page page = document.startPage(new PdfDocument.PageInfo.Builder(595, 842, pageNo).create());
         paint.setColor(Color.rgb(25, 55, 70)); paint.setTextSize(18); paint.setFakeBoldText(true); page.getCanvas().drawText("Money Manager Pro", 36, y, paint); y += 24;
-        paint.setTextSize(10); paint.setFakeBoldText(false); page.getCanvas().drawText(activity.getClass().getSimpleName() + " • " + format(start.getTime()) + " to " + format(end.getTime()) + " • " + sort.label, 36, y, paint); y += 24;
+        paint.setTextSize(10); paint.setFakeBoldText(false); page.getCanvas().drawText(activity.getClass().getSimpleName() + " • " + periodLabel() + " • " + sort.label, 36, y, paint); y += 24;
         for (String row : rows) {
             List<String> lines = wrap(row, 86); float needed = lines.size() * 14f + 12;
             if (y + needed > 805) { document.finishPage(page); page = document.startPage(new PdfDocument.PageInfo.Builder(595, 842, ++pageNo).create()); y = 42; }
@@ -421,15 +468,9 @@ public final class VisibleDataToolsController {
     }
 
     private String format(Date date) { return new SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(date); }
+    private String periodLabel() { return start == null || end == null ? "All dates" : format(start.getTime()) + " to " + format(end.getTime()); }
     private void clearTime(Calendar c) { c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0); }
     private int dp(int v) { return Math.round(v * activity.getResources().getDisplayMetrics().density); }
 
-    private enum Range {
-        TODAY("Today", "●"), THIS_WEEK("This Week", "▥"), THIS_MONTH("This Month", "▣"),
-        LAST_MONTH("Last Month", "‹"), LAST_TWO_MONTHS("Last Two Month", "«"),
-        LAST_THREE_MONTHS("Last Three Month", "≪"), LAST_SIX_MONTHS("Last Six Month", "◫"), CUSTOM("Custom", "⌗");
-        final String label; final String symbol;
-        Range(String label, String symbol) { this.label = label; this.symbol = symbol; }
-    }
-    private enum Sort { NEWEST("Newest first"), OLDEST("Oldest first"), AMOUNT_HIGH("Amount high to low"), AMOUNT_LOW("Amount low to high"); final String label; Sort(String l) { label = l; } }
+    private enum Sort { NEWEST("Original order"), NAME_ASC("Name A–Z"), NAME_DESC("Name Z–A"), AMOUNT_HIGH("Amount high to low"), AMOUNT_LOW("Amount low to high"); final String label; Sort(String l) { label = l; } }
 }
