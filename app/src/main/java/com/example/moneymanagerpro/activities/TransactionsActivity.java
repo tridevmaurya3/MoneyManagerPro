@@ -2913,7 +2913,7 @@ public class TransactionsActivity extends AppCompatActivity {
                     && item.matches("(?i)Account:\\s*account:\\d+")) {
                 item = "Account: " + mappedAccount;
             }
-            if (visible.length() > 0) visible.append('\n');
+            if (visible.length() > 0) visible.append(" • ");
             visible.append(item);
         }
         return visible.length() == 0 ? "Transaction note" : visible.toString();
