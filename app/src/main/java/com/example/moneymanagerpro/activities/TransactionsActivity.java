@@ -8,6 +8,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
@@ -26,6 +27,10 @@ import androidx.core.content.ContextCompat;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
+import com.example.moneymanagerpro.credit.CreditCardCycleCalculator;
+import com.example.moneymanagerpro.model.Account;
+import com.example.moneymanagerpro.model.CreditCard;
+import com.example.moneymanagerpro.model.CreditCardPayment;
 import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.repository.TransactionRepository;
@@ -105,6 +110,13 @@ public class TransactionsActivity extends AppCompatActivity {
     private final Map<Integer, List<ExpenseItem>>
             expenseItemsByTransaction =
             new LinkedHashMap<>();
+
+    private final Map<Integer, CreditCardPayment>
+            cardPaymentsByTransaction =
+            new LinkedHashMap<>();
+
+    private final List<String> cardPaymentAccounts =
+            new ArrayList<>();
 
     private Calendar filterStartDate;
     private Calendar filterEndDate;
@@ -1197,14 +1209,24 @@ public class TransactionsActivity extends AppCompatActivity {
                             .transactionDao()
                             .getAllTransactions();
 
-            List<ExpenseItem> expenseItems =
+            com.example.moneymanagerpro.database.AppDatabase database =
                     DatabaseClient
                             .getInstance(
                                     getApplicationContext()
                             )
-                            .getAppDatabase()
-                            .expenseItemDao()
+                            .getAppDatabase();
+            List<ExpenseItem> expenseItems =
+                    database.expenseItemDao()
                             .getAllExpenseItems();
+            List<CreditCardPayment> cardPayments =
+                    database.creditCardPaymentDao()
+                            .getAllPayments();
+            List<CreditCard> creditCards =
+                    database.creditCardDao()
+                            .getAllCreditCards();
+            List<Account> accounts =
+                    database.accountDao()
+                            .getAllAccounts();
 
             Map<Integer, List<ExpenseItem>>
                     groupedItems =
@@ -1232,9 +1254,32 @@ public class TransactionsActivity extends AppCompatActivity {
                 }
             }
 
+            Map<Integer, CreditCardPayment> paymentMap =
+                    matchCreditCardPayments(
+                            cardPayments,
+                            creditCards,
+                            transactions
+                    );
+            List<String> paymentAccountNames = new ArrayList<>();
+            if (accounts != null) {
+                for (Account account : accounts) {
+                    if (account.getName() != null
+                            && !account.getName().trim().isEmpty()
+                            && !"Credit Card".equalsIgnoreCase(
+                            safeText(account.getType())
+                    )) {
+                        paymentAccountNames.add(account.getName());
+                    }
+                }
+            }
+
             runOnUiThread(() -> {
                 allTransactions.clear();
                 expenseItemsByTransaction.clear();
+                cardPaymentsByTransaction.clear();
+                cardPaymentsByTransaction.putAll(paymentMap);
+                cardPaymentAccounts.clear();
+                cardPaymentAccounts.addAll(paymentAccountNames);
 
                 if (transactions != null) {
                     allTransactions.addAll(
@@ -1251,6 +1296,165 @@ public class TransactionsActivity extends AppCompatActivity {
                 filterTransactions();
             });
         }).start();
+    }
+
+    private Map<Integer, CreditCardPayment> matchCreditCardPayments(
+            List<CreditCardPayment> payments,
+            List<CreditCard> cards,
+            List<Transaction> transactions
+    ) {
+        Map<Integer, CreditCardPayment> result = new LinkedHashMap<>();
+        Set<Integer> usedTransactions = new LinkedHashSet<>();
+        if (payments == null || cards == null || transactions == null) {
+            return result;
+        }
+        List<Transaction> orderedTransactions =
+                new ArrayList<>(transactions);
+        Collections.sort(
+                orderedTransactions,
+                (first, second) -> Integer.compare(
+                        first.getId(),
+                        second.getId()
+                )
+        );
+        for (CreditCardPayment payment : payments) {
+            CreditCard card = findCreditCard(cards, payment.getCreditCardId());
+            CardPaymentTransactionPair pair = findCardPaymentPair(
+                    payment,
+                    card,
+                    orderedTransactions,
+                    usedTransactions
+            );
+            if (pair != null) {
+                result.put(pair.sourceTransaction.getId(), payment);
+                result.put(pair.cardTransaction.getId(), payment);
+            }
+        }
+        return result;
+    }
+
+    private CreditCard findCreditCard(
+            List<CreditCard> cards,
+            int creditCardId
+    ) {
+        if (cards == null) {
+            return null;
+        }
+        for (CreditCard card : cards) {
+            if (card.getId() == creditCardId) {
+                return card;
+            }
+        }
+        return null;
+    }
+
+    private CardPaymentTransactionPair findCardPaymentPair(
+            CreditCardPayment payment,
+            CreditCard card,
+            List<Transaction> transactions,
+            Set<Integer> usedTransactions
+    ) {
+        if (payment == null || card == null || transactions == null) {
+            return null;
+        }
+        Transaction source = null;
+        Transaction destination = null;
+        for (Transaction transaction : transactions) {
+            if (usedTransactions.contains(transaction.getId())) {
+                continue;
+            }
+            if (source == null
+                    && matchesCardPaymentTransaction(
+                    transaction,
+                    payment,
+                    card,
+                    true
+            )) {
+                source = transaction;
+                usedTransactions.add(transaction.getId());
+            } else if (destination == null
+                    && matchesCardPaymentTransaction(
+                    transaction,
+                    payment,
+                    card,
+                    false
+            )) {
+                destination = transaction;
+                usedTransactions.add(transaction.getId());
+            }
+            if (source != null && destination != null) {
+                return new CardPaymentTransactionPair(source, destination);
+            }
+        }
+        if (source != null) {
+            usedTransactions.remove(source.getId());
+        }
+        if (destination != null) {
+            usedTransactions.remove(destination.getId());
+        }
+        return null;
+    }
+
+    private boolean matchesCardPaymentTransaction(
+            Transaction transaction,
+            CreditCardPayment payment,
+            CreditCard card,
+            boolean sourceSide
+    ) {
+        String expectedType = sourceSide ? "TRANSFER_OUT" : "TRANSFER_IN";
+        String expectedAccount = sourceSide
+                ? safeText(payment.getSourceAccount())
+                : safeText(card.getAccountName());
+        if (!expectedType.equalsIgnoreCase(
+                safeText(transaction.getType())
+        )
+                || Math.abs(transaction.getAmount() - payment.getAmount()) >= 0.005
+                || !safeText(transaction.getDate()).equals(
+                safeText(payment.getPaymentDate())
+        )
+                || !safeText(transaction.getAccount()).equalsIgnoreCase(
+                expectedAccount
+        )
+                || !isCardPaymentTransfer(transaction)) {
+            return false;
+        }
+
+        String note = safeText(transaction.getNote());
+        String counterpartyPrefix = sourceSide
+                ? "Transfer to "
+                : "Transfer from ";
+        String paymentPrefix = sourceSide
+                ? "Credit card payment to "
+                : "Credit card payment from ";
+        String counterparty = sourceSide
+                ? safeText(card.getAccountName())
+                : safeText(payment.getSourceAccount());
+        String marker = integrationMarker(payment.getNote());
+        return note.startsWith(paymentPrefix + counterparty)
+                || note.startsWith(counterpartyPrefix + counterparty)
+                || (!marker.isEmpty() && note.contains(marker));
+    }
+
+    private String integrationMarker(String note) {
+        String value = safeText(note);
+        if (!value.startsWith("TRIDEV_EVENT:")) {
+            return "";
+        }
+        int separator = value.indexOf(" • ");
+        return separator < 0 ? value : value.substring(0, separator);
+    }
+
+    private static final class CardPaymentTransactionPair {
+        final Transaction sourceTransaction;
+        final Transaction cardTransaction;
+
+        CardPaymentTransactionPair(
+                Transaction sourceTransaction,
+                Transaction cardTransaction
+        ) {
+            this.sourceTransaction = sourceTransaction;
+            this.cardTransaction = cardTransaction;
+        }
     }
 
     private void updateCategoryFilterOptions() {
@@ -2474,14 +2678,30 @@ public class TransactionsActivity extends AppCompatActivity {
         }
 
         if (visual.isTransfer) {
-            content.addView(
-                    createProtectedInfo()
-            );
+            CreditCardPayment cardPayment =
+                    cardPaymentsByTransaction.get(transaction.getId());
+            if (cardPayment != null) {
+                content.addView(
+                        createProtectedInfo(
+                                "Use Edit Bill Payment to update both linked entries together"
+                        )
+                );
+                content.addView(
+                        createCreditCardPaymentEditRow(cardPayment)
+                );
+            } else {
+                content.addView(
+                        createProtectedInfo()
+                );
+            }
 
+            String transferMessage = cardPayment != null
+                    ? "Use Edit Bill Payment to update both linked entries."
+                    : "Transfer entries are protected and cannot be edited or deleted.";
             card.setOnClickListener(
                     view -> Toast.makeText(
                             TransactionsActivity.this,
-                            "Transfer entries are protected and cannot be edited or deleted.",
+                            transferMessage,
                             Toast.LENGTH_SHORT
                     ).show()
             );
@@ -3067,9 +3287,15 @@ public class TransactionsActivity extends AppCompatActivity {
     }
 
     private TextView createProtectedInfo() {
+        return createProtectedInfo(
+                "Protected transfer entry · Edit and delete are disabled"
+        );
+    }
+
+    private TextView createProtectedInfo(String message) {
         TextView info =
                 createText(
-                        "Protected transfer entry · Edit and delete are disabled",
+                        message,
                         10,
                         getColorValue(
                                 R.color.purple
@@ -3130,6 +3356,408 @@ public class TransactionsActivity extends AppCompatActivity {
         );
 
         return info;
+    }
+
+    private LinearLayout createCreditCardPaymentEditRow(
+            CreditCardPayment payment
+    ) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.END);
+        LinearLayout.LayoutParams rowParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(42)
+                );
+        rowParams.setMargins(0, dp(8), 0, 0);
+        row.setLayoutParams(rowParams);
+
+        MaterialButton editButton = createActionButton(
+                "Edit Bill Payment",
+                getColorValue(R.color.secondary),
+                getColorValue(R.color.info_surface),
+                getColorValue(R.color.info_outline)
+        );
+        editButton.setLayoutParams(
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                )
+        );
+        editButton.setOnClickListener(
+                view -> showEditCreditCardPaymentDialog(payment)
+        );
+        BubbleTouchAnimator.apply(editButton);
+        row.addView(editButton);
+        return row;
+    }
+
+    private void showEditCreditCardPaymentDialog(
+            CreditCardPayment payment
+    ) {
+        EditText amountInput = new EditText(this);
+        amountInput.setHint("Payment amount");
+        amountInput.setInputType(
+                InputType.TYPE_CLASS_NUMBER
+                        | InputType.TYPE_NUMBER_FLAG_DECIMAL
+        );
+        amountInput.setText(
+                String.format(Locale.US, "%.2f", payment.getAmount())
+        );
+
+        EditText dateInput = new EditText(this);
+        dateInput.setHint("Payment date");
+        dateInput.setFocusable(false);
+        dateInput.setClickable(true);
+        Calendar[] selectedDate = {
+                parseCardPaymentDate(payment.getPaymentDate())
+        };
+        dateInput.setText(formatCardPaymentDisplayDate(selectedDate[0]));
+        dateInput.setOnClickListener(view -> {
+            Calendar value = selectedDate[0];
+            new DatePickerDialog(
+                    this,
+                    (picker, year, month, day) -> {
+                        value.set(Calendar.YEAR, year);
+                        value.set(Calendar.MONTH, month);
+                        value.set(Calendar.DAY_OF_MONTH, day);
+                        dateInput.setText(
+                                formatCardPaymentDisplayDate(value)
+                        );
+                    },
+                    value.get(Calendar.YEAR),
+                    value.get(Calendar.MONTH),
+                    value.get(Calendar.DAY_OF_MONTH)
+            ).show();
+        });
+
+        MaterialAutoCompleteTextView accountDropdown =
+                new MaterialAutoCompleteTextView(this);
+        accountDropdown.setHint("Payment account");
+        List<String> accounts = new ArrayList<>(cardPaymentAccounts);
+        if (!accounts.contains(payment.getSourceAccount())) {
+            accounts.add(payment.getSourceAccount());
+        }
+        if (accounts.isEmpty()) {
+            accounts.add(payment.getSourceAccount());
+        }
+        accountDropdown.setAdapter(
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_list_item_1,
+                        accounts
+                )
+        );
+        accountDropdown.setText(payment.getSourceAccount(), false);
+
+        EditText noteInput = new EditText(this);
+        noteInput.setHint("Optional note");
+        noteInput.setInputType(InputType.TYPE_CLASS_TEXT);
+        noteInput.setText(payment.getNote());
+        boolean integrationManaged =
+                safeText(payment.getNote()).startsWith("TRIDEV_EVENT:");
+        if (integrationManaged) {
+            noteInput.setEnabled(false);
+            noteInput.setHint("Synced payment note is protected");
+        }
+
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(22), dp(4), dp(22), 0);
+        form.addView(amountInput);
+        form.addView(dateInput);
+        form.addView(accountDropdown);
+        form.addView(noteInput);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Edit Credit Card Bill Payment")
+                .setView(form)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save Changes", null)
+                .create();
+        dialog.setOnShowListener(ignored ->
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(view -> {
+                            double amount;
+                            try {
+                                amount = Double.parseDouble(
+                                        amountInput.getText()
+                                                .toString().trim()
+                                );
+                            } catch (Exception exception) {
+                                amountInput.setError(
+                                        "Enter a valid amount"
+                                );
+                                return;
+                            }
+                            if (Double.isNaN(amount)
+                                    || Double.isInfinite(amount)
+                                    || amount <= 0) {
+                                amountInput.setError(
+                                        "Amount must be greater than zero"
+                                );
+                                return;
+                            }
+                            String account = accountDropdown.getText()
+                                    .toString().trim();
+                            if (account.isEmpty()
+                                    || !accounts.contains(account)) {
+                                accountDropdown.setError(
+                                        "Select a payment account"
+                                );
+                                return;
+                            }
+                            dialog.getButton(
+                                    AlertDialog.BUTTON_POSITIVE
+                            ).setEnabled(false);
+                            saveCreditCardPaymentEdits(
+                                    payment,
+                                    amount,
+                                    selectedDate[0],
+                                    account,
+                                    noteInput.getText().toString().trim(),
+                                    dialog
+                            );
+                        })
+        );
+        dialog.show();
+    }
+
+    private void saveCreditCardPaymentEdits(
+            CreditCardPayment original,
+            double amount,
+            Calendar paymentDate,
+            String sourceAccount,
+            String note,
+            AlertDialog dialog
+    ) {
+        Calendar selectedDate = (Calendar) paymentDate.clone();
+        new Thread(() -> {
+            try {
+                com.example.moneymanagerpro.database.AppDatabase database =
+                        DatabaseClient.getInstance(getApplicationContext())
+                                .getAppDatabase();
+                CreditCardPayment payment = null;
+                List<CreditCardPayment> allPayments =
+                        database.creditCardPaymentDao().getAllPayments();
+                for (CreditCardPayment candidate : allPayments) {
+                    if (candidate.getId() == original.getId()) {
+                        payment = candidate;
+                        break;
+                    }
+                }
+                if (payment == null) {
+                    throw new IllegalStateException(
+                            "Credit card payment is no longer available"
+                    );
+                }
+                CreditCard card = null;
+                List<CreditCard> allCards =
+                        database.creditCardDao().getAllCreditCards();
+                for (CreditCard candidate : allCards) {
+                    if (candidate.getId() == payment.getCreditCardId()) {
+                        card = candidate;
+                        break;
+                    }
+                }
+                List<Transaction> allLedgerTransactions =
+                        new ArrayList<>(
+                                database.transactionDao().getAllTransactions()
+                        );
+                Collections.sort(
+                        allLedgerTransactions,
+                        (first, second) -> Integer.compare(
+                                first.getId(),
+                                second.getId()
+                        )
+                );
+                Set<Integer> matchedTransactions = new LinkedHashSet<>();
+                CardPaymentTransactionPair pair = null;
+                for (CreditCardPayment candidate : allPayments) {
+                    CreditCard candidateCard = findCreditCard(
+                            allCards,
+                            candidate.getCreditCardId()
+                    );
+                    CardPaymentTransactionPair candidatePair =
+                            findCardPaymentPair(
+                                    candidate,
+                                    candidateCard,
+                                    allLedgerTransactions,
+                                    matchedTransactions
+                            );
+                    if (candidate.getId() == payment.getId()) {
+                        pair = candidatePair;
+                        break;
+                    }
+                }
+                Transaction sourceTransaction =
+                        pair == null ? null : pair.sourceTransaction;
+                Transaction cardTransaction =
+                        pair == null ? null : pair.cardTransaction;
+                if (card == null
+                        || sourceTransaction == null
+                        || cardTransaction == null
+                        || !"TRANSFER_OUT".equalsIgnoreCase(
+                        safeText(sourceTransaction.getType())
+                )
+                        || !"TRANSFER_IN".equalsIgnoreCase(
+                        safeText(cardTransaction.getType())
+                )
+                        || !isCardPaymentTransfer(sourceTransaction)
+                        || !isCardPaymentTransfer(cardTransaction)) {
+                    throw new IllegalStateException(
+                            "Linked card payment entries could not be verified"
+                    );
+                }
+
+                String paymentDateText = new SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm",
+                        Locale.US
+                ).format(selectedDate.getTime());
+                String statementEnd = CreditCardCycleCalculator.calculate(
+                        card,
+                        selectedDate
+                ).closedEnd;
+
+                payment.setAmount(amount);
+                payment.setPaymentDate(paymentDateText);
+                payment.setStatementEndDate(statementEnd);
+                payment.setSourceAccount(sourceAccount);
+                if (!safeText(payment.getNote()).startsWith("TRIDEV_EVENT:")) {
+                    payment.setNote(note);
+                }
+
+                sourceTransaction.setAmount(amount);
+                sourceTransaction.setAccount(sourceAccount);
+                sourceTransaction.setDate(paymentDateText);
+                boolean integrationManaged =
+                        safeText(payment.getNote())
+                                .startsWith("TRIDEV_EVENT:");
+                String updatedPaymentNote = integrationManaged
+                        ? payment.getNote()
+                        : note;
+                sourceTransaction.setNote(
+                        updateCounterpartyNote(
+                                sourceTransaction.getNote(),
+                                "Credit card payment to ",
+                                "Transfer to ",
+                                card.getAccountName(),
+                                updatedPaymentNote,
+                                integrationManaged
+                        )
+                );
+
+                cardTransaction.setAmount(amount);
+                cardTransaction.setAccount(card.getAccountName());
+                cardTransaction.setDate(paymentDateText);
+                cardTransaction.setNote(
+                        updateCounterpartyNote(
+                                cardTransaction.getNote(),
+                                "Credit card payment from ",
+                                "Transfer from ",
+                                sourceAccount,
+                                updatedPaymentNote,
+                                integrationManaged
+                        )
+                );
+
+                CreditCardPayment paymentToSave = payment;
+                database.runInTransaction(() -> {
+                    database.creditCardPaymentDao().update(paymentToSave);
+                    database.transactionDao().update(sourceTransaction);
+                    database.transactionDao().update(cardTransaction);
+                });
+
+                runOnUiThread(() -> {
+                    dialog.dismiss();
+                    Toast.makeText(
+                            TransactionsActivity.this,
+                            "Credit card payment and linked entries updated",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                    loadTransactions();
+                });
+            } catch (Exception exception) {
+                runOnUiThread(() -> {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                            .setEnabled(true);
+                    Toast.makeText(
+                            TransactionsActivity.this,
+                            safeText(exception.getMessage()).isEmpty()
+                                    ? "Could not update credit card payment"
+                                    : exception.getMessage(),
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+            }
+        }).start();
+    }
+
+    private boolean isCardPaymentTransfer(Transaction transaction) {
+        String category = safeText(transaction.getCategory());
+        return "Credit Card Payment".equalsIgnoreCase(category)
+                || "Account Transfer".equalsIgnoreCase(category);
+    }
+
+    private String updateCounterpartyNote(
+            String originalNote,
+            String paymentPrefix,
+            String transferPrefix,
+            String newCounterparty,
+            String paymentNote,
+            boolean preserveIntegrationTail
+    ) {
+        String original = safeText(originalNote);
+        String prefix = original.contains(paymentPrefix)
+                ? paymentPrefix
+                : transferPrefix;
+        int start = original.indexOf(prefix);
+        if (start < 0) {
+            return original;
+        }
+
+        int tailStart = original.indexOf(" • ", start);
+        if (tailStart < 0) {
+            tailStart = original.indexOf(" - ", start);
+        }
+        String tail = tailStart < 0
+                ? ""
+                : original.substring(tailStart);
+        if (preserveIntegrationTail) {
+            return original.substring(0, start)
+                    + prefix
+                    + newCounterparty
+                    + tail;
+        }
+        return original.substring(0, start)
+                + prefix
+                + newCounterparty
+                + (safeText(paymentNote).isEmpty()
+                ? ""
+                : " - " + safeText(paymentNote));
+    }
+
+    private Calendar parseCardPaymentDate(String value) {
+        Calendar calendar = Calendar.getInstance();
+        try {
+            Date parsed = new SimpleDateFormat(
+                    "yyyy-MM-dd HH:mm",
+                    Locale.US
+            ).parse(value);
+            if (parsed != null) {
+                calendar.setTime(parsed);
+            }
+        } catch (Exception ignored) {
+            // Keep the current date if a legacy payment contains an invalid date.
+        }
+        return calendar;
+    }
+
+    private String formatCardPaymentDisplayDate(Calendar calendar) {
+        return new SimpleDateFormat(
+                "dd MMM yyyy",
+                Locale.getDefault()
+        ).format(calendar.getTime());
     }
 
     private LinearLayout createActionRow(
