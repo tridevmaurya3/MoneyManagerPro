@@ -266,12 +266,12 @@ public final class FloatingQuickEntryService extends Service {
                 Color.parseColor("#315F92"),
                 view -> showBubbleTransparencyPanel()
         ));
-        strip.addView(createAction(
-                "×  Close",
-                Color.parseColor("#53645C"),
-                view -> hideActionStrip()
-        ));
-        attachActionStrip(strip, dp(184));
+        int actionWidth = getActionStripWidth(
+                "+  Add Income",
+                "−  Add Expense",
+                "◐  Transparency"
+        );
+        attachActionStrip(strip, actionWidth);
     }
 
     private void showBubbleTransparencyPanel() {
@@ -364,13 +364,44 @@ public final class FloatingQuickEntryService extends Service {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 overlayType(),
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                        | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                 PixelFormat.TRANSLUCENT
         );
         actionStripParams.gravity = Gravity.TOP | Gravity.START;
         actionStripView = panel;
+        actionStripView.setOnTouchListener((view, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_OUTSIDE) {
+                hideActionStrip();
+                return true;
+            }
+            return false;
+        });
         updateActionStripPosition();
         windowManager.addView(actionStripView, actionStripParams);
+        actionStripView.post(this::updateActionStripPosition);
+    }
+
+    private int getActionStripWidth(String... labels) {
+        TextView measureView = new TextView(this);
+        measureView.setTextSize(13);
+        measureView.setTypeface(
+                measureView.getTypeface(),
+                android.graphics.Typeface.BOLD
+        );
+
+        float widestLabel = 0f;
+        for (String label : labels) {
+            widestLabel = Math.max(
+                    widestLabel,
+                    measureView.getPaint().measureText(label)
+            );
+        }
+
+        int desiredWidth = (int) Math.ceil(widestLabel)
+                + dp(13 + 11 + 7 + 7);
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        return Math.min(desiredWidth, Math.max(dp(120), screenWidth - dp(16)));
     }
 
     private TextView createAction(
@@ -513,16 +544,29 @@ public final class FloatingQuickEntryService extends Service {
         }
 
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
-        int stripWidth = actionStripWidthPx > 0 ? actionStripWidthPx : dp(184);
-        if (bubbleParams.x > screenWidth / 2) {
-            actionStripParams.x = Math.max(
-                    dp(6),
-                    bubbleParams.x - stripWidth - dp(8)
-            );
+        int margin = dp(8);
+        int gap = dp(8);
+        int bubbleSize = dp(BUBBLE_SIZE_DP);
+        int stripWidth = actionStripWidthPx > 0 ? actionStripWidthPx : dp(120);
+        int bubbleRight = bubbleParams.x + bubbleSize;
+        int rightPosition = bubbleRight + gap;
+        int leftPosition = bubbleParams.x - stripWidth - gap;
+
+        if (rightPosition + stripWidth <= screenWidth - margin) {
+            actionStripParams.x = rightPosition;
         } else {
-            actionStripParams.x = bubbleParams.x + dp(58);
+            actionStripParams.x = Math.max(margin, leftPosition);
         }
-        actionStripParams.y = Math.max(dp(8), bubbleParams.y - dp(18));
+
+        int stripHeight = actionStripView == null
+                ? 0
+                : actionStripView.getHeight();
+        int screenHeight = getResources().getDisplayMetrics().heightPixels;
+        int centeredY = bubbleParams.y + (bubbleSize - stripHeight) / 2;
+        actionStripParams.y = Math.max(
+                margin,
+                Math.min(screenHeight - stripHeight - margin, centeredY)
+        );
 
         if (windowManager != null
                 && actionStripView != null
