@@ -3,6 +3,7 @@ package com.example.moneymanagerpro.dao;
 import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
+import androidx.room.Update;
 
 import com.example.moneymanagerpro.model.CreditCardPayment;
 
@@ -13,6 +14,9 @@ public interface CreditCardPaymentDao {
 
     @Insert
     long insert(CreditCardPayment payment);
+
+    @Update
+    void update(CreditCardPayment payment);
 
     @Query("SELECT * FROM credit_card_payments ORDER BY id ASC")
     List<CreditCardPayment> getAllPayments();
