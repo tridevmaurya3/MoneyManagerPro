@@ -18,9 +18,12 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.annotation.NonNull;
+import androidx.room.InvalidationTracker;
 
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
+import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.AccountBalance;
 import com.example.moneymanagerpro.utils.AccountRenameManager;
@@ -36,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class AccountActivity extends AppCompatActivity {
 
@@ -57,6 +61,18 @@ public class AccountActivity extends AppCompatActivity {
     private LinearLayout accountContainer;
 
     private View emptyAccountsCard;
+
+    private boolean observingBalances;
+    private int balanceLoadGeneration;
+    private final InvalidationTracker.Observer balanceObserver =
+            new InvalidationTracker.Observer("accounts", "transactions") {
+                @Override
+                public void onInvalidated(@NonNull Set<String> tables) {
+                    runOnUiThread(() -> {
+                        if (observingBalances) loadAccounts();
+                    });
+                }
+            };
 
     private String selectedAccountType = "Bank";
 
@@ -101,6 +117,23 @@ public class AccountActivity extends AppCompatActivity {
         setupDropdowns();
         setupClickListeners();
         applyTouchAnimations();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        observingBalances = true;
+        DatabaseClient.getInstance(getApplicationContext()).getAppDatabase()
+                .getInvalidationTracker().addObserver(balanceObserver);
+    }
+
+    @Override
+    protected void onStop() {
+        observingBalances = false;
+        balanceLoadGeneration++;
+        DatabaseClient.getInstance(getApplicationContext()).getAppDatabase()
+                .getInvalidationTracker().removeObserver(balanceObserver);
+        super.onStop();
     }
 
     @Override
@@ -483,41 +516,25 @@ public class AccountActivity extends AppCompatActivity {
     }
 
     private void loadAccounts() {
+        final int generation = ++balanceLoadGeneration;
         new Thread(() -> {
-            List<Account> accounts =
-                    DatabaseClient
-                            .getInstance(
-                                    getApplicationContext()
-                            )
-                            .getAppDatabase()
-                            .accountDao()
-                            .getAllAccounts();
-
-            List<AccountBalance> balances =
-                    DatabaseClient
-                            .getInstance(
-                                    getApplicationContext()
-                            )
-                            .getAppDatabase()
-                            .accountDao()
-                            .getAccountBalances();
-
-            Map<Integer, Double> balanceMap =
-                    new HashMap<>();
-
-            for (AccountBalance balance : balances) {
-                balanceMap.put(
-                        balance.id,
-                        balance.currentBalance
-                );
-            }
-
-            runOnUiThread(() ->
-                    showAccounts(
-                            accounts,
-                            balanceMap
-                    )
-            );
+            AppDatabase database = DatabaseClient.getInstance(getApplicationContext())
+                    .getAppDatabase();
+            // Read the account rows and ledger balances from the same snapshot.
+            database.runInTransaction(() -> {
+                List<Account> accounts = database.accountDao().getAllAccounts();
+                List<AccountBalance> balances = database.accountDao().getAccountBalances();
+                Map<Integer, Double> balanceMap = new HashMap<>();
+                for (AccountBalance balance : balances) {
+                    balanceMap.put(balance.id, balance.currentBalance);
+                }
+                runOnUiThread(() -> {
+                    if (observingBalances && generation == balanceLoadGeneration
+                            && !isFinishing() && !isDestroyed()) {
+                        showAccounts(accounts, balanceMap);
+                    }
+                });
+            });
         }).start();
     }
 

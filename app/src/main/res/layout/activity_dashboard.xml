@@ -240,30 +240,10 @@
                     android:orientation="horizontal"
                     android:padding="14dp">
 
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        app:cardBackgroundColor="#D7F0DE"
-                        app:cardCornerRadius="13dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="#B7DEC0"
-                        app:strokeWidth="1dp">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:gravity="center"
-                            android:text="₹"
-                            android:textColor="#0F7A32"
-                            android:textSize="21sp"
-                            android:textStyle="bold" />
-
-                    </com.google.android.material.card.MaterialCardView>
-
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
+                        android:layout_marginStart="0dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
