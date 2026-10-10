@@ -256,9 +256,9 @@ public final class LinkedLoanBridge {
         android.content.pm.ProviderInfo provider = context.getPackageManager()
                 .resolveContentProvider(URI.getAuthority(), 0);
         if (provider == null || !"com.tridev.loanmanagerpro".equals(provider.packageName)
-                || context.getPackageManager().checkSignatures(context.getPackageName(), provider.packageName)
-                != android.content.pm.PackageManager.SIGNATURE_MATCH) {
-            throw new IllegalStateException("Install the updated LoanManagerPro signed with the same existing app key");
+                || !TridevCompanionTrust.verifyOrPinInstalledPackage(context,
+                        TridevCompanionTrust.LOAN_MANAGER_PACKAGE)) {
+            throw new IllegalStateException("Update LoanManagerPro. Its installed signing certificate must match the existing companion connection; the two apps may use different keys.");
         }
         Bundle response = context.getContentResolver().call(URI, method, null, input);
         if (response == null) throw new IllegalStateException("LoanManagerPro is unavailable. Update both apps and try again."); return response;
