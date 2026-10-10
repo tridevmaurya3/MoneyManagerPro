@@ -26,6 +26,12 @@ import com.example.moneymanagerpro.database.AppDatabase;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.model.Account;
 import com.example.moneymanagerpro.model.Loan;
+import com.example.moneymanagerpro.LinkedLoanBridge;
+import com.example.moneymanagerpro.LinkedLoanSyncInitializer;
+import androidx.room.InvalidationTracker;
+import androidx.annotation.NonNull;
+import java.util.Set;
+import java.util.UUID;
 import com.example.moneymanagerpro.model.LoanPayment;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.BubbleTouchAnimator;
@@ -102,6 +108,28 @@ public class LoanActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         loadLoans();
+    }
+
+    private boolean watchingLoans;
+    private int loanLoadGeneration;
+    private final InvalidationTracker.Observer linkedLoanObserver =
+            new InvalidationTracker.Observer("loans", "loan_payments") {
+                @Override public void onInvalidated(@NonNull Set<String> tables) {
+                    runOnUiThread(() -> { if (watchingLoans) loadLoans(); });
+                }
+            };
+
+    @Override protected void onStart() {
+        super.onStart(); watchingLoans = true;
+        DatabaseClient.getInstance(getApplicationContext()).getAppDatabase()
+                .getInvalidationTracker().addObserver(linkedLoanObserver);
+        LinkedLoanSyncInitializer.request(this);
+    }
+    @Override protected void onStop() {
+        watchingLoans = false; loanLoadGeneration++;
+        DatabaseClient.getInstance(getApplicationContext()).getAppDatabase()
+                .getInvalidationTracker().removeObserver(linkedLoanObserver);
+        super.onStop();
     }
 
     private void bindViews() {
@@ -533,6 +561,7 @@ public class LoanActivity extends AppCompatActivity {
         loan.setNote(getText(etLoanNote));
         loan.setActive(outstandingAmount > 0);
 
+        LinkedLoanBridge.markNew(loan);
         btnSaveLoan.setEnabled(false);
 
         btnSaveLoan.setText(
@@ -629,6 +658,7 @@ public class LoanActivity extends AppCompatActivity {
     }
 
     private void loadLoans() {
+        final int generation = ++loanLoadGeneration;
         new Thread(() -> {
             try {
                 List<Loan> loans =
@@ -641,7 +671,10 @@ public class LoanActivity extends AppCompatActivity {
                                 .getAllLoans();
 
                 runOnUiThread(
-                        () -> showLoans(loans)
+                        () -> {
+                            if (watchingLoans && generation == loanLoadGeneration
+                                    && !isFinishing() && !isDestroyed()) showLoans(loans);
+                        }
                 );
 
             } catch (Exception exception) {
@@ -1339,7 +1372,7 @@ public class LoanActivity extends AppCompatActivity {
 
         String note =
                 safeText(
-                        loan.getNote(),
+                        LinkedLoanBridge.humanNote(loan.getNote()),
                         ""
                 );
 
@@ -1504,6 +1537,9 @@ public class LoanActivity extends AppCompatActivity {
 
         content.addView(firstActionRow);
         content.addView(secondActionRow);
+        com.example.moneymanagerpro.LinkedLoanControls.attach(this, content, loan,
+                this::loadLoans);
+
 
         card.addView(content);
 
@@ -2498,7 +2534,7 @@ public class LoanActivity extends AppCompatActivity {
                             "%.2f",
                             Math.min(
                                     loan.getEmiAmount(),
-                                    loan.getOutstandingAmount()
+                                    LinkedLoanBridge.paymentLimit(loan, extraPayment)
                             )
                     )
             );
@@ -2687,7 +2723,7 @@ public class LoanActivity extends AppCompatActivity {
                 }
 
                 if (amount
-                        > loan.getOutstandingAmount()) {
+                        > LinkedLoanBridge.paymentLimit(loan, extraPayment)) {
 
                     amountInput.setError(
                             "Amount cannot exceed the outstanding balance"
@@ -2760,6 +2796,30 @@ public class LoanActivity extends AppCompatActivity {
             AlertDialog dialog,
             Button saveButton
     ) {
+        if (LinkedLoanBridge.isLinked(loan)) {
+            if (!(saveButton.getTag() instanceof String)) saveButton.setTag(UUID.randomUUID().toString());
+            String token = (String) saveButton.getTag();
+            new Thread(() -> {
+                try {
+                    LinkedLoanBridge.recordPayment(getApplicationContext(), loan, paymentType,
+                            paymentAmount, accountName, paymentNote, token);
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        dialog.dismiss();
+                        Toast.makeText(this, "Payment recorded; linked loan updated", Toast.LENGTH_SHORT).show();
+                        loadLoans();
+                    });
+                } catch (RuntimeException failure) {
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        saveButton.setEnabled(true); saveButton.setText("Save");
+                        Toast.makeText(this, failure.getMessage(), Toast.LENGTH_LONG).show();
+                        LinkedLoanSyncInitializer.request(this);
+                    });
+                }
+            }).start();
+            return;
+        }
         boolean loanGiven =
                 "Loan Given".equalsIgnoreCase(
                         safeText(
@@ -3078,9 +3138,8 @@ public class LoanActivity extends AppCompatActivity {
                         "↶"
                 );
 
-        historyLayout.addView(
-                baseline
-        );
+        if (!LinkedLoanBridge.isLinked(loan)) historyLayout.addView(baseline);
+        payments = LinkedLoanBridge.visibleHistory(loan, payments);
 
         if (payments == null
                 || payments.isEmpty()) {
@@ -3131,6 +3190,9 @@ public class LoanActivity extends AppCompatActivity {
                                 accentOutline
                         );
 
+                historyCard.setOnClickListener(v ->
+                        com.example.moneymanagerpro.LinkedLoanControls.payment(this, loan, payment,
+                                this::loadLoans));
                 historyLayout.addView(
                         historyCard
                 );
@@ -3377,7 +3439,7 @@ public class LoanActivity extends AppCompatActivity {
 
         String note =
                 safeText(
-                        payment.getNote(),
+                        LinkedLoanBridge.humanNote(payment.getNote()),
                         ""
                 );
 
@@ -3454,13 +3516,12 @@ public class LoanActivity extends AppCompatActivity {
 
                         new Thread(() -> {
                             try {
-                                DatabaseClient
-                                        .getInstance(
-                                                getApplicationContext()
-                                        )
-                                        .getAppDatabase()
-                                        .loanDao()
-                                        .update(loan);
+                                if (LinkedLoanBridge.isLinked(loan)) {
+                                    LinkedLoanBridge.archive(getApplicationContext(), loan);
+                                } else {
+                                    DatabaseClient.getInstance(getApplicationContext()).getAppDatabase()
+                                            .loanDao().update(loan);
+                                }
 
                                 runOnUiThread(() -> {
                                     LoanReminderScheduler.schedule(
@@ -3536,6 +3597,8 @@ public class LoanActivity extends AppCompatActivity {
             return "EMI not added";
         }
 
+        if (LinkedLoanBridge.isLinked(loan)) return LinkedLoanBridge.remainingText(loan);
+
         int remaining =
                 (int) Math.ceil(
                         loan.getOutstandingAmount()
@@ -3556,6 +3619,8 @@ public class LoanActivity extends AppCompatActivity {
         if (loan.getEmiAmount() <= 0) {
             return "EMI not added";
         }
+
+        if (LinkedLoanBridge.isLinked(loan)) return LinkedLoanBridge.payoffText(loan);
 
         int remainingEmis =
                 (int) Math.ceil(

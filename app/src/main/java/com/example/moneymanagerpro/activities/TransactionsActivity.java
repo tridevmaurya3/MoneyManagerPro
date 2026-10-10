@@ -3970,6 +3970,8 @@ public class TransactionsActivity extends AppCompatActivity {
     private void openEditScreen(
             Transaction transaction
     ) {
+        if (com.example.moneymanagerpro.LinkedLoanControls.routeExpense(
+                this, transaction, false, this::loadTransactions)) return;
         Intent intent =
                 new Intent(
                         this,
@@ -4093,6 +4095,8 @@ public class TransactionsActivity extends AppCompatActivity {
     private void deleteTransaction(
             Transaction transaction
     ) {
+        if (com.example.moneymanagerpro.LinkedLoanControls.routeExpense(
+                this, transaction, true, this::loadTransactions)) return;
         new Thread(() -> {
             DatabaseClient
                     .getInstance(

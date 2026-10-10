@@ -45,6 +45,11 @@
             android:value="barcode_ui" />
 
         <provider
+            android:name=".LinkedLoanSyncInitializer"
+            android:authorities="${applicationId}.linked_loan_sync"
+            android:exported="false" />
+
+        <provider
             android:name=".TridevFinanceEventProvider"
             android:authorities="com.example.moneymanagerpro.tridev.finance"
             android:exported="true"
