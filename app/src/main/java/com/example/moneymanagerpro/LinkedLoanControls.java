@@ -83,7 +83,7 @@ public final class LinkedLoanControls {
                     new AlertDialog.Builder(activity).setTitle("Select the same loan")
                             .setItems(labels.toArray(new String[0]), (dialog, which) ->
                                 new AlertDialog.Builder(activity).setTitle("Link this loan?")
-                                    .setMessage("The LoanManager balance and payment history will be shown here. Existing expense entries and earlier local history are retained. No new expense is created by linking.")
+                                    .setMessage("This original tracker will show the LoanManager balance and payment history. If that loan was already imported as another card, the two cards will be combined here. Existing expenses and payment history are retained. Linking creates no expense.")
                                     .setNegativeButton("Cancel", null)
                                     .setPositiveButton("Link", (d, w) -> run(activity, () ->
                                         LinkedLoanBridge.link(activity.getApplicationContext(), loan,

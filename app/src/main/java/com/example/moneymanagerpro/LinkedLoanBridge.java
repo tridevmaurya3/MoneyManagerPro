@@ -90,10 +90,12 @@ public final class LinkedLoanBridge {
                     List<Loan> candidates = new ArrayList<>();
                     for (Loan loan : local) {
                         if (isLinked(loan) || "Loan Given".equalsIgnoreCase(loan.getLoanType())) continue;
-                        if (loan.getPersonName().trim().equalsIgnoreCase(entry.optString("name").trim())) candidates.add(loan);
+                        if (LinkedLoanMatchPolicy.possibleSameLoan(loan.getPersonName(), loan.getTotalAmount(),
+                                loan.getEmiAmount(), entry.optString("name"), entry.optLong("total"),
+                                entry.optLong("emi"))) candidates.add(loan);
                     }
-                    // Same-name legacy records need an explicit link, including matching amounts:
-                    // a lender can have multiple distinct loans and labels are not identity.
+                    // Names may differ across apps. Defer plausible existing trackers to an explicit
+                    // link instead of importing a second card or guessing loan identity.
                     if (!candidates.isEmpty()) continue;
                 }
                 try {
@@ -115,11 +117,8 @@ public final class LinkedLoanBridge {
     }
     public static void link(Context context, Loan loan, String remoteKey) {
         synchronized (LOCK) {
-            List<Loan> all = db(context).loanDao().getAllLoans();
-            Loan owner = findLinked(all, remoteKey);
-            if (owner != null && owner.getId() != loan.getId()) throw new IllegalStateException("This loan is already linked to another tracker");
             if (isLinked(loan) && !key(loan).equals(remoteKey)) throw new IllegalStateException("Loan is already linked");
-            apply(context, snapshot(context, remoteKey), loan.getId());
+            apply(context, snapshot(context, remoteKey), loan.getId(), true);
         }
     }
     public static void edit(Context context, Loan current, Loan edited) {
@@ -271,6 +270,9 @@ public final class LinkedLoanBridge {
         catch (org.json.JSONException failure) { throw new IllegalStateException("Invalid loan snapshot", failure); }
     }
     private static void apply(Context context, JSONObject remote, int preferredId) {
+        apply(context, remote, preferredId, false);
+    }
+    private static void apply(Context context, JSONObject remote, int preferredId, boolean explicitLink) {
         AppDatabase database = db(context);
         String remoteKey = remote.optString("key"), version = remote.optString("version");
         if (!remoteKey.matches("[a-fA-F0-9\\-]{36}:[0-9]+") || !version.matches("[a-f0-9]{64}")
@@ -279,11 +281,28 @@ public final class LinkedLoanBridge {
             List<Loan> all = database.loanDao().getAllLoans();
             Loan linked = findLinked(all, remoteKey);
             Loan target = linked;
-            if (target == null && preferredId > 0) {
-                for (Loan item : all) if (item.getId() == preferredId) target = item;
-                if (target == null || (isLinked(target) && !remoteKey.equals(key(target)))) throw new IllegalStateException("Local loan link changed");
+            if (preferredId > 0) {
+                Loan preferred = null;
+                for (Loan item : all) if (item.getId() == preferredId) preferred = item;
+                if (preferred == null || "Loan Given".equalsIgnoreCase(preferred.getLoanType())
+                        || (isLinked(preferred) && !remoteKey.equals(key(preferred)))) {
+                    throw new IllegalStateException("Local loan link changed");
+                }
+                if (linked != null && linked.getId() != preferredId && !explicitLink) {
+                    throw new IllegalStateException("Link the existing LoanManager tracker first");
+                }
+                target = preferred;
             }
-            if (target != null && version.equals(markerValue(target.getNote(), REV))) return;
+            boolean consolidate = linked != null && target != null && linked.getId() != target.getId();
+            if (consolidate) {
+                // Keep the user's original tracker ID and every history row. Only the redundant
+                // mirror card is removed, atomically, after its history moves to the original.
+                ContentValues move = new ContentValues(); move.put("loanId", target.getId());
+                database.getOpenHelper().getWritableDatabase().update("loan_payments", 0, move,
+                        "loanId = ?", new Object[]{linked.getId()});
+                database.loanDao().delete(linked);
+            }
+            if (!consolidate && target != null && version.equals(markerValue(target.getNote(), REV))) return;
             boolean create = target == null;
             if (create) target = new Loan();
             target.setPersonName(remote.optString("name")); target.setLoanType("Loan Taken");
