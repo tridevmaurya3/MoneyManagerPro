@@ -62,10 +62,10 @@ public final class LinkedLoanSyncInitializer extends ContentProvider {
                 @Override public void onChange(boolean selfChange) { request(app); }
             });
         } catch (RuntimeException notInstalled) { /* Foreground retry also covers later installation. */ }
-        DatabaseClient.getInstance(app).getAppDatabase().getInvalidationTracker().addObserver(
+        WORK.execute(() -> DatabaseClient.getInstance(app).getAppDatabase().getInvalidationTracker().addObserver(
                 new InvalidationTracker.Observer("loans") {
                     @Override public void onInvalidated(@NonNull Set<String> tables) { request(app); }
-                });
+                }));
         if (app instanceof Application) ((Application) app).registerActivityLifecycleCallbacks(
                 new Application.ActivityLifecycleCallbacks() {
                     @Override public void onActivityCreated(@NonNull Activity a, @Nullable Bundle b) { }
