@@ -3545,7 +3545,8 @@ public class LoanActivity extends AppCompatActivity {
                                 runOnUiThread(() ->
                                         Toast.makeText(
                                                 LoanActivity.this,
-                                                "Unable to archive loan",
+                                                LinkedLoanBridge.isLinked(loan)
+                                                    ? exception.getMessage() : "Unable to archive loan",
                                                 Toast.LENGTH_SHORT
                                         ).show()
                                 );
