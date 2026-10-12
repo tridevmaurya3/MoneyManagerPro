@@ -128,6 +128,44 @@ public final class TridevLoanPaymentUpdateManager {
         mapper = new TridevMoneyMappingEngine(appContext);
     }
 
+    /** Update only the source-owned expense; never create or alter manual ledger rows. */
+    @NonNull
+    public Result applyPersonalShare(String loanId, String paymentId, long totalMinor, long personalMinor) {
+        String loan = structuredId(loanId), payment = structuredId(paymentId);
+        if (loan.isEmpty() || payment.isEmpty())
+            return result(false, false, false, "REJECTED", "", null, "Payment identity is required");
+        try { LoanPersonalExpenseShare.validate(totalMinor, personalMinor); }
+        catch (IllegalArgumentException invalid) {
+            return result(false, false, false, "REJECTED", "", null, invalid.getMessage());
+        }
+        SQLiteDatabase queueDb = openQueueDatabase();
+        if (queueDb == null) return result(false, false, false, "FAILED", "", null, "Integration queue unavailable");
+        try {
+            List<QueueLoanEvent> events = findLoanEvents(queueDb, loan, payment);
+            List<OwnedLedgerRow> rows = findOwnedLedgerRows(events);
+            if (rows.size() != 1) return result(false, false, false, "NEEDS_REVIEW", "", null,
+                    "A single LoanManager-owned expense was not found; no new expense was created");
+            OwnedLedgerRow owned = rows.get(0);
+            LoanPersonalExpenseShare.save(appContext, loan, payment, totalMinor, personalMinor);
+            updatePersonalLedgerRow(owned, totalMinor, personalMinor);
+            return result(true, true, "FAMILY".equals(owned.queueEvent.scope), "UPDATED",
+                    owned.queueEvent.eventId, String.valueOf(owned.transactionId), "Personal contribution updated in the existing expense");
+        } catch (RuntimeException failure) {
+            return result(false, false, false, "FAILED", "", null, "Personal contribution update will need retry");
+        } finally { queueDb.close(); }
+    }
+
+    private void updatePersonalLedgerRow(OwnedLedgerRow owned, long totalMinor, long personalMinor) {
+        double personal = BigDecimal.valueOf(personalMinor, 2).doubleValue();
+        String note = LoanPersonalExpenseShare.note(owned.note, totalMinor, personalMinor);
+        ledgerDatabase.runInTransaction(() -> {
+            SupportSQLiteDatabase ledger = ledgerDatabase.getOpenHelper().getWritableDatabase();
+            ledger.execSQL("UPDATE transactions SET amount = ?, note = ? WHERE id = ?"
+                            + " AND instr(note, ?) > 0 AND instr(note, 'Synced from LoanManagerPro') > 0",
+                    new Object[]{personal, note, owned.transactionId, marker(owned.queueEvent.eventId)});
+        });
+    }
+
     @NonNull
     public Result update(
             @NonNull String loanId,
@@ -137,6 +175,14 @@ public final class TridevLoanPaymentUpdateManager {
             long amountMinor,
             long occurredAt,
             @Nullable String categoryHint) {
+        return update(loanId, paymentId, newSourceRecordId, paymentType, amountMinor, occurredAt, categoryHint, -1L);
+    }
+
+    @NonNull
+    public Result update(String loanId, String paymentId, String newSourceRecordId, String paymentType,
+                         long amountMinor, long occurredAt, String categoryHint, long personalMinor) {
+        if (personalMinor < -1L || personalMinor > amountMinor)
+            return result(false, false, false, "REJECTED", "", null, "Personal expense exceeds total payment");
         String safeLoanId = structuredId(loanId);
         String safePaymentId = structuredId(paymentId);
         String safeSourceRecord = structuredSource(newSourceRecordId);
@@ -218,7 +264,9 @@ public final class TridevLoanPaymentUpdateManager {
                 queueCategoryHint = safeCategoryHint;
             }
 
-            updateOwnedLedgerRow(owned, amountMinor, occurredAt, categoryValue);
+            if (personalMinor >= 0L)
+                LoanPersonalExpenseShare.save(appContext, safeLoanId, safePaymentId, amountMinor, personalMinor);
+            updateOwnedLedgerRow(owned, amountMinor, occurredAt, categoryValue, personalMinor);
 
             int removedDuplicates = deleteOwnedDuplicates(ownedRows, owned.transactionId);
             collapseQueueEvents(
@@ -341,8 +389,11 @@ public final class TridevLoanPaymentUpdateManager {
             @NonNull OwnedLedgerRow owned,
             long amountMinor,
             long occurredAt,
-            @NonNull String categoryValue) {
-        final double amount = BigDecimal.valueOf(amountMinor).movePointLeft(2).doubleValue();
+            @NonNull String categoryValue,
+            long personalMinor) {
+        final double amount = BigDecimal.valueOf(personalMinor < 0L ? amountMinor : personalMinor).movePointLeft(2).doubleValue();
+        final String note = personalMinor < 0L ? owned.note
+                : LoanPersonalExpenseShare.note(owned.note, amountMinor, personalMinor);
         final String date = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
                 .format(new Date(occurredAt));
         final String marker = marker(owned.queueEvent.eventId);
@@ -350,10 +401,10 @@ public final class TridevLoanPaymentUpdateManager {
         ledgerDatabase.runInTransaction(() -> {
             SupportSQLiteDatabase ledger = ledgerDatabase.getOpenHelper().getWritableDatabase();
             ledger.execSQL(
-                    "UPDATE transactions SET amount = ?, date = ?, category = ?, type = 'EXPENSE'"
+                    "UPDATE transactions SET amount = ?, date = ?, category = ?, type = 'EXPENSE', note = ?"
                             + " WHERE id = ? AND instr(note, ?) > 0"
                             + " AND instr(note, 'Synced from LoanManagerPro') > 0",
-                    new Object[]{amount, date, categoryValue, owned.transactionId, marker});
+                    new Object[]{amount, date, categoryValue, note, owned.transactionId, marker});
         });
     }
 

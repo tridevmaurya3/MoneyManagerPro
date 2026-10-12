@@ -42,6 +42,13 @@ public final class TridevLoanPaymentMutationProvider extends ContentProvider {
             return response("REJECTED", "Loan mutation payload is missing", false);
         }
 
+        if ("set_loan_personal_expense_v1".equals(method)) {
+            TridevLoanPaymentUpdateManager.Result result = new TridevLoanPaymentUpdateManager(context)
+                    .applyPersonalShare(extras.getString("loan_id", ""), extras.getString("payment_id", ""),
+                            extras.getLong("total_amount_minor", 0L), extras.getLong("personal_amount_minor", -1L));
+            return editResponse(result.status, result.reason, result.finalized, result.familyVisible,
+                    result.canonicalEventId, result.transactionId);
+        }
         if (METHOD_CANCEL_LOAN.equals(method)) {
             return cancelLoan(context, extras);
         }
@@ -103,7 +110,8 @@ public final class TridevLoanPaymentMutationProvider extends ContentProvider {
                             paymentType,
                             amountMinor,
                             occurredAt,
-                            categoryHint);
+                            categoryHint,
+                            extras.getLong("personal_amount_minor", -1L));
             return editResponse(
                     result.status,
                     result.reason,
@@ -146,6 +154,7 @@ public final class TridevLoanPaymentMutationProvider extends ContentProvider {
         out.putString("status", status);
         out.putString("reason", reason);
         out.putBoolean("finalized", finalized);
+        out.putBoolean("personal_expense_supported", true);
         out.putBoolean("family_visible", familyVisible);
         out.putString("canonical_event_id", canonicalEventId);
         if (transactionId != null && !transactionId.trim().isEmpty()) {

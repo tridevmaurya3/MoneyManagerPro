@@ -381,11 +381,13 @@ public final class TridevTransactionPostingEngine {
             String category) {
         Transaction transaction = new Transaction();
         transaction.setType(moneyType);
-        transaction.setAmount(minorToDouble(event.amountMinor));
+        long personalAmount = LoanPersonalExpenseShare.read(appContext, event);
+        transaction.setAmount(minorToDouble(personalAmount));
         transaction.setCategory(category);
         transaction.setAccount(account);
         transaction.setDate(formatMoneyManagerDate(event));
-        transaction.setNote(buildSafeNote(event, category, account));
+        transaction.setNote(LoanPersonalExpenseShare.note(buildSafeNote(event, category, account),
+                event.amountMinor, personalAmount));
         return transaction;
     }
 

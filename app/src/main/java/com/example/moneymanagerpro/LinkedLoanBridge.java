@@ -329,7 +329,13 @@ public final class LinkedLoanBridge {
             for (LoanPayment item : current) if (item.getNote().contains(identity)) row = item;
             // A manual legacy history row is left intact; only exact linked identities are rewritten.
             String account = accountName(context, payment.optString("account"));
-            String note = humanNote(payment.optString("note")) + "\n" + identity;
+            String note = humanNote(payment.optString("note"));
+            long personal = payment.optLong("personalExpenseAmount", -1L);
+            if (personal >= 0L && personal <= payment.optLong("amount")) {
+                note += "\nTotal EMI ₹" + payment.optLong("amount") + " · Yours ₹" + personal
+                        + " · Others ₹" + (payment.optLong("amount") - personal);
+            }
+            note += "\n" + identity;
             String type = "PREPAYMENT".equals(payment.optString("type")) ? "EXTRA" : "EMI";
             if (row == null) {
                 row = new LoanPayment(); row.setLoanId(loan.getId()); row.setAmount(payment.optLong("amount"));
