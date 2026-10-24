@@ -421,11 +421,8 @@ public class DashboardActivity extends AppCompatActivity {
                 )
         );
 
-        cardExpense.setOnClickListener(
-                view -> openActivity(
-                        TransactionsActivity.class
-                )
-        );
+        cardExpense.setOnClickListener(view -> startActivity(new Intent(this, TransactionsActivity.class)
+                .putExtra(TransactionsActivity.EXTRA_EXPENSE_VIEW, true)));
 
         btnUserMenu.setOnClickListener(
                 this::showUserMenu

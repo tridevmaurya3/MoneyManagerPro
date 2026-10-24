@@ -55,6 +55,15 @@ import java.util.Map;
 import java.util.Set;
 
 public class TransactionsActivity extends AppCompatActivity {
+    public static final String EXTRA_EXPENSE_VIEW = "expense_date_view";
+    private String appliedExpensePeriod = "Selected Month";
+    private long expenseTodayKey;
+    private LinearLayout expenseDateControls;
+    private TextView expenseRangeLabel, expenseTotalTitle, expenseTotal, expenseTransactions, expenseItemLines, expenseBills;
+    private MaterialAutoCompleteTextView expenseCategoryShortcut;
+    private final Map<String, MaterialButton> expenseDateButtons = new LinkedHashMap<>();
+    private final Set<Long> expandedExpenseGroups = new LinkedHashSet<>();
+
 
     private static final int EARLIEST_SELECTABLE_YEAR = 2000;
 
@@ -145,6 +154,9 @@ public class TransactionsActivity extends AppCompatActivity {
         bindViews();
         setupMonthYearSelector();
         setupFilters();
+        setupExpenseDateControls();
+        if (getIntent().getBooleanExtra(EXTRA_EXPENSE_VIEW, false))
+            dropdownTransactionType.setText("Expense Only", false);
 
         transactionRepository =
                 new TransactionRepository(this);
@@ -691,7 +703,9 @@ public class TransactionsActivity extends AppCompatActivity {
 
         String visiblePeriod;
 
-        if ("All Time".equals(selectedScope)) {
+        if (isExpenseList()) {
+            visiblePeriod = formatMonthYear(selectedTransactionPeriod);
+        } else if ("All Time".equals(selectedScope)) {
             visiblePeriod =
                     "All Time";
 
@@ -928,6 +942,10 @@ public class TransactionsActivity extends AppCompatActivity {
         dropdownTransactionPeriod
                 .setOnItemClickListener(
                         (parent, view, position, id) -> {
+                            if (isExpenseList() && "Custom Range".equals(getSelectedText(dropdownTransactionPeriod,"Selected Month"))) {
+                                dropdownTransactionPeriod.setText(appliedExpensePeriod,false);
+                                showExpenseCustomRange(); return;
+                            }
                             updateSelectedPeriodUi();
                             filterTransactions();
                         }
@@ -1196,6 +1214,184 @@ public class TransactionsActivity extends AppCompatActivity {
                 selectedItem,
                 false
         );
+    }
+
+    private boolean isExpenseList() {
+        return dropdownTransactionType != null
+                && "Expense Only".equals(getSelectedText(dropdownTransactionType, "All Transactions"));
+    }
+    private TextView expenseText(String text, int size, int color, boolean bold) {
+        TextView view = new TextView(this); view.setText(text); view.setTextSize(size);
+        view.setTextColor(getColorValue(color));
+        if (bold) view.setTypeface(null, Typeface.BOLD);
+        return view;
+    }
+    private MaterialCardView expenseCard(LinearLayout parent, int surface, int outline) {
+        MaterialCardView card = new MaterialCardView(this);
+        card.setCardBackgroundColor(getColorValue(surface)); card.setStrokeColor(getColorValue(outline));
+        card.setStrokeWidth(dp(1)); card.setRadius(dp(14)); card.setCardElevation(0);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(8);
+        parent.addView(card, params); return card;
+    }
+    private void setupExpenseDateControls() {
+        expenseDateControls = new LinearLayout(this); expenseDateControls.setOrientation(LinearLayout.VERTICAL);
+        expenseDateControls.setVisibility(View.GONE);
+        LinearLayout page = (LinearLayout)transactionFilterPanel.getParent();
+        page.addView(expenseDateControls, page.indexOfChild(transactionFilterPanel) + 1,
+                new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout shortcuts = new LinearLayout(this); shortcuts.setGravity(Gravity.CENTER_VERTICAL);
+        TextView type = expenseText("Type\nExpense", 11, R.color.app_text_primary, false);
+        type.setPadding(dp(10), dp(8), dp(10), dp(8));
+        shortcuts.addView(type, new LinearLayout.LayoutParams(0, dp(50), 1));
+        TextInputLayout category = new TextInputLayout(this);
+        category.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE); category.setHint("Category");
+        category.setBoxCornerRadii(dp(12),dp(12),dp(12),dp(12));
+        expenseCategoryShortcut = new MaterialAutoCompleteTextView(this);
+        expenseCategoryShortcut.setInputType(0); expenseCategoryShortcut.setTextSize(11);
+        expenseCategoryShortcut.setMinHeight(dp(46));
+        category.addView(expenseCategoryShortcut, new LinearLayout.LayoutParams(-1,-2));
+        category.setEndIconMode(TextInputLayout.END_ICON_DROPDOWN_MENU);
+        expenseCategoryShortcut.setOnClickListener(v -> expenseCategoryShortcut.showDropDown());
+        expenseCategoryShortcut.setOnItemClickListener((parent, view, position, id) -> {
+            dropdownTransactionCategory.setText(expenseCategoryShortcut.getText(), false); filterTransactions();
+        });
+        shortcuts.addView(category, new LinearLayout.LayoutParams(0,-2,1));
+        expenseDateControls.addView(shortcuts);
+        MaterialCardView dateCard = expenseCard(expenseDateControls,R.color.app_surface,R.color.info_outline);
+        LinearLayout dates = new LinearLayout(this); dates.setOrientation(LinearLayout.VERTICAL);
+        dates.setPadding(dp(10),dp(10),dp(10),dp(10)); dateCard.addView(dates);
+        dates.addView(expenseText("Date range",11,R.color.secondary,true));
+        android.widget.HorizontalScrollView scroller = new android.widget.HorizontalScrollView(this);
+        scroller.setHorizontalScrollBarEnabled(false); LinearLayout chips = new LinearLayout(this);
+        String[] labels={"Today","Yesterday","This Week","This Month","Custom ▾"};
+        String[] periods={"Today","Yesterday","This Week","Selected Month","Custom Range"};
+        for(int i=0;i<labels.length;i++) {
+            final String period=periods[i]; MaterialButton button=new MaterialButton(this);
+            button.setText(labels[i]); button.setTextSize(10); button.setAllCaps(false);
+            button.setMinWidth(0);button.setMinimumWidth(0);button.setPadding(dp(9),0,dp(9),0);
+            button.setInsetTop(0);button.setInsetBottom(0);button.setCornerRadius(dp(9));
+            LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-2,dp(36));bp.setMarginEnd(dp(4));
+            chips.addView(button,bp);expenseDateButtons.put(period,button);
+            button.setOnClickListener(v -> {
+                if("Custom Range".equals(period)) { showExpenseCustomRange(); return; }
+                if("Selected Month".equals(period)) resetSelectedPeriodToCurrentMonth();
+                filterStartDate=null;filterEndDate=null;updateDateFields();
+                dropdownTransactionPeriod.setText(period,false);selectedSort=SORT_NEWEST;
+                expandedExpenseGroups.clear();expandedExpenseGroups.add(com.example.moneymanagerpro.utils.ExpenseListPeriod.day(System.currentTimeMillis()));
+                updateSelectedPeriodUi();filterTransactions();
+            });
+        }
+        scroller.addView(chips);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(8);
+        dates.addView(scroller,cp);expenseRangeLabel=expenseText("",10,R.color.app_text_secondary,false);
+        expenseRangeLabel.setPadding(0,dp(8),0,0);dates.addView(expenseRangeLabel);
+        MaterialCardView totalCard=expenseCard(expenseDateControls,R.color.expense_surface,R.color.expense_outline);
+        LinearLayout totalBox=new LinearLayout(this);totalBox.setOrientation(LinearLayout.VERTICAL);
+        totalBox.setPadding(dp(12),dp(10),dp(12),dp(10));totalCard.addView(totalBox);
+        expenseTotalTitle=expenseText("Total expense · This Month",10,R.color.expense_dark,false);
+        totalBox.addView(expenseTotalTitle);
+        expenseTotal=expenseText("₹0.00",24,R.color.expense,true);totalBox.addView(expenseTotal);
+        LinearLayout metrics=new LinearLayout(this);
+        TextView[] values={expenseTransactions=expenseText("0",17,R.color.secondary,true),
+                expenseItemLines=expenseText("0",17,R.color.secondary,true),expenseBills=expenseText("0",17,R.color.secondary,true)};
+        String[] names={"Transactions","Item lines*","Itemized bills*"};
+        for(int i=0;i<names.length;i++) {
+            MaterialCardView metric=expenseCard(metrics,R.color.app_surface,R.color.app_outline_soft);
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,-2,1);mp.topMargin=dp(7);
+            if(i>0)mp.setMarginStart(dp(6));metric.setLayoutParams(mp);
+            LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setGravity(Gravity.CENTER);
+            box.setPadding(dp(4),dp(8),dp(4),dp(8));metric.addView(box);box.addView(values[i]);
+            box.addView(expenseText(names[i],9,R.color.app_text_secondary,false));
+        }
+        expenseDateControls.addView(metrics);
+        expenseDateControls.addView(expenseText("*Saved item details only; amounts are not used to guess counts.",9,R.color.app_text_secondary,false));
+        expandedExpenseGroups.add(com.example.moneymanagerpro.utils.ExpenseListPeriod.day(System.currentTimeMillis()));
+    }
+    private void showExpenseCustomRange() {
+        final String previous=getSelectedText(dropdownTransactionPeriod,"Selected Month");
+        Calendar start=filterStartDate==null?Calendar.getInstance():(Calendar)filterStartDate.clone();
+        DatePickerDialog first=new DatePickerDialog(this,(picker,y,m,d)->{
+            Calendar from=Calendar.getInstance();from.set(y,m,d);clearTime(from);
+            Calendar end=filterEndDate==null?Calendar.getInstance():(Calendar)filterEndDate.clone();
+            if(end.before(from))end=(Calendar)from.clone();
+            DatePickerDialog second=new DatePickerDialog(this,(picker2,ey,em,ed)->{
+                Calendar to=Calendar.getInstance();to.set(ey,em,ed);clearTime(to);
+                filterStartDate=from;filterEndDate=to;dropdownTransactionPeriod.setText("Custom Range",false);
+                updateDateFields();selectedSort=SORT_NEWEST;expandedExpenseGroups.clear();
+                expandedExpenseGroups.add(com.example.moneymanagerpro.utils.ExpenseListPeriod.day(System.currentTimeMillis()));
+                updateSelectedPeriodUi();filterTransactions();
+            },end.get(Calendar.YEAR),end.get(Calendar.MONTH),end.get(Calendar.DAY_OF_MONTH));
+            second.setTitle("To date");second.getDatePicker().setMinDate(from.getTimeInMillis());
+            second.setOnCancelListener(dialog->{dropdownTransactionPeriod.setText(previous,false);filterTransactions();});second.show();
+        },start.get(Calendar.YEAR),start.get(Calendar.MONTH),start.get(Calendar.DAY_OF_MONTH));
+        first.setTitle("From date");first.setOnCancelListener(dialog->{dropdownTransactionPeriod.setText(previous,false);filterTransactions();});first.show();
+    }
+    private void updateExpenseSummary(List<Transaction> transactions) {
+        expenseDateControls.setVisibility(View.VISIBLE);
+        java.math.BigDecimal total=java.math.BigDecimal.ZERO;int itemCount=0,billCount=0;
+        for(Transaction transaction:transactions) {
+            total=total.add(java.math.BigDecimal.valueOf(transaction.getAmount()));
+            List<ExpenseItem> items=expenseItemsByTransaction.get(transaction.getId());
+            if(items!=null && !items.isEmpty()){itemCount+=items.size();billCount++;}
+        }
+        expenseTotal.setText("₹"+formatAmount(total.doubleValue()));expenseTransactions.setText(String.valueOf(transactions.size()));
+        expenseItemLines.setText(String.valueOf(itemCount));expenseBills.setText(String.valueOf(billCount));
+        List<String> categories=new ArrayList<>();
+        for(int i=0;i<dropdownTransactionCategory.getAdapter().getCount();i++)
+            categories.add(String.valueOf(dropdownTransactionCategory.getAdapter().getItem(i)));
+        expenseCategoryShortcut.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,categories));
+        expenseCategoryShortcut.setText(getSelectedText(dropdownTransactionCategory,"All Categories"),false);
+        String period=getSelectedText(dropdownTransactionPeriod,"Selected Month");
+        appliedExpensePeriod=period;
+        expenseTotalTitle.setText("Total expense · "+("Selected Month".equals(period)
+                ?(isCurrentMonth(selectedTransactionPeriod)?"This Month":formatMonthYear(selectedTransactionPeriod))
+                :"Custom Range".equals(period)?"Custom":period));
+        for(Map.Entry<String,MaterialButton> entry:expenseDateButtons.entrySet()) {
+            boolean selected=period.equals(entry.getKey());
+            entry.getValue().setBackgroundTintList(ColorStateList.valueOf(getColorValue(selected?R.color.secondary:R.color.app_surface)));
+            entry.getValue().setTextColor(getColorValue(selected?R.color.white:R.color.app_text_secondary));
+            entry.getValue().setStrokeColor(ColorStateList.valueOf(getColorValue(R.color.app_outline)));entry.getValue().setStrokeWidth(dp(1));
+        }
+        expenseDateButtons.get("Selected Month").setText(isCurrentMonth(selectedTransactionPeriod)?"This Month":formatMonthYear(selectedTransactionPeriod));
+        com.example.moneymanagerpro.utils.ExpenseListPeriod.Range range=com.example.moneymanagerpro.utils.ExpenseListPeriod.range(period,
+                System.currentTimeMillis(),selectedTransactionPeriod.getTimeInMillis(),filterStartDate==null?null:filterStartDate.getTimeInMillis(),
+                filterEndDate==null?null:filterEndDate.getTimeInMillis());
+        SimpleDateFormat date=new SimpleDateFormat("dd MMM yyyy",Locale.getDefault());
+        String scope=range.start==Long.MIN_VALUE?"All dates":date.format(new Date(range.start));
+        if(range.endExclusive!=Long.MAX_VALUE)scope+=" – "+date.format(new Date(com.example.moneymanagerpro.utils.ExpenseListPeriod.addDays(range.endExclusive,-1)));
+        expenseRangeLabel.setText(scope+" · "+selectedSort);
+    }
+    private void renderExpenseGroups(List<Transaction> transactions) {
+        String period=getSelectedText(dropdownTransactionPeriod,"Selected Month");long now=System.currentTimeMillis();
+        long month=selectedTransactionPeriod.getTimeInMillis(),today=com.example.moneymanagerpro.utils.ExpenseListPeriod.day(now);
+        if(expenseTodayKey!=today) { expandedExpenseGroups.add(today); expenseTodayKey=today; }
+        Map<Long,List<Transaction>> groups=SORT_OLDEST.equals(selectedSort)
+                ?new java.util.TreeMap<>():new java.util.TreeMap<>(Collections.reverseOrder());
+        for(Transaction transaction:transactions) {
+            Calendar date=parseTransactionDate(safeText(transaction.getDate()));if(date==null)continue;
+            long key=com.example.moneymanagerpro.utils.ExpenseListPeriod.groupStart(period,date.getTimeInMillis(),now,month);
+            if(!groups.containsKey(key))groups.put(key,new ArrayList<>());groups.get(key).add(transaction);
+        }
+        for(Map.Entry<Long,List<Transaction>> entry:groups.entrySet()) {
+            long key=entry.getKey(),end=com.example.moneymanagerpro.utils.ExpenseListPeriod.groupEnd(period,key,now,month);
+            String label=key==today?"Today · "+new SimpleDateFormat("dd MMM",Locale.getDefault()).format(new Date(key))
+                    :key==com.example.moneymanagerpro.utils.ExpenseListPeriod.addDays(today,-1) && end==key?"Yesterday · "+new SimpleDateFormat("dd MMM",Locale.getDefault()).format(new Date(key))
+                    :key==end?new SimpleDateFormat("EEE · dd MMM yyyy",Locale.getDefault()).format(new Date(key))
+                    :new SimpleDateFormat("dd MMM",Locale.getDefault()).format(new Date(key))+" – "+new SimpleDateFormat("dd MMM yyyy",Locale.getDefault()).format(new Date(end));
+            java.math.BigDecimal total=java.math.BigDecimal.ZERO;
+            for(Transaction transaction:entry.getValue())total=total.add(java.math.BigDecimal.valueOf(transaction.getAmount()));
+            String summary=entry.getValue().size()+" transactions · ₹"+formatAmount(total.doubleValue());
+            TextView header=expenseText("",11,R.color.app_text_secondary,true);header.setPadding(dp(10),dp(10),dp(10),dp(10));
+            GradientDrawable background=new GradientDrawable();background.setColor(getColorValue(R.color.app_surface_muted));background.setCornerRadius(dp(10));header.setBackground(background);
+            header.setContentDescription(label+", "+summary+", tap to expand or collapse");
+            LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.topMargin=dp(8);transactionContainer.addView(header,hp);
+            LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);transactionContainer.addView(rows,new LinearLayout.LayoutParams(-1,-2));
+            Runnable render=()->{
+                boolean expanded=expandedExpenseGroups.contains(key);header.setText((expanded?"▾ ":"▸ ")+label+"\n"+summary);
+                rows.setVisibility(expanded?View.VISIBLE:View.GONE);
+                if(expanded && rows.getChildCount()==0)for(Transaction transaction:entry.getValue())rows.addView(createTransactionCard(transaction));
+            };
+            header.setOnClickListener(v->{if(!expandedExpenseGroups.remove(key))expandedExpenseGroups.add(key);render.run();});render.run();
+        }
     }
 
     private void loadTransactions() {
@@ -1623,6 +1819,7 @@ public class TransactionsActivity extends AppCompatActivity {
                                         selectedDate;
                             }
 
+                            if (isExpenseList()) dropdownTransactionPeriod.setText("Custom Range", false);
                             updateDateFields();
                             filterTransactions();
                         },
@@ -1669,7 +1866,7 @@ public class TransactionsActivity extends AppCompatActivity {
         updateDateFields();
 
         dropdownTransactionType.setText(
-                "All Transactions",
+                getIntent().getBooleanExtra(EXTRA_EXPENSE_VIEW, false) ? "Expense Only" : "All Transactions",
                 false
         );
 
@@ -1827,11 +2024,13 @@ public class TransactionsActivity extends AppCompatActivity {
                 visibleTransactions
         );
 
-        for (Transaction transaction :
-                visibleTransactions) {
-            addTransactionCard(
-                    transaction
-            );
+        if (isExpenseList()) {
+            updateExpenseSummary(visibleTransactions);
+            renderExpenseGroups(visibleTransactions);
+        } else {
+            expenseDateControls.setVisibility(View.GONE);
+            for (Transaction transaction : visibleTransactions)
+                transactionContainer.addView(createTransactionCard(transaction));
         }
 
         int visibleCount =
@@ -1847,8 +2046,11 @@ public class TransactionsActivity extends AppCompatActivity {
                 resultText
         );
 
+        if (isExpenseList()) txtResultCount.setText(visibleCount + " expense transactions · " + expenseTotal.getText());
         updateFilterSummary();
 
+        txtEmptyTransactions.setText(isExpenseList() ? "No expenses found for this date range and filters."
+                : "No transaction found for the selected month.\nChoose another month or change the filters.");
         txtEmptyTransactions.setVisibility(
                 visibleCount == 0
                         ? View.VISIBLE
@@ -2055,6 +2257,19 @@ public class TransactionsActivity extends AppCompatActivity {
         clearTime(
                 transactionDate
         );
+        if (isExpenseList()) {
+            return com.example.moneymanagerpro.utils.ExpenseListPeriod.range(periodFilter,
+                    System.currentTimeMillis(), selectedTransactionPeriod.getTimeInMillis(),
+                    filterStartDate == null ? null : filterStartDate.getTimeInMillis(),
+                    filterEndDate == null ? null : filterEndDate.getTimeInMillis())
+                    .contains(transactionDate.getTimeInMillis());
+        }
+        if ("Yesterday".equals(periodFilter)) {
+            return com.example.moneymanagerpro.utils.ExpenseListPeriod.day(transactionDate.getTimeInMillis())
+                    == com.example.moneymanagerpro.utils.ExpenseListPeriod.addDays(
+                    com.example.moneymanagerpro.utils.ExpenseListPeriod.day(System.currentTimeMillis()), -1);
+        }
+        if ("Custom Range".equals(periodFilter)) return true;
 
         if (periodFilter.equals(
                 "All Time"
@@ -2324,7 +2539,7 @@ public class TransactionsActivity extends AppCompatActivity {
         return null;
     }
 
-    private void addTransactionCard(
+    private MaterialCardView createTransactionCard(
             Transaction transaction
     ) {
         TransactionVisual visual =
@@ -2728,9 +2943,7 @@ public class TransactionsActivity extends AppCompatActivity {
                 card
         );
 
-        transactionContainer.addView(
-                card
-        );
+        return card;
     }
 
     private TransactionVisual getTransactionVisual(
