@@ -668,76 +668,12 @@
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardTransactions"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
-                    android:layout_weight="1"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground"
-                    app:cardBackgroundColor="#F1FBFB"
-                    app:cardCornerRadius="15dp"
-                    app:cardElevation="1dp"
-                    app:strokeColor="#B7DEDF"
-                    app:strokeWidth="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="94dp"
-                        android:orientation="vertical"
-                        android:padding="12dp">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Transactions"
-                            android:textColor="#147D83"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/txtTransactionsShortcut"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="7dp"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:text="View all"
-                            android:textColor="#147D83"
-                            android:textSize="19sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:text="Income, expense and transfers"
-                            android:textColor="#147D83"
-                            android:textSize="9sp" />
-
-                    </LinearLayout>
-
-                </com.google.android.material.card.MaterialCardView>
-
-            </LinearLayout>
-
-            <!-- CREDIT CARD PAYMENT AND AVAILABLE CASH -->
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="9dp"
-                android:orientation="horizontal">
-
-                <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardPayments"
                     android:clickable="true" android:focusable="true"
                     android:foreground="?attr/selectableItemBackground"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="5dp"
+                    android:layout_marginStart="5dp"
                     android:layout_weight="1"
                     app:cardBackgroundColor="#FFF2F0"
                     app:cardCornerRadius="15dp"
@@ -784,13 +720,23 @@
 
                 </com.google.android.material.card.MaterialCardView>
 
+            </LinearLayout>
+
+            <!-- CREDIT CARD PAYMENT AND AVAILABLE CASH -->
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="9dp"
+                android:orientation="horizontal">
+
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardAvailableCash"
                     android:clickable="true" android:focusable="true"
                     android:foreground="?attr/selectableItemBackground"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
                     android:layout_weight="1"
                     app:cardBackgroundColor="#EFFAF3"
                     app:cardCornerRadius="15dp"
@@ -831,6 +777,60 @@
                             android:layout_marginTop="3dp"
                             android:text="Income − expense − card payment"
                             android:textColor="#66806C"
+                            android:textSize="9sp" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardTransactions"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    app:cardBackgroundColor="#F1FBFB"
+                    app:cardCornerRadius="15dp"
+                    app:cardElevation="1dp"
+                    app:strokeColor="#B7DEDF"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="94dp"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Transactions"
+                            android:textColor="#147D83"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtTransactionsShortcut"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="7dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="All transactions"
+                            android:textColor="#147D83"
+                            android:textSize="19sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Income, expense and transfers"
+                            android:textColor="#147D83"
                             android:textSize="9sp" />
 
                     </LinearLayout>

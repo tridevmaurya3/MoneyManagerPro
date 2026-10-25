@@ -58,6 +58,9 @@ public class TransactionsActivity extends AppCompatActivity {
     public static final String EXTRA_SUMMARY_SCOPE="summary_scope";
     public static final String EXTRA_SUMMARY_MONTH="summary_month";
     private String summaryScope="";
+    private final Map<Integer,String> paymentCardNames=new LinkedHashMap<>();
+    private MaterialButton summaryCategoryButton;
+
 
     public static final String EXTRA_EXPENSE_VIEW = "expense_date_view";
     private String appliedExpensePeriod = "Selected Month";
@@ -1240,7 +1243,8 @@ public class TransactionsActivity extends AppCompatActivity {
         String type=safeText(transaction.getType());
         if ("income".equals(summaryScope)) return "INCOME".equalsIgnoreCase(type);
         if ("expense".equals(summaryScope)) return "EXPENSE".equalsIgnoreCase(type);
-        if ("cash".equals(summaryScope)) return "Cash".equalsIgnoreCase(safeText(transaction.getAccount()));
+        if ("cash".equals(summaryScope)) return "Cash".equalsIgnoreCase(safeText(transaction.getAccount()))
+                && ("EXPENSE".equalsIgnoreCase(type) || "TRANSFER_OUT".equalsIgnoreCase(type));
         if ("payments".equals(summaryScope)) return isSummaryCardPayment(transaction);
         if ("available".equals(summaryScope)) return "INCOME".equalsIgnoreCase(type)
                 || "EXPENSE".equalsIgnoreCase(type) || isSummaryCardPayment(transaction);
@@ -1255,13 +1259,13 @@ public class TransactionsActivity extends AppCompatActivity {
         if ("income".equals(summaryScope)) return "income";
         if ("payments".equals(summaryScope)) return "card payments";
         if ("available".equals(summaryScope)) return "available cash movement";
-        if ("cash".equals(summaryScope)) return "cash movement";
+        if ("cash".equals(summaryScope)) return "cash payments";
         if ("all".equals(summaryScope)) return "net movement";
         return "expense";
     }
     private java.math.BigDecimal summaryAmount(Transaction transaction) {
         java.math.BigDecimal amount=java.math.BigDecimal.valueOf(transaction.getAmount());
-        if ("available".equals(summaryScope) || "cash".equals(summaryScope) || "all".equals(summaryScope)) {
+        if ("available".equals(summaryScope) || "all".equals(summaryScope)) {
             String type=safeText(transaction.getType());
             if ("EXPENSE".equalsIgnoreCase(type) || "TRANSFER_OUT".equalsIgnoreCase(type)) return amount.negate();
         }
@@ -1310,17 +1314,29 @@ public class TransactionsActivity extends AppCompatActivity {
                 updateSelectedPeriodUi();filterTransactions();
             });
         }
+        summaryCategoryButton=new MaterialButton(this);
+        summaryCategoryButton.setText("All Categories ▾");summaryCategoryButton.setAllCaps(false);
+        summaryCategoryButton.setTextSize(10);summaryCategoryButton.setMinWidth(0);summaryCategoryButton.setMinimumWidth(0);
+        summaryCategoryButton.setPadding(dp(9),0,dp(9),0);summaryCategoryButton.setInsetTop(0);summaryCategoryButton.setInsetBottom(0);
+        summaryCategoryButton.setCornerRadius(dp(9));summaryCategoryButton.setSingleLine(true);
+        summaryCategoryButton.setBackgroundTintList(ColorStateList.valueOf(getColorValue(R.color.app_surface)));
+        summaryCategoryButton.setTextColor(getColorValue(R.color.secondary));
+        summaryCategoryButton.setStrokeColor(ColorStateList.valueOf(getColorValue(R.color.info_outline)));summaryCategoryButton.setStrokeWidth(dp(1));
+        chips.addView(summaryCategoryButton,new LinearLayout.LayoutParams(-2,dp(36)));
+        summaryCategoryButton.setOnClickListener(v -> showSummaryCategoryDropdown());
         scroller.addView(chips);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(8);
         dates.addView(scroller,cp);expenseRangeLabel=expenseText("",10,R.color.app_text_secondary,false);
         expenseRangeLabel.setPadding(0,dp(8),0,0);dates.addView(expenseRangeLabel);
-        MaterialCardView totalCard=expenseCard(expenseDateControls,R.color.expense_surface,R.color.expense_outline);
+        boolean incomeSummary="income".equals(summaryScope);
+        MaterialCardView totalCard=expenseCard(expenseDateControls,incomeSummary?R.color.income_surface:R.color.expense_surface,
+                incomeSummary?R.color.income_outline:R.color.expense_outline);
         LinearLayout totalBox=new LinearLayout(this);totalBox.setOrientation(LinearLayout.HORIZONTAL);totalBox.setGravity(Gravity.CENTER_VERTICAL);
         totalBox.setPadding(dp(8),dp(10),dp(8),dp(10));totalCard.addView(totalBox);
         LinearLayout totalAmountBox=new LinearLayout(this);totalAmountBox.setOrientation(LinearLayout.VERTICAL);
         totalBox.addView(totalAmountBox,new LinearLayout.LayoutParams(0,-2,1.3f));
-        expenseTotalTitle=expenseText("Total expense · This Month",10,R.color.expense_dark,false);
+        expenseTotalTitle=expenseText("Total expense · This Month",10,incomeSummary?R.color.income_dark:R.color.expense_dark,false);
         totalAmountBox.addView(expenseTotalTitle);
-        expenseTotal=expenseText("₹0.00",20,R.color.expense,true);
+        expenseTotal=expenseText("₹0.00",20,incomeSummary?R.color.income:R.color.expense,true);
         expenseTotal.setSingleLine(true);
         androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(expenseTotal,10,20,1,android.util.TypedValue.COMPLEX_UNIT_SP);
         totalAmountBox.addView(expenseTotal,new LinearLayout.LayoutParams(-1,dp(32)));
@@ -1350,6 +1366,37 @@ public class TransactionsActivity extends AppCompatActivity {
         expenseDateControls.addView(expenseText("*Saved item details only; amounts are not used to guess counts.",9,R.color.app_text_secondary,false));
         expandedExpenseGroups.add(com.example.moneymanagerpro.utils.ExpenseListPeriod.day(System.currentTimeMillis()));
     }
+    private String summaryPaymentTitle(Transaction transaction,String original) {
+        if (!"payments".equals(summaryScope)) return original;
+        CreditCardPayment payment=cardPaymentsByTransaction.get(transaction.getId());
+        String name=payment==null?"":safeText(paymentCardNames.get(payment.getCreditCardId()));
+        return name.isEmpty()?original:"Payment to "+name;
+    }
+    private void showSummaryCategoryDropdown() {
+        android.widget.ListView list=new android.widget.ListView(this);
+        List<String> categories=new ArrayList<>();
+        for(int i=0;i<dropdownTransactionCategory.getAdapter().getCount();i++)
+            categories.add(String.valueOf(dropdownTransactionCategory.getAdapter().getItem(i)));
+        ArrayAdapter<String> adapter=new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,categories) {
+            @Override public View getView(int position,View convertView,android.view.ViewGroup parent) {
+                TextView row=(TextView)super.getView(position,convertView,parent);
+                row.setSingleLine(false);row.setEllipsize(null);row.setTextSize(14);
+                row.setPadding(dp(12),dp(10),dp(12),dp(10));return row;
+            }
+        };
+        list.setAdapter(adapter);
+        int width=Math.min(dp(320),getResources().getDisplayMetrics().widthPixels-dp(32));
+        android.widget.PopupWindow popup=new android.widget.PopupWindow(list,width,-2,true);
+        popup.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(getColorValue(R.color.app_surface)));
+        popup.setElevation(dp(8));popup.setOutsideTouchable(true);
+        list.setOnItemClickListener((parent,view,position,id)->{
+            dropdownTransactionCategory.setText(categories.get(position),false);
+            popup.dismiss();filterTransactions();
+        });
+        // Bound tall lists to the visible screen; longer categories wrap instead of being cut.
+        popup.setHeight(Math.min(dp(320),getResources().getDisplayMetrics().heightPixels/2));
+        popup.showAsDropDown(summaryCategoryButton);
+    }
     private void showExpenseCustomRange() {
         final String previous=getSelectedText(dropdownTransactionPeriod,"Selected Month");
         Calendar start=filterStartDate==null?Calendar.getInstance():(Calendar)filterStartDate.clone();
@@ -1378,6 +1425,7 @@ public class TransactionsActivity extends AppCompatActivity {
             if(items!=null && !items.isEmpty()){itemCount+=items.size();billCount++;}
         }
         expenseTotal.setText(formatAmount(total.doubleValue()));expenseTransactions.setText(String.valueOf(transactions.size()));
+        summaryCategoryButton.setText(getSelectedText(dropdownTransactionCategory,"All Categories")+" ▾");
         expenseItemLines.setText(String.valueOf(itemCount));expenseBills.setText(String.valueOf(billCount));
         String period=getSelectedText(dropdownTransactionPeriod,"Selected Month");
         appliedExpensePeriod=period;
@@ -1509,6 +1557,12 @@ public class TransactionsActivity extends AppCompatActivity {
             }
 
             runOnUiThread(() -> {
+                paymentCardNames.clear();
+                if(creditCards!=null) for(CreditCard creditCard:creditCards) {
+                    String name=safeText(creditCard.getAccountName());
+                    if(name.isEmpty()) name=safeText(creditCard.getName());
+                    paymentCardNames.put(creditCard.getId(),name);
+                }
                 allTransactions.clear();
                 expenseItemsByTransaction.clear();
                 cardPaymentsByTransaction.clear();
@@ -1726,6 +1780,11 @@ public class TransactionsActivity extends AppCompatActivity {
                         categorySet
                 );
 
+        categoryList.remove("All Categories");
+        java.text.Collator categoryCollator=java.text.Collator.getInstance(Locale.getDefault());
+        categoryCollator.setStrength(java.text.Collator.PRIMARY);
+        Collections.sort(categoryList,categoryCollator::compare);
+        categoryList.add(0,"All Categories");
         ArrayAdapter<String> adapter =
                 new ArrayAdapter<>(
                         this,
@@ -2706,7 +2765,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
         TextView txtTitle =
                 createText(
-                        visual.title,
+                        summaryPaymentTitle(transaction,visual.title),
                         16,
                         getColorValue(
                                 R.color.app_text_primary
@@ -2714,7 +2773,7 @@ public class TransactionsActivity extends AppCompatActivity {
                         true
                 );
 
-        txtTitle.setMaxLines(2);
+        if (!"payments".equals(summaryScope)) txtTitle.setMaxLines(2);
 
         TextView txtAccount =
                 createText(
