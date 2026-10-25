@@ -1366,6 +1366,19 @@ public class TransactionsActivity extends AppCompatActivity {
         expenseDateControls.addView(expenseText("*Saved item details only; amounts are not used to guess counts.",9,R.color.app_text_secondary,false));
         expandedExpenseGroups.add(com.example.moneymanagerpro.utils.ExpenseListPeriod.day(System.currentTimeMillis()));
     }
+    // Display projection only: never inserted into the transactions ledger.
+    private Transaction createPaymentListRow(CreditCardPayment payment) {
+        Transaction row=new Transaction();
+        row.setId(-payment.getId()-1);
+        row.setType("TRANSFER_OUT");row.setAmount(payment.getAmount());
+        row.setCategory("Credit Card Payment");row.setAccount(payment.getSourceAccount());
+        row.setDate(payment.getPaymentDate());
+        String card=safeText(paymentCardNames.get(payment.getCreditCardId()));
+        if(card.isEmpty()) card="Credit card #"+payment.getCreditCardId();
+        row.setNote("Credit card payment to "+card+" - Paid from "+safeText(payment.getSourceAccount())
+                +(safeText(payment.getNote()).isEmpty()?"":" - "+safeText(payment.getNote())));
+        return row;
+    }
     private String summaryPaymentTitle(Transaction transaction,String original) {
         if (!"payments".equals(summaryScope)) return original;
         CreditCardPayment payment=cardPaymentsByTransaction.get(transaction.getId());
@@ -1385,17 +1398,33 @@ public class TransactionsActivity extends AppCompatActivity {
             }
         };
         list.setAdapter(adapter);
-        int width=Math.min(dp(320),getResources().getDisplayMetrics().widthPixels-dp(32));
-        android.widget.PopupWindow popup=new android.widget.PopupWindow(list,width,-2,true);
+        android.graphics.Rect frame=new android.graphics.Rect();
+        summaryCategoryButton.getWindowVisibleDisplayFrame(frame);
+        TextView measureRow=(TextView)adapter.getView(0,null,list);
+        float longest=0;
+        for(String category:categories) longest=Math.max(longest,measureRow.getPaint().measureText(category));
+        int width=Math.min((int)Math.ceil(longest)+dp(32),frame.width()-dp(16));
+        width=Math.max(dp(48),width);
+        int contentHeight=0;
+        for(int i=0;i<adapter.getCount();i++) {
+            View row=adapter.getView(i,null,list);
+            row.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));
+            contentHeight+=row.getMeasuredHeight()+list.getDividerHeight();
+        }
+        android.graphics.Rect anchor=new android.graphics.Rect();summaryCategoryButton.getGlobalVisibleRect(anchor);
+        int available=Math.max(frame.bottom-anchor.bottom,anchor.top-frame.top)-dp(8);
+        int height=Math.min(contentHeight,Math.max(dp(48),available));
+        android.widget.PopupWindow popup=new android.widget.PopupWindow(list,width,height,true);
         popup.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(getColorValue(R.color.app_surface)));
         popup.setElevation(dp(8));popup.setOutsideTouchable(true);
         list.setOnItemClickListener((parent,view,position,id)->{
             dropdownTransactionCategory.setText(categories.get(position),false);
             popup.dismiss();filterTransactions();
         });
-        // Bound tall lists to the visible screen; longer categories wrap instead of being cut.
-        popup.setHeight(Math.min(dp(320),getResources().getDisplayMetrics().heightPixels/2));
-        popup.showAsDropDown(summaryCategoryButton);
+        popup.setOverlapAnchor(false);
+        if(android.os.Build.VERSION.SDK_INT>=29) popup.setIsClippedToScreen(true);
+        popup.showAsDropDown(summaryCategoryButton,0,dp(4),Gravity.END);
     }
     private void showExpenseCustomRange() {
         final String previous=getSelectedText(dropdownTransactionPeriod,"Selected Month");
@@ -1574,6 +1603,15 @@ public class TransactionsActivity extends AppCompatActivity {
                     allTransactions.addAll(
                             transactions
                     );
+                }
+
+                if("payments".equals(summaryScope)) {
+                    allTransactions.clear();
+                    if(cardPayments!=null) for(CreditCardPayment payment:cardPayments) {
+                        Transaction row=createPaymentListRow(payment);
+                        allTransactions.add(row);
+                        cardPaymentsByTransaction.put(row.getId(),payment);
+                    }
                 }
 
                 expenseItemsByTransaction.putAll(
