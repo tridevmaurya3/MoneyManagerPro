@@ -1220,7 +1220,7 @@ public class TransactionsActivity extends AppCompatActivity {
         return dropdownTransactionType != null
                 && "Expense Only".equals(getSelectedText(dropdownTransactionType, "All Transactions"));
     }
-    private TextView expenseText(String text, int size, int color, boolean bold) {
+    private TextView expenseText(String text, float size, int color, boolean bold) {
         TextView view = new TextView(this); view.setText(text); view.setTextSize(size);
         view.setTextColor(getColorValue(color));
         if (bold) view.setTypeface(null, Typeface.BOLD);
@@ -1291,16 +1291,21 @@ public class TransactionsActivity extends AppCompatActivity {
         totalBox.addView(expenseTotalTitle);
         expenseTotal=expenseText("₹0.00",24,R.color.expense,true);totalBox.addView(expenseTotal);
         LinearLayout metrics=new LinearLayout(this);
-        TextView[] values={expenseTransactions=expenseText("0",17,R.color.secondary,true),
-                expenseItemLines=expenseText("0",17,R.color.secondary,true),expenseBills=expenseText("0",17,R.color.secondary,true)};
+        TextView[] values={expenseTransactions=expenseText("0",19,R.color.secondary,true),
+                expenseItemLines=expenseText("0",19,R.color.secondary,true),expenseBills=expenseText("0",19,R.color.secondary,true)};
         String[] names={"Transactions","Item lines*","Itemized bills*"};
         for(int i=0;i<names.length;i++) {
             MaterialCardView metric=expenseCard(metrics,R.color.app_surface,R.color.app_outline_soft);
             LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,-2,1);mp.topMargin=dp(7);
             if(i>0)mp.setMarginStart(dp(6));metric.setLayoutParams(mp);
             LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setGravity(Gravity.CENTER);
-            box.setPadding(dp(4),dp(8),dp(4),dp(8));metric.addView(box);box.addView(values[i]);
-            box.addView(expenseText(names[i],9,R.color.app_text_secondary,false));
+            box.setPadding(dp(4),dp(8),dp(4),dp(8));
+            metric.addView(box,new android.widget.FrameLayout.LayoutParams(-1,-2));
+            values[i].setGravity(Gravity.CENTER);
+            box.addView(values[i],new LinearLayout.LayoutParams(-1,-2));
+            TextView caption=expenseText(names[i],10.5f,R.color.app_text_secondary,false);
+            caption.setGravity(Gravity.CENTER);
+            box.addView(caption,new LinearLayout.LayoutParams(-1,-2));
         }
         expenseDateControls.addView(metrics);
         expenseDateControls.addView(expenseText("*Saved item details only; amounts are not used to guess counts.",9,R.color.app_text_secondary,false));
@@ -1333,7 +1338,7 @@ public class TransactionsActivity extends AppCompatActivity {
             List<ExpenseItem> items=expenseItemsByTransaction.get(transaction.getId());
             if(items!=null && !items.isEmpty()){itemCount+=items.size();billCount++;}
         }
-        expenseTotal.setText("₹"+formatAmount(total.doubleValue()));expenseTransactions.setText(String.valueOf(transactions.size()));
+        expenseTotal.setText(formatAmount(total.doubleValue()));expenseTransactions.setText(String.valueOf(transactions.size()));
         expenseItemLines.setText(String.valueOf(itemCount));expenseBills.setText(String.valueOf(billCount));
         List<String> categories=new ArrayList<>();
         for(int i=0;i<dropdownTransactionCategory.getAdapter().getCount();i++)
@@ -1379,7 +1384,7 @@ public class TransactionsActivity extends AppCompatActivity {
                     :new SimpleDateFormat("dd MMM",Locale.getDefault()).format(new Date(key))+" – "+new SimpleDateFormat("dd MMM yyyy",Locale.getDefault()).format(new Date(end));
             java.math.BigDecimal total=java.math.BigDecimal.ZERO;
             for(Transaction transaction:entry.getValue())total=total.add(java.math.BigDecimal.valueOf(transaction.getAmount()));
-            String summary=entry.getValue().size()+" transactions · ₹"+formatAmount(total.doubleValue());
+            String summary=entry.getValue().size()+" transactions · "+formatAmount(total.doubleValue());
             TextView header=expenseText("",11,R.color.app_text_secondary,true);header.setPadding(dp(10),dp(10),dp(10),dp(10));
             GradientDrawable background=new GradientDrawable();background.setColor(getColorValue(R.color.app_surface_muted));background.setCornerRadius(dp(10));header.setBackground(background);
             header.setContentDescription(label+", "+summary+", tap to expand or collapse");
