@@ -60,7 +60,6 @@ public class TransactionsActivity extends AppCompatActivity {
     private long expenseTodayKey;
     private LinearLayout expenseDateControls;
     private TextView expenseRangeLabel, expenseTotalTitle, expenseTotal, expenseTransactions, expenseItemLines, expenseBills;
-    private MaterialAutoCompleteTextView expenseCategoryShortcut;
     private final Map<String, MaterialButton> expenseDateButtons = new LinkedHashMap<>();
     private final Set<Long> expandedExpenseGroups = new LinkedHashSet<>();
 
@@ -1239,24 +1238,6 @@ public class TransactionsActivity extends AppCompatActivity {
         LinearLayout page = (LinearLayout)transactionFilterPanel.getParent();
         page.addView(expenseDateControls, page.indexOfChild(transactionFilterPanel) + 1,
                 new LinearLayout.LayoutParams(-1, -2));
-        LinearLayout shortcuts = new LinearLayout(this); shortcuts.setGravity(Gravity.CENTER_VERTICAL);
-        TextView type = expenseText("Type\nExpense", 11, R.color.app_text_primary, false);
-        type.setPadding(dp(10), dp(8), dp(10), dp(8));
-        shortcuts.addView(type, new LinearLayout.LayoutParams(0, dp(50), 1));
-        TextInputLayout category = new TextInputLayout(this);
-        category.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE); category.setHint("Category");
-        category.setBoxCornerRadii(dp(12),dp(12),dp(12),dp(12));
-        expenseCategoryShortcut = new MaterialAutoCompleteTextView(this);
-        expenseCategoryShortcut.setInputType(0); expenseCategoryShortcut.setTextSize(11);
-        expenseCategoryShortcut.setMinHeight(dp(46));
-        category.addView(expenseCategoryShortcut, new LinearLayout.LayoutParams(-1,-2));
-        category.setEndIconMode(TextInputLayout.END_ICON_DROPDOWN_MENU);
-        expenseCategoryShortcut.setOnClickListener(v -> expenseCategoryShortcut.showDropDown());
-        expenseCategoryShortcut.setOnItemClickListener((parent, view, position, id) -> {
-            dropdownTransactionCategory.setText(expenseCategoryShortcut.getText(), false); filterTransactions();
-        });
-        shortcuts.addView(category, new LinearLayout.LayoutParams(0,-2,1));
-        expenseDateControls.addView(shortcuts);
         MaterialCardView dateCard = expenseCard(expenseDateControls,R.color.app_surface,R.color.info_outline);
         LinearLayout dates = new LinearLayout(this); dates.setOrientation(LinearLayout.VERTICAL);
         dates.setPadding(dp(10),dp(10),dp(10),dp(10)); dateCard.addView(dates);
@@ -1285,29 +1266,39 @@ public class TransactionsActivity extends AppCompatActivity {
         dates.addView(scroller,cp);expenseRangeLabel=expenseText("",10,R.color.app_text_secondary,false);
         expenseRangeLabel.setPadding(0,dp(8),0,0);dates.addView(expenseRangeLabel);
         MaterialCardView totalCard=expenseCard(expenseDateControls,R.color.expense_surface,R.color.expense_outline);
-        LinearLayout totalBox=new LinearLayout(this);totalBox.setOrientation(LinearLayout.VERTICAL);
-        totalBox.setPadding(dp(12),dp(10),dp(12),dp(10));totalCard.addView(totalBox);
+        LinearLayout totalBox=new LinearLayout(this);totalBox.setOrientation(LinearLayout.HORIZONTAL);totalBox.setGravity(Gravity.CENTER_VERTICAL);
+        totalBox.setPadding(dp(8),dp(10),dp(8),dp(10));totalCard.addView(totalBox);
+        LinearLayout totalAmountBox=new LinearLayout(this);totalAmountBox.setOrientation(LinearLayout.VERTICAL);
+        totalBox.addView(totalAmountBox,new LinearLayout.LayoutParams(0,-2,1.3f));
         expenseTotalTitle=expenseText("Total expense · This Month",10,R.color.expense_dark,false);
-        totalBox.addView(expenseTotalTitle);
-        expenseTotal=expenseText("₹0.00",24,R.color.expense,true);totalBox.addView(expenseTotal);
+        totalAmountBox.addView(expenseTotalTitle);
+        expenseTotal=expenseText("₹0.00",20,R.color.expense,true);
+        expenseTotal.setSingleLine(true);
+        androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(expenseTotal,10,20,1,android.util.TypedValue.COMPLEX_UNIT_SP);
+        totalAmountBox.addView(expenseTotal,new LinearLayout.LayoutParams(-1,dp(32)));
         LinearLayout metrics=new LinearLayout(this);
         TextView[] values={expenseTransactions=expenseText("0",19,R.color.secondary,true),
                 expenseItemLines=expenseText("0",19,R.color.secondary,true),expenseBills=expenseText("0",19,R.color.secondary,true)};
         String[] names={"Transactions","Item lines*","Itemized bills*"};
+        int[] metricSurfaces={R.color.info_surface,R.color.income_surface,R.color.purple_surface};
+        int[] metricOutlines={R.color.info_outline,R.color.income_outline,R.color.purple_outline};
         for(int i=0;i<names.length;i++) {
-            MaterialCardView metric=expenseCard(metrics,R.color.app_surface,R.color.app_outline_soft);
-            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,-2,1);mp.topMargin=dp(7);
+            MaterialCardView metric=expenseCard(metrics,metricSurfaces[i],metricOutlines[i]);
+            LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(0,-2,1);mp.topMargin=0;
             if(i>0)mp.setMarginStart(dp(6));metric.setLayoutParams(mp);
             LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setGravity(Gravity.CENTER);
-            box.setPadding(dp(4),dp(8),dp(4),dp(8));
+            box.setPadding(dp(3),dp(8),dp(3),dp(8));
             metric.addView(box,new android.widget.FrameLayout.LayoutParams(-1,-2));
             values[i].setGravity(Gravity.CENTER);
+            values[i].setSingleLine(true);
+            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(values[i],10,19,1,android.util.TypedValue.COMPLEX_UNIT_SP);
             box.addView(values[i],new LinearLayout.LayoutParams(-1,-2));
             TextView caption=expenseText(names[i],10.5f,R.color.app_text_secondary,false);
             caption.setGravity(Gravity.CENTER);
             box.addView(caption,new LinearLayout.LayoutParams(-1,-2));
         }
-        expenseDateControls.addView(metrics);
+        LinearLayout.LayoutParams metricsParams=new LinearLayout.LayoutParams(0,-2,3);metricsParams.setMarginStart(dp(6));
+        totalBox.addView(metrics,metricsParams);
         expenseDateControls.addView(expenseText("*Saved item details only; amounts are not used to guess counts.",9,R.color.app_text_secondary,false));
         expandedExpenseGroups.add(com.example.moneymanagerpro.utils.ExpenseListPeriod.day(System.currentTimeMillis()));
     }
@@ -1340,11 +1331,6 @@ public class TransactionsActivity extends AppCompatActivity {
         }
         expenseTotal.setText(formatAmount(total.doubleValue()));expenseTransactions.setText(String.valueOf(transactions.size()));
         expenseItemLines.setText(String.valueOf(itemCount));expenseBills.setText(String.valueOf(billCount));
-        List<String> categories=new ArrayList<>();
-        for(int i=0;i<dropdownTransactionCategory.getAdapter().getCount();i++)
-            categories.add(String.valueOf(dropdownTransactionCategory.getAdapter().getItem(i)));
-        expenseCategoryShortcut.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,categories));
-        expenseCategoryShortcut.setText(getSelectedText(dropdownTransactionCategory,"All Categories"),false);
         String period=getSelectedText(dropdownTransactionPeriod,"Selected Month");
         appliedExpensePeriod=period;
         expenseTotalTitle.setText("Total expense · "+("Selected Month".equals(period)
