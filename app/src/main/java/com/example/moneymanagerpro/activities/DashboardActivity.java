@@ -197,6 +197,12 @@ public class DashboardActivity extends AppCompatActivity {
         updatePeriodLabelsAndButtons();
     }
 
+    private void openSummaryTransactions(String scope) {
+        startActivity(new Intent(this, TransactionsActivity.class)
+                .putExtra(TransactionsActivity.EXTRA_SUMMARY_SCOPE, scope)
+                .putExtra(TransactionsActivity.EXTRA_SUMMARY_MONTH, selectedPeriod.getTimeInMillis()));
+    }
+
     private void initializeViews() {
         txtBalance =
                 findViewById(R.id.txtBalance);
@@ -409,20 +415,12 @@ public class DashboardActivity extends AppCompatActivity {
                 )
         );
 
-        cardCash.setOnClickListener(
-                view -> openActivity(
-                        AccountActivity.class
-                )
-        );
-
-        cardIncome.setOnClickListener(
-                view -> openActivity(
-                        TransactionsActivity.class
-                )
-        );
-
-        cardExpense.setOnClickListener(view -> startActivity(new Intent(this, TransactionsActivity.class)
-                .putExtra(TransactionsActivity.EXTRA_EXPENSE_VIEW, true)));
+        cardCash.setOnClickListener(view -> openSummaryTransactions("cash"));
+        cardIncome.setOnClickListener(view -> openSummaryTransactions("income"));
+        cardExpense.setOnClickListener(view -> openSummaryTransactions("expense"));
+        findViewById(R.id.cardTransactions).setOnClickListener(view -> openSummaryTransactions("all"));
+        findViewById(R.id.cardPayments).setOnClickListener(view -> openSummaryTransactions("payments"));
+        findViewById(R.id.cardAvailableCash).setOnClickListener(view -> openSummaryTransactions("available"));
 
         btnUserMenu.setOnClickListener(
                 this::showUserMenu

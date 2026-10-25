@@ -607,6 +607,122 @@
 
             </LinearLayout>
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="9dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardCash"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="5dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    app:cardBackgroundColor="#FAF6FF"
+                    app:cardCornerRadius="15dp"
+                    app:cardElevation="1dp"
+                    app:strokeColor="#D8C5EC"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="94dp"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Cash in Hand"
+                            android:textColor="#6B438F"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtCash"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="7dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="₹0.00"
+                            android:textColor="#6B438F"
+                            android:textSize="19sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Cash account balance"
+                            android:textColor="#6B438F"
+                            android:textSize="9sp" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardTransactions"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    app:cardBackgroundColor="#F1FBFB"
+                    app:cardCornerRadius="15dp"
+                    app:cardElevation="1dp"
+                    app:strokeColor="#B7DEDF"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="94dp"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Transactions"
+                            android:textColor="#147D83"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtTransactionsShortcut"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="7dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="View all"
+                            android:textColor="#147D83"
+                            android:textSize="19sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Income, expense and transfers"
+                            android:textColor="#147D83"
+                            android:textSize="9sp" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+
             <!-- CREDIT CARD PAYMENT AND AVAILABLE CASH -->
 
             <LinearLayout
@@ -616,6 +732,9 @@
                 android:orientation="horizontal">
 
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardPayments"
+                    android:clickable="true" android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="5dp"
@@ -666,6 +785,9 @@
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardAvailableCash"
+                    android:clickable="true" android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="5dp"
@@ -716,87 +838,6 @@
                 </com.google.android.material.card.MaterialCardView>
 
             </LinearLayout>
-
-            <!-- CASH IN HAND -->
-
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardCash"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="9dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                app:cardBackgroundColor="#EEF6FD"
-                app:cardCornerRadius="15dp"
-                app:cardElevation="1dp"
-                app:strokeColor="#B8D8F2"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:minHeight="72dp"
-                    android:orientation="horizontal"
-                    android:padding="8dp">
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        app:cardBackgroundColor="#DCECF9"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:gravity="center"
-                            android:text="₹"
-                            android:textColor="#0F6CBD"
-                            android:textSize="19sp"
-                            android:textStyle="bold" />
-
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="11dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Cash in Hand"
-                            android:textColor="#315F83"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/txtCash"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="₹0.00"
-                            android:textColor="#0F6CBD"
-                            android:textSize="20sp"
-                            android:textStyle="bold" />
-
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="›"
-                        android:textColor="#6687A1"
-                        android:textSize="26sp"
-                        android:textStyle="bold" />
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
 
             <!-- QUICK ACTIONS -->
 

@@ -55,6 +55,10 @@ import java.util.Map;
 import java.util.Set;
 
 public class TransactionsActivity extends AppCompatActivity {
+    public static final String EXTRA_SUMMARY_SCOPE="summary_scope";
+    public static final String EXTRA_SUMMARY_MONTH="summary_month";
+    private String summaryScope="";
+
     public static final String EXTRA_EXPENSE_VIEW = "expense_date_view";
     private String appliedExpensePeriod = "Selected Month";
     private long expenseTodayKey;
@@ -152,8 +156,14 @@ public class TransactionsActivity extends AppCompatActivity {
         initializeSelectedTransactionPeriod();
         bindViews();
         setupMonthYearSelector();
+        summaryScope=safeText(getIntent().getStringExtra(EXTRA_SUMMARY_SCOPE));
+        if (getIntent().getBooleanExtra(EXTRA_EXPENSE_VIEW, false)) summaryScope="expense";
+        if (getIntent().hasExtra(EXTRA_SUMMARY_MONTH))
+            selectedTransactionPeriod.setTimeInMillis(getIntent().getLongExtra(EXTRA_SUMMARY_MONTH,System.currentTimeMillis()));
         setupFilters();
+        setupSummaryTypeFilter();
         setupExpenseDateControls();
+        updateSelectedPeriodUi();
         if (getIntent().getBooleanExtra(EXTRA_EXPENSE_VIEW, false))
             dropdownTransactionType.setText("Expense Only", false);
 
@@ -702,7 +712,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
         String visiblePeriod;
 
-        if (isExpenseList()) {
+        if (usesSummaryControls()) {
             visiblePeriod = formatMonthYear(selectedTransactionPeriod);
         } else if ("All Time".equals(selectedScope)) {
             visiblePeriod =
@@ -941,7 +951,7 @@ public class TransactionsActivity extends AppCompatActivity {
         dropdownTransactionPeriod
                 .setOnItemClickListener(
                         (parent, view, position, id) -> {
-                            if (isExpenseList() && "Custom Range".equals(getSelectedText(dropdownTransactionPeriod,"Selected Month"))) {
+                            if (usesSummaryControls() && "Custom Range".equals(getSelectedText(dropdownTransactionPeriod,"Selected Month"))) {
                                 dropdownTransactionPeriod.setText(appliedExpensePeriod,false);
                                 showExpenseCustomRange(); return;
                             }
@@ -1215,9 +1225,47 @@ public class TransactionsActivity extends AppCompatActivity {
         );
     }
 
-    private boolean isExpenseList() {
-        return dropdownTransactionType != null
-                && "Expense Only".equals(getSelectedText(dropdownTransactionType, "All Transactions"));
+    private boolean usesSummaryControls() {
+        return !summaryScope.isEmpty() || "Expense Only".equals(getSelectedText(dropdownTransactionType,"All Transactions"));
+    }
+    private void setupSummaryTypeFilter() {
+        if ("income".equals(summaryScope) || "expense".equals(summaryScope)) {
+            String type="income".equals(summaryScope)?"Income Only":"Expense Only";
+            setDropdownItems(dropdownTransactionType,new String[]{type},type);
+        } else if ("payments".equals(summaryScope)) {
+            setDropdownItems(dropdownTransactionType,new String[]{"Transfers Only"},"Transfers Only");
+        }
+    }
+    private boolean matchesSummaryScope(Transaction transaction) {
+        String type=safeText(transaction.getType());
+        if ("income".equals(summaryScope)) return "INCOME".equalsIgnoreCase(type);
+        if ("expense".equals(summaryScope)) return "EXPENSE".equalsIgnoreCase(type);
+        if ("cash".equals(summaryScope)) return "Cash".equalsIgnoreCase(safeText(transaction.getAccount()));
+        if ("payments".equals(summaryScope)) return isSummaryCardPayment(transaction);
+        if ("available".equals(summaryScope)) return "INCOME".equalsIgnoreCase(type)
+                || "EXPENSE".equalsIgnoreCase(type) || isSummaryCardPayment(transaction);
+        return true;
+    }
+    private boolean isSummaryCardPayment(Transaction transaction) {
+        return "TRANSFER_OUT".equalsIgnoreCase(safeText(transaction.getType()))
+                && (cardPaymentsByTransaction.containsKey(transaction.getId())
+                    || "Credit Card Payment".equalsIgnoreCase(safeText(transaction.getCategory())));
+    }
+    private String summaryLabel() {
+        if ("income".equals(summaryScope)) return "income";
+        if ("payments".equals(summaryScope)) return "card payments";
+        if ("available".equals(summaryScope)) return "available cash movement";
+        if ("cash".equals(summaryScope)) return "cash movement";
+        if ("all".equals(summaryScope)) return "net movement";
+        return "expense";
+    }
+    private java.math.BigDecimal summaryAmount(Transaction transaction) {
+        java.math.BigDecimal amount=java.math.BigDecimal.valueOf(transaction.getAmount());
+        if ("available".equals(summaryScope) || "cash".equals(summaryScope) || "all".equals(summaryScope)) {
+            String type=safeText(transaction.getType());
+            if ("EXPENSE".equalsIgnoreCase(type) || "TRANSFER_OUT".equalsIgnoreCase(type)) return amount.negate();
+        }
+        return amount;
     }
     private TextView expenseText(String text, float size, int color, boolean bold) {
         TextView view = new TextView(this); view.setText(text); view.setTextSize(size);
@@ -1325,7 +1373,7 @@ public class TransactionsActivity extends AppCompatActivity {
         expenseDateControls.setVisibility(View.VISIBLE);
         java.math.BigDecimal total=java.math.BigDecimal.ZERO;int itemCount=0,billCount=0;
         for(Transaction transaction:transactions) {
-            total=total.add(java.math.BigDecimal.valueOf(transaction.getAmount()));
+            total=total.add(summaryAmount(transaction));
             List<ExpenseItem> items=expenseItemsByTransaction.get(transaction.getId());
             if(items!=null && !items.isEmpty()){itemCount+=items.size();billCount++;}
         }
@@ -1333,7 +1381,7 @@ public class TransactionsActivity extends AppCompatActivity {
         expenseItemLines.setText(String.valueOf(itemCount));expenseBills.setText(String.valueOf(billCount));
         String period=getSelectedText(dropdownTransactionPeriod,"Selected Month");
         appliedExpensePeriod=period;
-        expenseTotalTitle.setText("Total expense · "+("Selected Month".equals(period)
+        expenseTotalTitle.setText("Total "+summaryLabel()+" · "+("Selected Month".equals(period)
                 ?(isCurrentMonth(selectedTransactionPeriod)?"This Month":formatMonthYear(selectedTransactionPeriod))
                 :"Custom Range".equals(period)?"Custom":period));
         for(Map.Entry<String,MaterialButton> entry:expenseDateButtons.entrySet()) {
@@ -1369,7 +1417,7 @@ public class TransactionsActivity extends AppCompatActivity {
                     :key==end?new SimpleDateFormat("EEE · dd MMM yyyy",Locale.getDefault()).format(new Date(key))
                     :new SimpleDateFormat("dd MMM",Locale.getDefault()).format(new Date(key))+" – "+new SimpleDateFormat("dd MMM yyyy",Locale.getDefault()).format(new Date(end));
             java.math.BigDecimal total=java.math.BigDecimal.ZERO;
-            for(Transaction transaction:entry.getValue())total=total.add(java.math.BigDecimal.valueOf(transaction.getAmount()));
+            for(Transaction transaction:entry.getValue())total=total.add(summaryAmount(transaction));
             String summary=entry.getValue().size()+" transactions · "+formatAmount(total.doubleValue());
             TextView header=expenseText("",11,R.color.app_text_secondary,true);header.setPadding(dp(10),dp(10),dp(10),dp(10));
             GradientDrawable background=new GradientDrawable();background.setColor(getColorValue(R.color.app_surface_muted));background.setCornerRadius(dp(10));header.setBackground(background);
@@ -1660,6 +1708,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
         for (Transaction transaction :
                 allTransactions) {
+            if (!matchesSummaryScope(transaction)) continue;
             String category =
                     safeText(
                             transaction.getCategory()
@@ -1720,6 +1769,7 @@ public class TransactionsActivity extends AppCompatActivity {
 
         for (Transaction transaction :
                 allTransactions) {
+            if (!matchesSummaryScope(transaction)) continue;
             String account =
                     safeText(
                             transaction.getAccount()
@@ -1810,7 +1860,7 @@ public class TransactionsActivity extends AppCompatActivity {
                                         selectedDate;
                             }
 
-                            if (isExpenseList()) dropdownTransactionPeriod.setText("Custom Range", false);
+                            if (usesSummaryControls()) dropdownTransactionPeriod.setText("Custom Range", false);
                             updateDateFields();
                             filterTransactions();
                         },
@@ -1857,7 +1907,7 @@ public class TransactionsActivity extends AppCompatActivity {
         updateDateFields();
 
         dropdownTransactionType.setText(
-                getIntent().getBooleanExtra(EXTRA_EXPENSE_VIEW, false) ? "Expense Only" : "All Transactions",
+                "income".equals(summaryScope) ? "Income Only" : "expense".equals(summaryScope) ? "Expense Only" : "payments".equals(summaryScope) ? "Transfers Only" : "All Transactions",
                 false
         );
 
@@ -1975,7 +2025,7 @@ public class TransactionsActivity extends AppCompatActivity {
         for (Transaction transaction :
                 allTransactions) {
             boolean visible =
-                    matchesTypeFilter(
+                    matchesSummaryScope(transaction) && matchesTypeFilter(
                             transaction,
                             typeFilter
                     )
@@ -2015,7 +2065,7 @@ public class TransactionsActivity extends AppCompatActivity {
                 visibleTransactions
         );
 
-        if (isExpenseList()) {
+        if (usesSummaryControls()) {
             updateExpenseSummary(visibleTransactions);
             renderExpenseGroups(visibleTransactions);
         } else {
@@ -2037,10 +2087,10 @@ public class TransactionsActivity extends AppCompatActivity {
                 resultText
         );
 
-        if (isExpenseList()) txtResultCount.setText(visibleCount + " expense transactions · " + expenseTotal.getText());
+        if (usesSummaryControls()) txtResultCount.setText(visibleCount + " transactions · " + expenseTotal.getText());
         updateFilterSummary();
 
-        txtEmptyTransactions.setText(isExpenseList() ? "No expenses found for this date range and filters."
+        txtEmptyTransactions.setText(usesSummaryControls() ? "No matching transactions for this date range and filters."
                 : "No transaction found for the selected month.\nChoose another month or change the filters.");
         txtEmptyTransactions.setVisibility(
                 visibleCount == 0
@@ -2248,7 +2298,7 @@ public class TransactionsActivity extends AppCompatActivity {
         clearTime(
                 transactionDate
         );
-        if (isExpenseList()) {
+        if (usesSummaryControls()) {
             return com.example.moneymanagerpro.utils.ExpenseListPeriod.range(periodFilter,
                     System.currentTimeMillis(), selectedTransactionPeriod.getTimeInMillis(),
                     filterStartDate == null ? null : filterStartDate.getTimeInMillis(),
