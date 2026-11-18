@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="18dp">
+        android:padding="10dp">
 
         <TextView
             android:id="@+id/btnProfileBack"
@@ -27,24 +27,16 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:text="User Profile"
             android:textColor="@color/app_text_primary"
             android:textSize="28sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Manage your identity and account security"
-            android:textColor="@color/app_text_secondary"
-            android:textSize="14sp" />
-
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="22dp"
             app:cardElevation="1dp"
@@ -56,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center_horizontal"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="10dp">
 
                 <FrameLayout
                     android:layout_width="96dp"
@@ -87,7 +79,7 @@
                     android:id="@+id/txtProfileEmail"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="6dp"
                     android:gravity="center"
                     android:textColor="@color/app_text_primary"
                     android:textSize="15sp"
@@ -145,7 +137,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Full name">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -161,7 +153,7 @@
                     android:id="@+id/btnSaveProfile"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="6dp"
                     android:text="Save Profile"
                     android:textAllCaps="false"
                     android:textStyle="bold"
@@ -172,7 +164,7 @@
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:text="Resend Verification Email"
                     android:textAllCaps="false"
                     app:cornerRadius="14dp" />
@@ -186,7 +178,7 @@
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Change Password"
             android:textAllCaps="false"
             android:textStyle="bold"
@@ -196,7 +188,7 @@
             android:id="@+id/btnProfileLogout"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="6dp"
             android:text="Logout"
             android:textAllCaps="false"
             android:textColor="@color/white"

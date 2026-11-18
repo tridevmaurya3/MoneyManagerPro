@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="16dp"
-        android:paddingTop="14dp"
+        android:paddingTop="10dp"
         android:paddingEnd="16dp"
         android:paddingBottom="36dp">
 
@@ -42,89 +42,16 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:text="Add Expense"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="Record money spent from one of your accounts."
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
-
-        <!-- EXPENSE OVERVIEW CARD -->
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            app:cardBackgroundColor="@color/expense_surface"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="1dp"
-            app:strokeColor="@color/expense_outline"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="18dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="0dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Expense Entry"
-                        android:textColor="@color/expense_dark"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="Add shopping, bills, food, travel or any other spending."
-                        android:textColor="@color/app_text_secondary"
-                        android:textSize="12sp" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- FORM HEADING -->
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Expense Details"
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:text="Enter the amount and choose the account used for payment"
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
 
         <!-- EXPENSE FORM CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="13dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="20dp"
             app:cardElevation="1dp"
@@ -135,32 +62,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="10dp">
 
                 <!-- EXPENSE AMOUNT -->
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Expense Amount"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Enter the total amount you paid"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/inputAmount"
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Expense amount"
                     app:boxStrokeColor="@color/expense"
                     app:prefixText="₹  ">
@@ -184,20 +95,11 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="6dp"
                     android:text="Optional Item Details"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:lineSpacingExtra="2dp"
-                    android:text="Example: Oil → 1 litre × price per litre. Add another row for Potatoes → 1 kg × price per kg."
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
 
                 <LinearLayout
                     android:id="@+id/itemDetailsContainer"
@@ -209,7 +111,7 @@
                     android:id="@+id/txtItemsTotal"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:gravity="end"
                     android:text="Items total: ₹0.00"
                     android:textColor="@color/expense_dark"
@@ -221,7 +123,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Outlined"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:text="+ More Item"
                     android:textColor="@color/expense"
                     app:backgroundTint="@color/app_surface"
@@ -230,28 +132,11 @@
 
                 <!-- EXPENSE CATEGORY -->
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Expense Category"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Select what this money was spent on"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select expense category"
                     app:boxStrokeColor="@color/expense"
                     app:endIconMode="dropdown_menu">
@@ -273,28 +158,11 @@
 
                 <!-- PAYMENT ACCOUNT -->
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Pay From Account"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Choose the account used to make this payment"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select payment account"
                     app:boxStrokeColor="@color/expense"
                     app:endIconMode="dropdown_menu">
@@ -317,7 +185,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="6dp"
                     android:text="Pay with UPI App"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
@@ -336,7 +204,7 @@
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="UPI payment method"
                     app:boxStrokeColor="@color/expense"
                     app:endIconMode="dropdown_menu">
@@ -361,7 +229,7 @@
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="9dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Receiver UPI ID (example@bank)"
                     app:boxStrokeColor="@color/expense">
 
@@ -381,7 +249,7 @@
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="9dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Receiver name"
                     app:boxStrokeColor="@color/expense">
 
@@ -401,7 +269,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Outlined"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:text="Choose UPI / Payment App"
                     android:textColor="@color/expense"
                     app:backgroundTint="@color/app_surface"
@@ -440,7 +308,7 @@
                             style="@style/Widget.MoneyManagerPro.Button.Outlined"
                             android:layout_width="match_parent"
                             android:layout_height="44dp"
-                            android:layout_marginTop="9dp"
+                            android:layout_marginTop="6dp"
                             android:text="Clear Payment Result"
                             android:textColor="@color/secondary"
                             app:backgroundTint="@color/app_surface"
@@ -453,28 +321,11 @@
 
                 <!-- EXPENSE DATE -->
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Expense Date"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Tap the field to choose a different date"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Expense date"
                     app:boxStrokeColor="@color/expense">
 
@@ -496,28 +347,11 @@
 
                 <!-- NOTE -->
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Note"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Optional information about this expense"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Write an optional note"
                     app:boxStrokeColor="@color/expense"
                     app:counterEnabled="true"
@@ -533,30 +367,11 @@
                         android:maxLines="5"
                         android:minHeight="104dp"
                         android:minLines="3"
-                        android:paddingTop="14dp"
+                        android:paddingTop="10dp"
                         android:textColor="@color/app_text_primary"
                         android:textSize="14sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- BILL PHOTO HEADING -->
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="Bill Photo"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Optionally attach the shop bill or payment receipt"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
 
                 <!-- RECEIPT CARD -->
 
@@ -632,7 +447,7 @@
                             style="@style/Widget.MoneyManagerPro.Button.Outlined"
                             android:layout_width="match_parent"
                             android:layout_height="50dp"
-                            android:layout_marginTop="13dp"
+                            android:layout_marginTop="6dp"
                             android:text="Choose Bill Photo"
                             android:textColor="@color/expense"
                             app:backgroundTint="@color/app_surface"
@@ -693,7 +508,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="13dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/expense_surface"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
@@ -746,7 +561,7 @@
             style="@style/Widget.MoneyManagerPro.Button.Secondary"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="6dp"
             android:text="Save Expense"
             android:textColor="@color/white"
             app:backgroundTint="@color/expense"

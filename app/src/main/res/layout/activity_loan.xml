@@ -53,14 +53,6 @@
                     android:text="Smart Loan Tracker"
                     android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:maxLines="2"
-                    android:text="Loans, EMI payments and outstanding balances in one place."
-                    android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
-
             </LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
@@ -89,7 +81,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="6dp"
             android:orientation="horizontal">
 
             <com.google.android.material.card.MaterialCardView
@@ -209,21 +201,14 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="6dp"
             android:text="Create Loan Tracker"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="Compact loan details and EMI schedule"
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
@@ -234,7 +219,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="12dp">
+                android:padding="10dp">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -546,7 +531,7 @@
                         android:maxLength="250"
                         android:maxLines="3"
                         android:minHeight="64dp"
-                        android:paddingTop="12dp"
+                        android:paddingTop="10dp"
                         android:textColor="@color/app_text_primary"
                         android:textSize="13sp" />
 
@@ -557,7 +542,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Primary"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:text="Save Smart Loan" />
 
                 <TextView
@@ -576,7 +561,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Saved Loans"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -590,7 +575,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
@@ -602,7 +587,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:padding="20dp"
+                android:padding="10dp"
                 android:text="No loans found. Create your first tracker above."
                 android:textColor="@color/app_text_secondary"
                 android:textSize="12sp"
@@ -614,7 +599,7 @@
             android:id="@+id/loanContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:orientation="vertical" />
 
     </LinearLayout>

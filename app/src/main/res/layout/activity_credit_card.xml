@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="18dp"
-        android:paddingTop="18dp"
+        android:paddingTop="10dp"
         android:paddingEnd="18dp"
         android:paddingBottom="36dp">
 
@@ -46,19 +46,10 @@
             android:textSize="28sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="Statement cycle, billing date, due date और card payments को एक जगह manage करें।"
-            android:textColor="@color/app_text_secondary"
-            android:textSize="14sp" />
-
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/purple_surface"
             app:cardCornerRadius="22dp"
             app:cardElevation="1dp"
@@ -69,7 +60,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="10dp">
 
                 <TextView
                     android:id="@+id/txtCardFormTitle"
@@ -93,7 +84,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Card name / Bank">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -108,7 +99,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:baselineAligned="false"
                     android:orientation="horizontal">
 
@@ -155,7 +146,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:baselineAligned="false"
                     android:orientation="horizontal">
 
@@ -197,7 +188,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Default payment account">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -212,7 +203,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Reminder before due date">
 
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView
@@ -227,7 +218,7 @@
                     android:id="@+id/btnSaveCreditCard"
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="6dp"
                     android:text="Save Credit Card"
                     android:textAllCaps="false"
                     android:textStyle="bold"
@@ -238,7 +229,7 @@
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:text="Cancel Editing"
                     android:textAllCaps="false"
                     android:visibility="gone"
@@ -251,7 +242,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Your Credit Cards"
             android:textColor="@color/app_text_primary"
             android:textSize="19sp"
@@ -261,10 +252,10 @@
             android:id="@+id/txtEmptyCreditCards"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:background="@color/app_surface"
             android:gravity="center"
-            android:padding="22dp"
+            android:padding="10dp"
             android:text="अभी कोई credit card नहीं जोड़ा गया है।"
             android:textColor="@color/app_text_secondary"
             android:textSize="14sp" />
@@ -273,7 +264,7 @@
             android:id="@+id/creditCardContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:orientation="vertical" />
 
     </LinearLayout>

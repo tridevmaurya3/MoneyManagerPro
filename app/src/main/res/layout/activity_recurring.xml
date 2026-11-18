@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="16dp"
-        android:paddingTop="14dp"
+        android:paddingTop="10dp"
         android:paddingEnd="16dp"
         android:paddingBottom="36dp">
 
@@ -46,69 +46,14 @@
             android:text="Recurring Entries"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="Schedule regular income and expense transactions."
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
-
         <!-- OVERVIEW CARD -->
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="17dp"
-            app:cardBackgroundColor="@color/warning_surface"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="1dp"
-            app:strokeColor="@color/warning_outline"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="17dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="0dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Automate Regular Entries"
-                        android:textColor="@color/warning"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="Create schedules for salary, rent, bills, subscriptions and other repeated transactions."
-                        android:textColor="@color/app_text_secondary"
-                        android:textSize="11sp" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
 
         <!-- CREATE ENTRY HEADING -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Create Recurring Entry"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -124,7 +69,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="20dp"
             app:cardElevation="1dp"
@@ -135,7 +80,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="17dp">
+                android:padding="10dp">
 
                 <!-- ENTRY TYPE -->
 
@@ -159,7 +104,7 @@
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select entry type"
                     app:endIconMode="dropdown_menu">
 
@@ -183,25 +128,17 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Category"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Categories change automatically according to entry type"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select category"
                     app:endIconMode="dropdown_menu">
 
@@ -225,25 +162,17 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Account"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Select the account used for each generated transaction"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select account"
                     app:endIconMode="dropdown_menu">
 
@@ -267,26 +196,18 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Amount"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="This amount will be used whenever the schedule runs"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/inputAmount"
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Recurring amount"
                     app:prefixText="₹  ">
 
@@ -309,25 +230,17 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Frequency"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Choose daily, weekly, monthly or yearly repetition"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select frequency"
                     app:endIconMode="dropdown_menu">
 
@@ -351,7 +264,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Start Date"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
@@ -369,7 +282,7 @@
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Schedule start date">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -393,25 +306,17 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Note"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Optional information added to generated transactions"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Example: Monthly mobile recharge"
                     app:counterEnabled="true"
                     app:counterMaxLength="250">
@@ -426,7 +331,7 @@
                         android:maxLines="5"
                         android:minHeight="100dp"
                         android:minLines="3"
-                        android:paddingTop="14dp"
+                        android:paddingTop="10dp"
                         android:textColor="@color/app_text_primary"
                         android:textSize="14sp" />
 
@@ -439,7 +344,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Secondary"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="6dp"
                     android:text="Save Recurring Entry"
                     android:textColor="@color/white"
                     app:backgroundTint="@color/warning"
@@ -454,7 +359,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Process Due Entries"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -468,7 +373,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/info_surface"
             app:cardCornerRadius="17dp"
             app:cardElevation="0dp"
@@ -513,7 +418,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Outlined"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="6dp"
                     android:text="Run Due Entries Now"
                     android:textColor="@color/secondary"
                     app:backgroundTint="@color/app_surface"
@@ -530,7 +435,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Your Recurring Schedules"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -547,13 +452,13 @@
             android:id="@+id/txtEmptyRecurring"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
             android:paddingStart="20dp"
-            android:paddingTop="30dp"
+            android:paddingTop="10dp"
             android:paddingEnd="20dp"
-            android:paddingBottom="30dp"
+            android:paddingBottom="10dp"
             android:text="No recurring entries created yet.&#10;Create your first schedule using the form above."
             android:textColor="@color/app_text_secondary"
             android:textSize="14sp"

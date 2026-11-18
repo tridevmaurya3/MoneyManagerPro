@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="16dp"
-        android:paddingTop="14dp"
+        android:paddingTop="10dp"
         android:paddingEnd="16dp"
         android:paddingBottom="36dp">
 
@@ -46,20 +46,12 @@
             android:text="Transfer Money"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="Move money securely from one account to another."
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
-
         <!-- TRANSFER OVERVIEW -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="17dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/purple_surface"
             app:cardCornerRadius="22dp"
             app:cardElevation="1dp"
@@ -103,28 +95,12 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- FORM HEADING -->
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Transfer Details"
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:text="Select different source and destination accounts"
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
-
         <!-- FORM CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="20dp"
             app:cardElevation="1dp"
@@ -135,7 +111,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="17dp">
+                android:padding="10dp">
 
                 <!-- FROM ACCOUNT -->
 
@@ -147,19 +123,11 @@
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Money will be deducted from this account"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select source account"
                     app:endIconMode="dropdown_menu">
 
@@ -232,19 +200,11 @@
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Money will be added to this account"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select destination account"
                     app:endIconMode="dropdown_menu">
 
@@ -268,26 +228,18 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Transfer Amount"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Enter the amount you want to move"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/inputAmount"
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Transfer amount"
                     app:prefixText="₹  ">
 
@@ -310,25 +262,17 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Transfer Date"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Tap the field to choose another date"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Transfer date">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -352,25 +296,17 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="17dp"
+                    android:layout_marginTop="6dp"
                     android:text="Note"
                     android:textColor="@color/app_text_primary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Add optional information about this transfer"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Example: Cash deposit to bank"
                     app:counterEnabled="true"
                     app:counterMaxLength="250">
@@ -385,7 +321,7 @@
                         android:maxLines="5"
                         android:minHeight="100dp"
                         android:minLines="3"
-                        android:paddingTop="14dp"
+                        android:paddingTop="10dp"
                         android:textColor="@color/app_text_primary"
                         android:textSize="14sp" />
 
@@ -400,7 +336,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="13dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/info_surface"
             app:cardCornerRadius="15dp"
             app:cardElevation="0dp"
@@ -444,7 +380,7 @@
             style="@style/Widget.MoneyManagerPro.Button.Secondary"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="17dp"
+            android:layout_marginTop="6dp"
             android:text="Transfer Money"
             android:textColor="@color/white"
             app:backgroundTint="@color/purple"

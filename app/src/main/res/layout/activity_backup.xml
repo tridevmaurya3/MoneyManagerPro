@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="16dp"
-        android:paddingTop="16dp"
+        android:paddingTop="10dp"
         android:paddingEnd="16dp"
         android:paddingBottom="40dp">
 
@@ -363,7 +363,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="#F2FAF4"
             app:cardCornerRadius="19dp"
             app:cardElevation="0dp"
@@ -374,7 +374,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -457,7 +457,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Backup frequency"
                     app:boxBackgroundColor="#FFFFFF"
                     app:boxCornerRadiusBottomEnd="13dp"
@@ -498,7 +498,7 @@
                     android:id="@+id/groupOfflineWeeklyDay"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="11dp"
+                    android:layout_marginTop="6dp"
                     android:orientation="vertical"
                     android:visibility="gone">
 
@@ -533,7 +533,7 @@
                     android:id="@+id/groupOfflineMonthlyDay"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="11dp"
+                    android:layout_marginTop="6dp"
                     android:orientation="vertical"
                     android:visibility="gone">
 
@@ -625,7 +625,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="#F2F6FF"
             app:cardCornerRadius="19dp"
             app:cardElevation="0dp"
@@ -636,7 +636,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="10dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -807,7 +807,7 @@
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="11dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Cloud backup frequency"
                     app:boxBackgroundColor="#FFFFFF"
                     app:boxCornerRadiusBottomEnd="13dp"
@@ -848,7 +848,7 @@
                     android:id="@+id/groupCloudWeeklyDay"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="11dp"
+                    android:layout_marginTop="6dp"
                     android:orientation="vertical"
                     android:visibility="gone">
 
@@ -883,7 +883,7 @@
                     android:id="@+id/groupCloudMonthlyDay"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="11dp"
+                    android:layout_marginTop="6dp"
                     android:orientation="vertical"
                     android:visibility="gone">
 

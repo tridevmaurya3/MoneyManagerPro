@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="16dp"
-        android:paddingTop="14dp"
+        android:paddingTop="10dp"
         android:paddingEnd="16dp"
         android:paddingBottom="36dp">
 
@@ -42,73 +42,18 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:text="Accounts &amp; Wallets"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="Manage cash, bank accounts, UPI and digital wallets from one place."
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
-
         <!-- ACCOUNT OVERVIEW CARD -->
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            app:cardBackgroundColor="@color/info_surface"
-            app:cardCornerRadius="22dp"
-            app:cardElevation="1dp"
-            app:strokeColor="@color/info_outline"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="18dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="0dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Account Manager"
-                        android:textColor="#274C6B"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="Create accounts and monitor their current balances."
-                        android:textColor="#5F7485"
-                        android:textSize="12sp" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
 
         <!-- ADD ACCOUNT SECTION -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Add New Account"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -124,7 +69,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="13dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="20dp"
             app:cardElevation="1dp"
@@ -135,31 +80,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="10dp">
 
                 <!-- ACCOUNT NAME -->
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Account or Wallet"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Select a bank, wallet or custom account"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select account"
                     app:endIconMode="dropdown_menu">
 
@@ -185,7 +114,7 @@
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Custom account name"
                     android:visibility="gone">
 
@@ -250,29 +179,12 @@
 
                 <!-- OPENING BALANCE -->
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Opening Balance"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Enter the account balance available right now"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/inputOpeningBalance"
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Opening balance"
                     app:prefixText="₹  ">
 
@@ -292,28 +204,11 @@
 
                 <!-- ACCOUNT COLOR -->
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Account Color"
-                    android:textColor="@color/app_text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="This color helps identify the account"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="11sp" />
-
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MoneyManagerPro.TextInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:hint="Select color"
                     app:endIconMode="dropdown_menu">
 
@@ -339,7 +234,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Secondary"
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginTop="6dp"
                     android:text="Save Account" />
 
             </LinearLayout>
@@ -353,7 +248,7 @@
             style="@style/Widget.MoneyManagerPro.Button.Outlined"
             android:layout_width="match_parent"
             android:layout_height="54dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:text="Transfer Money Between Accounts"
             android:textColor="@color/purple"
             app:backgroundTint="@color/purple_surface"
@@ -364,14 +259,14 @@
         <com.example.moneymanagerpro.account.ArchivedAccountRecoveryView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" />
+            android:layout_marginTop="6dp" />
 
         <!-- YOUR ACCOUNTS SECTION -->
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Your Accounts"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -387,7 +282,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="13dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"
@@ -401,9 +296,9 @@
                 android:gravity="center"
                 android:lineSpacingExtra="3dp"
                 android:paddingStart="20dp"
-                android:paddingTop="28dp"
+                android:paddingTop="10dp"
                 android:paddingEnd="20dp"
-                android:paddingBottom="28dp"
+                android:paddingBottom="10dp"
                 android:text="No accounts found.&#10;Create your first account above."
                 android:textColor="@color/app_text_secondary"
                 android:textSize="14sp"
@@ -417,7 +312,7 @@
             android:id="@+id/accountContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:orientation="vertical" />
 
     </LinearLayout>

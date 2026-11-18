@@ -15,7 +15,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="16dp"
-        android:paddingTop="14dp"
+        android:paddingTop="10dp"
         android:paddingEnd="16dp"
         android:paddingBottom="38dp">
 
@@ -46,20 +46,12 @@
             android:text="Bills &amp; Subscriptions"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageTitle" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="Track recurring payments, receive due-date reminders and record completed bills as expenses."
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.PageSubtitle" />
-
         <!-- INTRODUCTION CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="17dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/purple_surface"
             app:cardCornerRadius="22dp"
             app:cardElevation="1dp"
@@ -108,7 +100,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:baselineAligned="false"
             android:orientation="horizontal">
 
@@ -218,23 +210,16 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Add New Bill"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
-            android:text="Enter payment details and select when the next bill is due"
-            android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionSubtitle" />
 
         <!-- FORM CARD -->
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="22dp"
             app:cardElevation="1dp"
@@ -245,7 +230,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="10dp">
 
                 <!-- FORM INTRO -->
 
@@ -289,14 +274,6 @@
                             android:textColor="@color/app_text_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Required fields help create accurate reminders"
-                            android:textColor="@color/app_text_secondary"
-                            android:textSize="10sp" />
 
                     </LinearLayout>
 
@@ -353,7 +330,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="6dp"
                     android:text="Payment Amount"
                     android:textColor="@color/app_text_primary"
                     android:textSize="12sp"
@@ -393,7 +370,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="6dp"
                     android:text="Billing Cycle"
                     android:textColor="@color/app_text_primary"
                     android:textSize="12sp"
@@ -430,7 +407,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="6dp"
                     android:text="Pay From Account"
                     android:textColor="@color/app_text_primary"
                     android:textSize="12sp"
@@ -467,7 +444,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="6dp"
                     android:text="Next Due Date"
                     android:textColor="@color/app_text_primary"
                     android:textSize="12sp"
@@ -503,7 +480,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="6dp"
                     android:text="Reminder Timing"
                     android:textColor="@color/app_text_primary"
                     android:textSize="12sp"
@@ -540,7 +517,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="15dp"
+                    android:layout_marginTop="6dp"
                     android:text="Note"
                     android:textColor="@color/app_text_primary"
                     android:textSize="12sp"
@@ -568,9 +545,9 @@
                         android:maxLines="5"
                         android:minLines="3"
                         android:paddingStart="14dp"
-                        android:paddingTop="14dp"
+                        android:paddingTop="10dp"
                         android:paddingEnd="14dp"
-                        android:paddingBottom="14dp"
+                        android:paddingBottom="10dp"
                         android:textColor="@color/app_text_primary"
                         android:textColorHint="@color/app_text_secondary"
                         android:textSize="14sp" />
@@ -584,7 +561,7 @@
                     style="@style/Widget.MoneyManagerPro.Button.Secondary"
                     android:layout_width="match_parent"
                     android:layout_height="56dp"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="6dp"
                     android:text="Save Bill / Subscription"
                     android:textColor="@color/white"
                     app:backgroundTint="@color/purple"
@@ -599,7 +576,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/info_surface"
             app:cardCornerRadius="15dp"
             app:cardElevation="0dp"
@@ -641,7 +618,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:text="Saved Bills &amp; Subscriptions"
             android:textAppearance="@style/TextAppearance.MoneyManagerPro.SectionTitle" />
 
@@ -658,14 +635,14 @@
             android:id="@+id/txtEmptySubscriptions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:background="@color/app_surface"
             android:gravity="center"
             android:lineSpacingExtra="3dp"
             android:paddingStart="24dp"
-            android:paddingTop="30dp"
+            android:paddingTop="10dp"
             android:paddingEnd="24dp"
-            android:paddingBottom="30dp"
+            android:paddingBottom="10dp"
             android:text="No bills or subscriptions created yet.&#10;Use the form above to add your first recurring payment."
             android:textColor="@color/app_text_secondary"
             android:textSize="13sp"
@@ -677,7 +654,7 @@
             android:id="@+id/subscriptionContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:orientation="vertical">
 
             <com.google.android.material.card.MaterialCardView
@@ -696,9 +673,9 @@
                     android:gravity="center"
                     android:lineSpacingExtra="3dp"
                     android:paddingStart="22dp"
-                    android:paddingTop="26dp"
+                    android:paddingTop="10dp"
                     android:paddingEnd="22dp"
-                    android:paddingBottom="26dp"
+                    android:paddingBottom="10dp"
                     android:text="Loading saved bills and subscriptions..."
                     android:textColor="@color/app_text_secondary"
                     android:textSize="13sp" />
@@ -712,7 +689,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             app:cardBackgroundColor="@color/warning_surface"
             app:cardCornerRadius="15dp"
             app:cardElevation="0dp"

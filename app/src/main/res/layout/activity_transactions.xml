@@ -213,18 +213,10 @@
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
-            android:text="Search instantly, then use Filter or Sort"
-            android:textColor="@color/app_text_secondary"
-            android:textSize="9sp" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -304,7 +296,7 @@
             android:id="@+id/transactionFilterPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:visibility="gone"
             app:cardBackgroundColor="@color/app_surface"
             app:cardCornerRadius="16dp"
@@ -325,14 +317,6 @@
                     android:textColor="@color/app_text_primary"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="1dp"
-                    android:text="Choose only the criteria you need"
-                    android:textColor="@color/app_text_secondary"
-                    android:textSize="8sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
