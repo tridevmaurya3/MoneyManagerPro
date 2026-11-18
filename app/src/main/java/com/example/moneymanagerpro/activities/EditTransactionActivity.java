@@ -27,12 +27,12 @@ import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.repository.AccountRepository;
 import com.example.moneymanagerpro.repository.CategoryRepository;
 import com.example.moneymanagerpro.repository.TransactionRepository;
+import com.example.moneymanagerpro.utils.ExpenseItemPriceCalculator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -523,6 +523,7 @@ public class EditTransactionActivity extends AppCompatActivity {
         };
 
         quantity.addTextChangedListener(watcher);
+        unit.addTextChangedListener(watcher);
         price.addTextChangedListener(watcher);
 
         remove.setOnClickListener(view -> {
@@ -576,36 +577,17 @@ public class EditTransactionActivity extends AppCompatActivity {
         );
     }
 
-    private void updateItemTotal(View row) {
-        BigDecimal quantity =
-                parsePositiveDecimal(
-                        itemText(
-                                row,
-                                R.id.etItemQuantity
-                        )
-                );
-        BigDecimal price =
-                parsePositiveDecimal(
-                        itemText(
-                                row,
-                                R.id.etItemPrice
-                        )
-                );
-        BigDecimal total =
-                quantity != null
-                        && price != null
-                        ? quantity.multiply(price)
-                        .setScale(
-                                2,
-                                RoundingMode.HALF_UP
-                        )
-                        : BigDecimal.ZERO;
+    private BigDecimal calculateItemTotal(View row) {
+        BigDecimal quantity = parsePositiveDecimal(itemText(row, R.id.etItemQuantity));
+        BigDecimal price = parsePositiveDecimal(itemText(row, R.id.etItemPrice));
+        String unit = itemText(row, R.id.etItemUnit);
+        return ExpenseItemPriceCalculator.calculate(quantity, unit, price);
+    }
 
+    private void updateItemTotal(View row) {
         TextInputEditText totalField =
                 row.findViewById(R.id.etItemTotal);
-        totalField.setText(
-                formatMoney(total)
-        );
+        totalField.setText(formatMoney(calculateItemTotal(row)));
         updateItemsSummary();
     }
 
@@ -613,38 +595,13 @@ public class EditTransactionActivity extends AppCompatActivity {
         BigDecimal total = BigDecimal.ZERO;
 
         for (View row : itemRows) {
-            BigDecimal quantity =
-                    parsePositiveDecimal(
-                            itemText(
-                                    row,
-                                    R.id.etItemQuantity
-                            )
-                    );
-            BigDecimal price =
-                    parsePositiveDecimal(
-                            itemText(
-                                    row,
-                                    R.id.etItemPrice
-                            )
-                    );
-
-            if (quantity != null
-                    && price != null) {
-                total = total.add(
-                        quantity.multiply(price)
-                );
-            }
+            total = total.add(calculateItemTotal(row));
         }
 
         txtEditItemsTotal.setText(
                 getString(
                         R.string.expense_items_total,
-                        formatMoney(
-                                total.setScale(
-                                        2,
-                                        RoundingMode.HALF_UP
-                                )
-                        )
+                        formatMoney(total)
                 )
         );
     }
@@ -727,12 +684,7 @@ public class EditTransactionActivity extends AppCompatActivity {
             item.setUnit(unit);
             item.setPrice(price.doubleValue());
             item.setTotal(
-                    quantity.multiply(price)
-                            .setScale(
-                                    2,
-                                    RoundingMode.HALF_UP
-                            )
-                            .doubleValue()
+                    ExpenseItemPriceCalculator.calculate(quantity, unit, price).doubleValue()
             );
             item.setSortOrder(items.size());
             items.add(item);
