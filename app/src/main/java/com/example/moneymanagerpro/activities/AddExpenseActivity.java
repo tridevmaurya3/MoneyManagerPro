@@ -28,6 +28,7 @@ import com.example.moneymanagerpro.model.Category;
 import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.utils.ExpenseItemPriceCalculator;
+import com.example.moneymanagerpro.utils.FamilyGroceryImport;
 import com.example.moneymanagerpro.utils.ReceiptStore;
 import com.example.moneymanagerpro.utils.UpiPaymentResultParser;
 import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
@@ -199,6 +200,12 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnRemoveReceipt.setOnClickListener(v -> clearReceiptPreview());
 
         btnMoreItem.setOnClickListener(v -> addItemRow());
+        View importGrocery = findViewById(R.id.btnImportGrocery);
+        importGrocery.setOnClickListener(v -> {
+            v.setEnabled(false);
+            FamilyGroceryImport.pick(this, false, () -> !isFinishing() && !isDestroyed(),
+                    dialog -> v.setEnabled(dialog == null), this::importGroceryItems);
+        });
 
         btnPayWithUpi.setOnClickListener(
                 view -> launchUpiPayment()
@@ -527,6 +534,26 @@ public class AddExpenseActivity extends AppCompatActivity {
             String value
     ) {
         editText.setText(value == null ? "" : value);
+    }
+
+    private void importGroceryItems(List<FamilyGroceryImport.Item> items) {
+        View blank = itemRows.size() == 1 ? itemRows.get(0) : null;
+        if (blank != null && (!textOf(blank.findViewById(R.id.etItemName)).isEmpty()
+                || !textOf(blank.findViewById(R.id.etItemQuantity)).isEmpty()
+                || !textOf(blank.findViewById(R.id.etItemUnit)).isEmpty()
+                || !textOf(blank.findViewById(R.id.etItemPrice)).isEmpty())) blank = null;
+        if (items.size() > MAX_ITEM_ROWS - itemRows.size() + (blank == null ? 0 : 1)) {
+            Toast.makeText(this, "Select fewer items (maximum 50 rows)", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        for (FamilyGroceryImport.Item item : items) {
+            if (blank == null) addItemRow();
+            View row = blank == null ? itemRows.get(itemRows.size() - 1) : blank;
+            blank = null;
+            setText(row.findViewById(R.id.etItemName), item.name);
+            setText(row.findViewById(R.id.etItemQuantity), item.quantity);
+            setText(row.findViewById(R.id.etItemUnit), item.unit);
+        }
     }
 
     private void addItemRow() {

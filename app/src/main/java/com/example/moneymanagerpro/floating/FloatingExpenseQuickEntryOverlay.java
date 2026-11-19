@@ -43,6 +43,7 @@ import com.example.moneymanagerpro.model.ExpenseItem;
 import com.example.moneymanagerpro.model.Transaction;
 import com.example.moneymanagerpro.security.AppInactivityLockManager;
 import com.example.moneymanagerpro.utils.ExpenseItemPriceCalculator;
+import com.example.moneymanagerpro.utils.FamilyGroceryImport;
 import com.example.moneymanagerpro.utils.ReceiptStore;
 import com.example.moneymanagerpro.utils.UpiPaymentResultParser;
 import com.example.moneymanagerpro.utils.UpiQrPayloadParser;
@@ -111,6 +112,7 @@ final class FloatingExpenseQuickEntryOverlay {
     private TextView dateField;
     private TextView itemsTotalView;
     private TextView addItemButton;
+    private android.app.AlertDialog groceryImportDialog;
     private TextView payUpiButton;
     private TextView billButton;
     private TextView saveButton;
@@ -194,6 +196,7 @@ final class FloatingExpenseQuickEntryOverlay {
             return;
         }
         dismissed = true;
+        if (groceryImportDialog != null) groceryImportDialog.dismiss();
 
         if (windowManager != null && rootView != null) {
             try {
@@ -672,12 +675,20 @@ final class FloatingExpenseQuickEntryOverlay {
 
     private void buildItemsSection(LinearLayout body) {
         TextView heading = label("Optional Item Details");
-        LinearLayout.LayoutParams headingParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(20)
-        );
-        headingParams.topMargin = dp(3);
-        body.addView(heading, headingParams);
+        LinearLayout headingRow = new LinearLayout(context);
+        headingRow.setGravity(Gravity.CENTER_VERTICAL);
+        headingRow.addView(heading, new LinearLayout.LayoutParams(0, dp(30), 1f));
+        TextView importButton = outlineButton("Import Grocery", "#A92518");
+        headingRow.addView(importButton, new LinearLayout.LayoutParams(dp(112), dp(34)));
+        body.addView(headingRow);
+        importButton.setOnClickListener(v -> {
+            v.setEnabled(false);
+            FamilyGroceryImport.pick(context, true, () -> !dismissed && rootView != null,
+                    dialog -> {
+                        groceryImportDialog = dialog;
+                        v.setEnabled(dialog == null);
+                    }, this::importGroceryItems);
+        });
 
         itemsContainer = new LinearLayout(context);
         itemsContainer.setOrientation(LinearLayout.VERTICAL);
@@ -721,6 +732,25 @@ final class FloatingExpenseQuickEntryOverlay {
             }
         });
         addItemRow();
+    }
+
+    private void importGroceryItems(List<FamilyGroceryImport.Item> items) {
+        ItemRow blank = itemRows.size() == 1 ? itemRows.get(0) : null;
+        if (blank != null && (!clean(blank.name).isEmpty() || !clean(blank.quantity).isEmpty()
+                || !clean(blank.price).isEmpty())) blank = null;
+        if (items.size() > MAX_ITEM_ROWS - itemRows.size() + (blank == null ? 0 : 1)) {
+            android.widget.Toast.makeText(context, "Select fewer items (maximum 50 rows)",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        for (FamilyGroceryImport.Item item : items) {
+            if (blank == null) addItemRow();
+            ItemRow row = blank == null ? itemRows.get(itemRows.size() - 1) : blank;
+            blank = null;
+            row.name.setText(item.name);
+            row.quantity.setText(item.quantity);
+            if (!item.unit.isEmpty()) row.unit.setSelectedValue(item.unit, true);
+        }
     }
 
     private void addItemRow() {
