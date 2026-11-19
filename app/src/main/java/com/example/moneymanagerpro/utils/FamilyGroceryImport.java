@@ -2,13 +2,24 @@ package com.example.moneymanagerpro.utils;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.ContextThemeWrapper;
+import android.view.Gravity;
 import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -101,26 +112,118 @@ public final class FamilyGroceryImport {
                     onShown.accept(null);
                     return;
                 }
-                CharSequence[] labels = new CharSequence[items.size()];
-                boolean[] selected = new boolean[items.size()];
-                for (int i = 0; i < items.size(); i++) labels[i] = items.get(i).label();
-                Context themed = new ContextThemeWrapper(context, android.R.style.Theme_Material_Light_Dialog_Alert);
-                AlertDialog dialog = new AlertDialog.Builder(themed)
-                        .setTitle("Import Grocery")
-                        .setMultiChoiceItems(labels, selected, (d, index, checked) -> selected[index] = checked)
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .setPositiveButton("Import items", (d, which) -> {
-                            if (!active.getAsBoolean()) return;
-                            List<Item> chosen = new ArrayList<>();
-                            for (int i = 0; i < items.size(); i++) if (selected[i]) chosen.add(items.get(i));
-                            if (!chosen.isEmpty()) onImport.accept(chosen);
-                        })
-                        .create();
-                if (floating) dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
-                dialog.setOnDismissListener(d -> onShown.accept(null));
-                onShown.accept(dialog);
-                dialog.show();
+                showPicker(context, floating, active, onShown, onImport, items);
             });
         }, "FamilyGroceryImport").start();
+    }
+    private static void showPicker(Context context, boolean floating, BooleanSupplier active,
+                                   Consumer<AlertDialog> onShown, Consumer<List<Item>> onImport,
+                                   List<Item> items) {
+        Context themed = new ContextThemeWrapper(context, android.R.style.Theme_Material_Light_Dialog_Alert);
+        int deepGreen = 0xff146550;
+        LinearLayout panel = new LinearLayout(themed);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        int padding = dp(themed, 14);
+        panel.setPadding(padding, padding, padding, padding);
+        panel.setBackground(surface(themed, 0xfff7fcfa, 0xffbedbd0, 20));
+
+        TextView title = new TextView(themed);
+        title.setText("Import Grocery");
+        title.setTextSize(21);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setTextColor(deepGreen);
+        panel.addView(title);
+
+        TextView count = new TextView(themed);
+        count.setTextColor(deepGreen);
+        count.setTextSize(13);
+        count.setPadding(0, dp(themed, 4), 0, dp(themed, 10));
+        panel.addView(count);
+
+        ScrollView scroll = new ScrollView(themed);
+        LinearLayout list = new LinearLayout(themed);
+        list.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(list);
+        int listHeight = Math.min(dp(themed, 310), context.getResources().getDisplayMetrics().heightPixels / 3);
+        panel.addView(scroll, new LinearLayout.LayoutParams(-1,
+                Math.min(listHeight, items.size() * dp(themed, 58))));
+
+        LinearLayout footer = new LinearLayout(themed);
+        footer.setGravity(Gravity.CENTER_VERTICAL);
+        footer.setPadding(0, dp(themed, 10), 0, 0);
+        Button cancel = action(themed, "Cancel", 0xffe7f4ee, deepGreen);
+        Button confirm = action(themed, "Import items", deepGreen, Color.WHITE);
+        footer.addView(cancel, new LinearLayout.LayoutParams(0, dp(themed, 48), 1));
+        LinearLayout.LayoutParams confirmParams = new LinearLayout.LayoutParams(0, dp(themed, 48), 2);
+        confirmParams.setMarginStart(dp(themed, 8));
+        footer.addView(confirm, confirmParams);
+        panel.addView(footer);
+
+        List<Item> selected = new ArrayList<>();
+        count.setText("0 selected");
+        confirm.setEnabled(false);
+        confirm.setAlpha(0.55f);
+        for (Item item : items) {
+            CheckBox row = new CheckBox(themed);
+            row.setText(item.label());
+            row.setTextColor(0xff163e35);
+            row.setTextSize(15);
+            row.setMinHeight(dp(themed, 52));
+            row.setPadding(dp(themed, 8), dp(themed, 4), dp(themed, 10), dp(themed, 4));
+            row.setButtonTintList(ColorStateList.valueOf(deepGreen));
+            row.setBackground(surface(themed, 0xffedf8f3, 0xffd1e8de, 12));
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+            rowParams.bottomMargin = dp(themed, 6);
+            list.addView(row, rowParams);
+            row.setOnCheckedChangeListener((button, checked) -> {
+                if (checked) selected.add(item);
+                else selected.remove(item);
+                row.setBackground(surface(themed, checked ? 0xffd5eee3 : 0xffedf8f3,
+                        checked ? 0xff72aa96 : 0xffd1e8de, 12));
+                count.setText(selected.size() + " selected");
+                confirm.setEnabled(!selected.isEmpty());
+                confirm.setAlpha(selected.isEmpty() ? 0.55f : 1f);
+            });
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(themed).setView(panel).create();
+        if (floating) dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        confirm.setOnClickListener(view -> {
+            if (!active.getAsBoolean() || selected.isEmpty()) return;
+            List<Item> chosen = new ArrayList<>();
+            for (Item item : items) if (selected.contains(item)) chosen.add(item);
+            dialog.dismiss();
+            onImport.accept(chosen);
+        });
+        dialog.setOnDismissListener(d -> onShown.accept(null));
+        onShown.accept(dialog);
+        dialog.show();
+        int width = Math.min(dp(themed, 440),
+                context.getResources().getDisplayMetrics().widthPixels - dp(themed, 28));
+        dialog.getWindow().setLayout(Math.max(1, width), WindowManager.LayoutParams.WRAP_CONTENT);
+    }
+
+    private static Button action(Context context, String label, int fill, int foreground) {
+        Button button = new Button(context);
+        button.setText(label);
+        button.setAllCaps(false);
+        button.setTextColor(foreground);
+        button.setBackground(surface(context, fill, fill, 12));
+        return button;
+    }
+
+    private static GradientDrawable surface(Context context, int fill, int stroke, int radius) {
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(fill);
+        background.setStroke(dp(context, 1), stroke);
+        background.setCornerRadius(dp(context, radius));
+        return background;
+    }
+
+    private static int dp(Context context, int value) {
+        return Math.round(value * context.getResources().getDisplayMetrics().density);
     }
 }
