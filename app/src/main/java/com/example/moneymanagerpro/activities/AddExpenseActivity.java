@@ -409,8 +409,13 @@ public class AddExpenseActivity extends AppCompatActivity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         ArrayList<String> savedRows = new ArrayList<>();
+        ArrayList<String> grocerySourceIds = new ArrayList<>();
+        ArrayList<Integer> groceryPurchaseCounts = new ArrayList<>();
 
         for (View row : itemRows) {
+            FamilyGroceryImport.Item imported = importedGrocery.get(row);
+            grocerySourceIds.add(imported == null ? "" : imported.sourceId);
+            groceryPurchaseCounts.add(imported == null ? 0 : imported.purchaseCount);
             savedRows.add(
                     textOf(row.findViewById(R.id.etItemName))
             );
@@ -430,6 +435,8 @@ public class AddExpenseActivity extends AppCompatActivity {
                 savedRows
         );
 
+        outState.putStringArrayList("grocery_source_ids", grocerySourceIds);
+        outState.putIntegerArrayList("grocery_purchase_counts", groceryPurchaseCounts);
         if (lastUpiPaymentResult != null) {
             outState.putSerializable(
                     STATE_UPI_RESULT,
@@ -500,12 +507,22 @@ public class AddExpenseActivity extends AppCompatActivity {
                 MAX_ITEM_ROWS
         );
 
+        ArrayList<String> grocerySourceIds = savedInstanceState.getStringArrayList("grocery_source_ids");
+        ArrayList<Integer> purchaseCounts = savedInstanceState.getIntegerArrayList("grocery_purchase_counts");
+
         for (int index = 0; index < rowCount; index++) {
             addItemRow();
 
             View row = itemRows.get(
                     itemRows.size() - 1
             );
+
+            if (grocerySourceIds != null && purchaseCounts != null
+                    && index < grocerySourceIds.size() && index < purchaseCounts.size()
+                    && !grocerySourceIds.get(index).isEmpty()) {
+                importedGrocery.put(row, new FamilyGroceryImport.Item(
+                        savedRows.get(index * 4), "", grocerySourceIds.get(index), purchaseCounts.get(index)));
+            }
 
             setText(
                     row.findViewById(R.id.etItemName),
@@ -536,7 +553,14 @@ public class AddExpenseActivity extends AppCompatActivity {
         editText.setText(value == null ? "" : value);
     }
 
+    private final java.util.Map<View, FamilyGroceryImport.Item> importedGrocery =
+            new java.util.HashMap<>();
+
     private void importGroceryItems(List<FamilyGroceryImport.Item> items) {
+        List<FamilyGroceryImport.Item> newItems = new ArrayList<>(items);
+        newItems.removeIf(item -> importedGrocery.values().stream()
+                .anyMatch(existing -> existing.sourceId.equals(item.sourceId)));
+        items = newItems;
         View blank = itemRows.size() == 1 ? itemRows.get(0) : null;
         if (blank != null && (!textOf(blank.findViewById(R.id.etItemName)).isEmpty()
                 || !textOf(blank.findViewById(R.id.etItemQuantity)).isEmpty()
@@ -550,6 +574,7 @@ public class AddExpenseActivity extends AppCompatActivity {
             if (blank == null) addItemRow();
             View row = blank == null ? itemRows.get(itemRows.size() - 1) : blank;
             blank = null;
+            importedGrocery.put(row, item);
             setText(row.findViewById(R.id.etItemName), item.name);
             setText(row.findViewById(R.id.etItemQuantity), item.quantity);
             setText(row.findViewById(R.id.etItemUnit), item.unit);
@@ -622,6 +647,7 @@ public class AddExpenseActivity extends AppCompatActivity {
 
         remove.setOnClickListener(view -> {
             itemRows.remove(row);
+            importedGrocery.remove(row);
             itemDetailsContainer.removeView(row);
             renumberItemRows();
             updateItemsSummary();
@@ -1323,6 +1349,13 @@ public class AddExpenseActivity extends AppCompatActivity {
         btnSaveExpense.setEnabled(false);
         btnSaveExpense.setText("Saving Expense...");
 
+        List<FamilyGroceryImport.Purchase> groceryPurchases = new ArrayList<>();
+        for (View row : itemRows) {
+            FamilyGroceryImport.Item imported = importedGrocery.get(row);
+            if (imported != null) groceryPurchases.add(
+                    new FamilyGroceryImport.Purchase(imported, calculateItemTotal(row).doubleValue()));
+        }
+
         new Thread(() -> {
             try {
                 AppDatabase database = DatabaseClient
@@ -1357,6 +1390,8 @@ public class AddExpenseActivity extends AppCompatActivity {
                     savedTransactionId[0] = transactionId;
                 });
 
+                boolean groceryCompleted = FamilyGroceryImport.complete(
+                        getApplicationContext(), groceryPurchases, savedTransactionId[0]);
                 if (!receiptUri.isEmpty()) {
                     ReceiptStore.saveReceiptUri(
                             getApplicationContext(),
@@ -1366,6 +1401,10 @@ public class AddExpenseActivity extends AppCompatActivity {
                 }
 
                 runOnUiThread(() -> {
+                    if (!groceryCompleted) {
+                        Toast.makeText(getApplicationContext(), "Expense saved, but some Grocery items could not be marked purchased",
+                                Toast.LENGTH_LONG).show();
+                    }
                     String message;
 
                     if (!expenseItems.isEmpty()

@@ -734,7 +734,14 @@ final class FloatingExpenseQuickEntryOverlay {
         addItemRow();
     }
 
+    private final java.util.Map<ItemRow, FamilyGroceryImport.Item> importedGrocery =
+            new java.util.HashMap<>();
+
     private void importGroceryItems(List<FamilyGroceryImport.Item> items) {
+        List<FamilyGroceryImport.Item> newItems = new ArrayList<>(items);
+        newItems.removeIf(item -> importedGrocery.values().stream()
+                .anyMatch(existing -> existing.sourceId.equals(item.sourceId)));
+        items = newItems;
         ItemRow blank = itemRows.size() == 1 ? itemRows.get(0) : null;
         if (blank != null && (!clean(blank.name).isEmpty() || !clean(blank.quantity).isEmpty()
                 || !clean(blank.price).isEmpty())) blank = null;
@@ -747,6 +754,7 @@ final class FloatingExpenseQuickEntryOverlay {
             if (blank == null) addItemRow();
             ItemRow row = blank == null ? itemRows.get(itemRows.size() - 1) : blank;
             blank = null;
+            importedGrocery.put(row, item);
             row.name.setText(item.name);
             row.quantity.setText(item.quantity);
             if (!item.unit.isEmpty()) row.unit.setSelectedValue(item.unit, true);
@@ -860,6 +868,7 @@ final class FloatingExpenseQuickEntryOverlay {
 
         remove.setOnClickListener(view -> {
             itemRows.remove(row);
+            importedGrocery.remove(row);
             itemsContainer.removeView(card);
             updateItemsTotal();
             updateAddItemState();
@@ -1142,6 +1151,13 @@ final class FloatingExpenseQuickEntryOverlay {
         final List<ExpenseItem> itemsToSave = expenseItems;
         final String receiptUri = selectedReceiptUri;
 
+        List<FamilyGroceryImport.Purchase> groceryPurchases = new ArrayList<>();
+        for (ItemRow row : itemRows) {
+            FamilyGroceryImport.Item imported = importedGrocery.get(row);
+            if (imported != null) groceryPurchases.add(
+                    new FamilyGroceryImport.Purchase(imported, calculateItemTotal(row).doubleValue()));
+        }
+
         new Thread(() -> {
             try {
                 AppDatabase database = DatabaseClient
@@ -1163,6 +1179,8 @@ final class FloatingExpenseQuickEntryOverlay {
                     savedTransactionId[0] = transactionId;
                 });
 
+                boolean groceryCompleted = FamilyGroceryImport.complete(
+                        context, groceryPurchases, savedTransactionId[0]);
                 if (!receiptUri.isEmpty()) {
                     ReceiptStore.saveReceiptUri(
                             context,
@@ -1172,6 +1190,10 @@ final class FloatingExpenseQuickEntryOverlay {
                 }
 
                 uiHandler.post(() -> {
+                    if (!groceryCompleted) {
+                        Toast.makeText(context, "Expense saved, but some Grocery items could not be marked purchased",
+                                Toast.LENGTH_LONG).show();
+                    }
                     String message;
                     if (!itemsToSave.isEmpty() && !receiptUri.isEmpty()) {
                         message = "Expense, items and bill photo saved";

@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.ContextThemeWrapper;
@@ -24,10 +25,13 @@ public final class FamilyGroceryImport {
     private FamilyGroceryImport() {}
 
     public static final class Item {
-        public final String name, quantity, unit;
+        public final String name, quantity, unit, sourceId;
+        public final int purchaseCount;
 
-        Item(String name, String raw) {
+        public Item(String name, String raw, String sourceId, int purchaseCount) {
             this.name = name;
+            this.sourceId = sourceId;
+            this.purchaseCount = purchaseCount;
             Matcher matcher = QUANTITY.matcher(raw == null ? "" : raw.trim());
             if (matcher.matches()) {
                 quantity = matcher.group(1);
@@ -44,6 +48,36 @@ public final class FamilyGroceryImport {
         }
     }
 
+    public static final class Purchase {
+        private final Item item;
+        private final double cost;
+
+        public Purchase(Item item, double cost) {
+            this.item = item;
+            this.cost = cost;
+        }
+    }
+
+    public static boolean complete(Context context, List<Purchase> purchases, long transactionId) {
+        boolean completed = true;
+        long now = System.currentTimeMillis();
+        for (Purchase purchase : purchases) {
+            Bundle request = new Bundle();
+            request.putString("id", purchase.item.sourceId);
+            request.putInt("count", purchase.item.purchaseCount);
+            request.putString("reference", "mm:" + transactionId + ":" + now);
+            request.putDouble("cost", purchase.cost);
+            request.putLong("at", now);
+            try {
+                Bundle result = context.getContentResolver().call(ITEMS, "complete_purchase", null, request);
+                if (result == null || !result.getBoolean("completed")) completed = false;
+            } catch (RuntimeException error) {
+                completed = false;
+            }
+        }
+        return completed;
+    }
+
     public static void pick(Context context, boolean floating, BooleanSupplier active,
                             Consumer<AlertDialog> onShown, Consumer<List<Item>> onImport) {
         new Thread(() -> {
@@ -52,7 +86,8 @@ public final class FamilyGroceryImport {
             try (Cursor rows = context.getContentResolver().query(ITEMS, null, null, null, null)) {
                 available = rows != null;
                 if (rows != null) {
-                    while (rows.moveToNext()) items.add(new Item(rows.getString(0), rows.getString(1)));
+                    while (rows.moveToNext()) items.add(new Item(rows.getString(0), rows.getString(1),
+                            rows.getString(2), rows.getInt(3)));
                 }
             } catch (RuntimeException e) {
                 available = false;
