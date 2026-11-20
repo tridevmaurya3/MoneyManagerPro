@@ -818,7 +818,7 @@ final class FloatingExpenseQuickEntryOverlay {
         unit.setOptions(Arrays.asList(UNITS));
 
         EditText price = createEditField(
-                "Price",
+                "Paid",
                 InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL
         );
         price.setTextSize(11f);
@@ -840,7 +840,7 @@ final class FloatingExpenseQuickEntryOverlay {
         card.addView(detailRow);
 
         TextView total = new TextView(context);
-        total.setText("₹0.00");
+        total.setText("");
         total.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         total.setTextSize(9f);
         total.setTextColor(Color.parseColor("#81514B"));
@@ -894,15 +894,13 @@ final class FloatingExpenseQuickEntryOverlay {
     }
 
     private BigDecimal calculateItemTotal(ItemRow row) {
-        BigDecimal quantity = parsePositive(clean(row.quantity));
-        BigDecimal price = parsePositive(clean(row.price));
-        String unit = row.unit == null ? "" : row.unit.selected();
-        return ExpenseItemPriceCalculator.calculate(quantity, unit, price);
+        return ExpenseItemPriceCalculator.paidTotal(parsePositive(clean(row.price)));
     }
 
     private void updateItemTotal(ItemRow row) {
-        BigDecimal total = calculateItemTotal(row);
-        row.total.setText("₹" + money(total));
+        BigDecimal quantity = parsePositive(clean(row.quantity));
+        BigDecimal paid = parsePositive(clean(row.price));
+        row.total.setText(ExpenseItemPriceCalculator.rateText(quantity, row.unit.selected(), paid));
         updateItemsTotal();
     }
 
@@ -1248,7 +1246,7 @@ final class FloatingExpenseQuickEntryOverlay {
             }
             BigDecimal price = parsePositive(priceText);
             if (price == null) {
-                row.price.setError("Enter price");
+                row.price.setError("Enter the amount paid");
                 row.price.requestFocus();
                 return null;
             }
@@ -1256,16 +1254,12 @@ final class FloatingExpenseQuickEntryOverlay {
                 unit = "Unit";
             }
 
-            BigDecimal total = ExpenseItemPriceCalculator.calculate(
-                    quantity,
-                    unit,
-                    price
-            );
+            BigDecimal total = ExpenseItemPriceCalculator.paidTotal(price);
             ExpenseItem item = new ExpenseItem();
             item.setItemName(name);
             item.setQuantity(quantity.doubleValue());
             item.setUnit(unit);
-            item.setPrice(price.doubleValue());
+            item.setPrice(ExpenseItemPriceCalculator.equivalentRate(quantity, unit, total).doubleValue());
             item.setTotal(total.doubleValue());
             item.setSortOrder(result.size());
             result.add(item);

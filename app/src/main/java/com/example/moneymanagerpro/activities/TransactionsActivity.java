@@ -25,6 +25,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import com.example.moneymanagerpro.utils.ExpenseItemPriceCalculator;
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.database.DatabaseClient;
 import com.example.moneymanagerpro.credit.CreditCardCycleCalculator;
@@ -3531,19 +3532,10 @@ public class TransactionsActivity extends AppCompatActivity {
                         );
             }
 
-            details.append(" • ")
-                    .append(
-                            formatAmount(
-                                    item.getPrice()
-                            )
-                    )
-                    .append(" each")
-                    .append(" • Total ")
-                    .append(
-                            formatAmount(
-                                    item.getTotal()
-                            )
-                    );
+            details.append(" • Paid ").append(formatAmount(item.getTotal()));
+            String rate = ExpenseItemPriceCalculator.rateText(
+                    item.getQuantity(), item.getUnit(), item.getTotal());
+            if (!rate.isEmpty()) details.append(" • ").append(rate);
         }
 
         TextView itemView =

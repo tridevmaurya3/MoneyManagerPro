@@ -31,6 +31,40 @@ public final class ExpenseItemPriceCalculator {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
+    public static BigDecimal paidTotal(BigDecimal paid) {
+        return (paid == null ? BigDecimal.ZERO : paid).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public static BigDecimal equivalentRate(BigDecimal quantity, String unit, BigDecimal paid) {
+        if (quantity == null || quantity.signum() <= 0 || paid == null) return BigDecimal.ZERO;
+        return paidTotal(paid).divide(quantity.multiply(rateFactor(unit)), java.math.MathContext.DECIMAL64);
+    }
+
+    public static String rateText(BigDecimal quantity, String unit, BigDecimal paid) {
+        if (quantity == null || quantity.signum() <= 0 || paid == null) return "";
+        return "₹" + equivalentRate(quantity, unit, paid).setScale(2, RoundingMode.HALF_UP)
+                .toPlainString() + "/" + rateUnit(unit);
+    }
+
+    public static String rateText(double quantity, String unit, double paid) {
+        if (!Double.isFinite(quantity) || !Double.isFinite(paid)) return "";
+        return rateText(BigDecimal.valueOf(quantity), unit, BigDecimal.valueOf(paid));
+    }
+
+    private static String rateUnit(String unit) {
+        String normalized = normalize(unit);
+        if (normalized.matches("g|gram( \\(g\\))?|kg|kilogram( \\(kg\\))?")) return "kg";
+        if (normalized.matches("mg|milligram( \\(mg\\))?")) return "g";
+        if (normalized.matches("ml|cl|l|litre|liter|millilitre|milliliter|centilitre|centiliter")
+                || normalized.endsWith(" (ml)") || normalized.endsWith(" (cl)")
+                || normalized.endsWith(" (l)")) return "L";
+        if (normalized.matches("m|cm|mm|metre|meter|centimetre|centimeter|millimetre|millimeter")
+                || normalized.endsWith(" (cm)") || normalized.endsWith(" (mm)")
+                || normalized.endsWith(" (m)")) return "m";
+        if (normalized.matches("pcs?|pieces?")) return "pc";
+        return normalized.isEmpty() ? "unit" : normalized;
+    }
+
     private static BigDecimal rateFactor(String unit) {
         String normalized = normalize(unit);
 

@@ -18,6 +18,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import com.example.moneymanagerpro.utils.ExpenseItemPriceCalculator;
 import com.example.moneymanagerpro.R;
 import com.example.moneymanagerpro.credit.CreditCardCycleCalculator;
 import com.example.moneymanagerpro.database.AppDatabase;
@@ -357,8 +358,10 @@ public class CalendarActivity extends AppCompatActivity {
             String unit = safe(expenseItem.getUnit(), "");
             details.append("\n• ").append(name).append(" — Qty ").append(quantity);
             if (!unit.isEmpty()) details.append(' ').append(unit);
-            details.append(" • ").append(money(expenseItem.getPrice())).append(" each")
-                    .append(" • Total ").append(money(expenseItem.getTotal()));
+            details.append(" • Paid ").append(money(expenseItem.getTotal()));
+            String rate = ExpenseItemPriceCalculator.rateText(
+                    expenseItem.getQuantity(), expenseItem.getUnit(), expenseItem.getTotal());
+            if (!rate.isEmpty()) details.append(" • ").append(rate);
         }
         return details.toString();
     }

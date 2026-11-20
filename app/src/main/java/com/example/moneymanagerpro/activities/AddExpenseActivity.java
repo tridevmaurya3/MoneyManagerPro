@@ -605,8 +605,7 @@ public class AddExpenseActivity extends AppCompatActivity {
                 row.findViewById(R.id.etItemName);
         TextInputEditText unit =
                 row.findViewById(R.id.etItemUnit);
-        TextInputEditText total =
-                row.findViewById(R.id.etItemTotal);
+        TextView total = row.findViewById(R.id.etItemTotal);
         MaterialButton remove =
                 row.findViewById(R.id.btnRemoveItem);
 
@@ -677,30 +676,16 @@ public class AddExpenseActivity extends AppCompatActivity {
     }
 
     private BigDecimal calculateItemTotal(View row) {
-        BigDecimal quantity = parsePositiveDecimal(
-                textOf(row.findViewById(R.id.etItemQuantity))
-        );
-        BigDecimal price = parsePositiveDecimal(
-                textOf(row.findViewById(R.id.etItemPrice))
-        );
-        String unit = textOf(
-                row.findViewById(R.id.etItemUnit)
-        );
-
-        return ExpenseItemPriceCalculator.calculate(
-                quantity,
-                unit,
-                price
-        );
+        return ExpenseItemPriceCalculator.paidTotal(
+                parsePositiveDecimal(textOf(row.findViewById(R.id.etItemPrice))));
     }
 
     private void updateItemTotal(View row) {
-        BigDecimal total = calculateItemTotal(row);
-
-        TextInputEditText totalField =
-                row.findViewById(R.id.etItemTotal);
-
-        totalField.setText(formatMoney(total));
+        BigDecimal quantity = parsePositiveDecimal(textOf(row.findViewById(R.id.etItemQuantity)));
+        BigDecimal paid = parsePositiveDecimal(textOf(row.findViewById(R.id.etItemPrice)));
+        String unit = textOf(row.findViewById(R.id.etItemUnit));
+        TextView rate = row.findViewById(R.id.etItemTotal);
+        rate.setText(ExpenseItemPriceCalculator.rateText(quantity, unit, paid));
         updateItemsSummary();
     }
 
@@ -796,24 +781,19 @@ public class AddExpenseActivity extends AppCompatActivity {
 
             if (price == null) {
                 priceInput.setError(
-                        "Enter a price greater than zero"
+                        "Enter the amount paid (greater than zero)"
                 );
                 priceInput.requestFocus();
                 return null;
             }
 
-            BigDecimal total =
-                    ExpenseItemPriceCalculator.calculate(
-                            quantity,
-                            unit,
-                            price
-                    );
+            BigDecimal total = ExpenseItemPriceCalculator.paidTotal(price);
 
             ExpenseItem item = new ExpenseItem();
             item.setItemName(name);
             item.setQuantity(quantity.doubleValue());
             item.setUnit(unit);
-            item.setPrice(price.doubleValue());
+            item.setPrice(ExpenseItemPriceCalculator.equivalentRate(quantity, unit, total).doubleValue());
             item.setTotal(total.doubleValue());
             item.setSortOrder(items.size());
 

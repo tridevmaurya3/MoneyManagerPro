@@ -46,6 +46,7 @@ public class EditTransactionActivity extends AppCompatActivity {
     private static final int MAX_ITEM_ROWS = 50;
 
     private EditText etAmount;
+    private String lastAutomaticAmount;
     private EditText etNote;
 
     private Spinner spinnerType;
@@ -441,6 +442,18 @@ public class EditTransactionActivity extends AppCompatActivity {
                     }
                 }
 
+                if (items != null && !items.isEmpty()) {
+                    BigDecimal savedItemsTotal = BigDecimal.ZERO;
+                    for (ExpenseItem item : items) {
+                        savedItemsTotal = savedItemsTotal.add(
+                                ExpenseItemPriceCalculator.paidTotal(BigDecimal.valueOf(item.getTotal())));
+                    }
+                    String enteredAmount = etAmount.getText().toString().trim();
+                    BigDecimal savedAmount = parsePositiveDecimal(enteredAmount);
+                    if (savedAmount != null && savedAmount.compareTo(savedItemsTotal) == 0) {
+                        lastAutomaticAmount = enteredAmount;
+                    }
+                }
                 updateItemsSummary();
             });
         }).start();
@@ -484,8 +497,7 @@ public class EditTransactionActivity extends AppCompatActivity {
                 row.findViewById(R.id.etItemUnit);
         TextInputEditText price =
                 row.findViewById(R.id.etItemPrice);
-        TextInputEditText total =
-                row.findViewById(R.id.etItemTotal);
+        TextView total = row.findViewById(R.id.etItemTotal);
         MaterialButton remove =
                 row.findViewById(R.id.btnRemoveItem);
 
@@ -539,14 +551,12 @@ public class EditTransactionActivity extends AppCompatActivity {
         if (existingItem != null) {
             name.setText(existingItem.getItemName());
             quantity.setText(
-                    formatPlainAmount(
-                            existingItem.getQuantity()
-                    )
+                    BigDecimal.valueOf(existingItem.getQuantity()).stripTrailingZeros().toPlainString()
             );
             unit.setText(existingItem.getUnit());
             price.setText(
                     formatPlainAmount(
-                            existingItem.getPrice()
+                            existingItem.getTotal()
                     )
             );
         }
@@ -578,16 +588,16 @@ public class EditTransactionActivity extends AppCompatActivity {
     }
 
     private BigDecimal calculateItemTotal(View row) {
-        BigDecimal quantity = parsePositiveDecimal(itemText(row, R.id.etItemQuantity));
-        BigDecimal price = parsePositiveDecimal(itemText(row, R.id.etItemPrice));
-        String unit = itemText(row, R.id.etItemUnit);
-        return ExpenseItemPriceCalculator.calculate(quantity, unit, price);
+        return ExpenseItemPriceCalculator.paidTotal(
+                parsePositiveDecimal(itemText(row, R.id.etItemPrice)));
     }
 
     private void updateItemTotal(View row) {
-        TextInputEditText totalField =
-                row.findViewById(R.id.etItemTotal);
-        totalField.setText(formatMoney(calculateItemTotal(row)));
+        BigDecimal quantity = parsePositiveDecimal(itemText(row, R.id.etItemQuantity));
+        BigDecimal paid = parsePositiveDecimal(itemText(row, R.id.etItemPrice));
+        String unit = itemText(row, R.id.etItemUnit);
+        TextView rate = row.findViewById(R.id.etItemTotal);
+        rate.setText(ExpenseItemPriceCalculator.rateText(quantity, unit, paid));
         updateItemsSummary();
     }
 
@@ -604,6 +614,17 @@ public class EditTransactionActivity extends AppCompatActivity {
                         formatMoney(total)
                 )
         );
+        if (lastAutomaticAmount != null && "EXPENSE".equals(getSelectedDatabaseType())) {
+            if (!lastAutomaticAmount.equals(etAmount.getText().toString().trim())) {
+                lastAutomaticAmount = null;
+            } else {
+                String updatedAmount = total.signum() > 0 ? formatMoney(total) : "";
+                if (!lastAutomaticAmount.equals(updatedAmount)) {
+                    lastAutomaticAmount = updatedAmount;
+                    etAmount.setText(updatedAmount);
+                }
+            }
+        }
     }
 
     private List<ExpenseItem> collectExpenseItems() {
@@ -672,7 +693,7 @@ public class EditTransactionActivity extends AppCompatActivity {
             }
             if (price == null) {
                 priceInput.setError(
-                        "Enter price per unit"
+                        "Enter the amount paid (greater than zero)"
                 );
                 return null;
             }
@@ -682,10 +703,9 @@ public class EditTransactionActivity extends AppCompatActivity {
             item.setItemName(name);
             item.setQuantity(quantity.doubleValue());
             item.setUnit(unit);
-            item.setPrice(price.doubleValue());
-            item.setTotal(
-                    ExpenseItemPriceCalculator.calculate(quantity, unit, price).doubleValue()
-            );
+            BigDecimal total = ExpenseItemPriceCalculator.paidTotal(price);
+            item.setPrice(ExpenseItemPriceCalculator.equivalentRate(quantity, unit, total).doubleValue());
+            item.setTotal(total.doubleValue());
             item.setSortOrder(items.size());
             items.add(item);
         }
